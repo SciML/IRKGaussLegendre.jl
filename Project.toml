@@ -1,0 +1,17 @@
+name = "IRK"
+uuid = "58bc7355-f626-4c51-96f2-1f8a038f95a2"
+authors = ["joseba <mikel.antonana@gmail.com>"]
+version = "0.1.0"
+
+[deps]
+DiffEqBase = "2b5f629d-d688-5b77-993f-72d75c75574e"
+DoubleFloats = "497a8b3b-efae-58df-a0af-a86822472b78"
+LSODA = "7f56f5a3-f504-529b-bc02-0b1fe5e64312"
+LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
+ODE = "c030b06c-0b6d-57c2-b091-7029874bd033"
+ODEInterfaceDiffEq = "09606e27-ecf5-54fc-bb29-004bd9f985bf"
+OrdinaryDiffEq = "1dea7af3-3e70-54e6-95c3-0bf5283fa5ed"
+ParameterizedFunctions = "65888b18-ceab-5e60-b2b9-181511a3b968"
+Parameters = "d96e819e-fc66-5662-9728-84c9c7592b0a"
+Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
+Sundials = "c3572dad-4567-51f8-b174-8c6c989267f4"
