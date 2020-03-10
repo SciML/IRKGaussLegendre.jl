@@ -99,7 +99,7 @@ function DiffEqBase.solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isinpl
 		it=0
 
         for i in 1:m
-         println("step:", j, " time=",tj[1]+tj[2]," dt=", dts[1], " dtprev=", dts[2])
+#         println("step:", j, " time=",tj[1]+tj[2]," dt=", dts[1], " dtprev=", dts[2])
 
          (it) = IRKstep!(s,tj,uj,ej,prob,dts,coeffs,U,Uz,L,F,Dmin,maxiter,
 		                  initial_interp,abstol,reltol,adaptive)
@@ -254,7 +254,7 @@ function IRKstep!(s,ttj,uj,ej,prob,dts,coeffs_in,U,Uz,L,F,Dmin,maxiter,
 				if (estimate < 2)
 					accept=true
 				else
-				println("Rejected step. dt=",dt, " estmate=", estimate)
+#				println("Rejected step. dt=",dt, " estmate=", estimate)
 					uj.=uz
 					ej.=ez
 					dt=dt*(1/(estimate)^pow)
@@ -272,8 +272,8 @@ function IRKstep!(s,ttj,uj,ej,prob,dts,coeffs_in,U,Uz,L,F,Dmin,maxiter,
 	    	dts[1]=min(dt*max(0.5, min(2,(1/estimate)^pow)),tf-(ttj[1]+ttj[2]))
 		end
 
-        println("New step size:  dt=",dts[1])
-        println("")
+#        println("New step size:  dt=",dts[1])
+#        println("")
 
         return  (j)
 
@@ -288,7 +288,7 @@ function ErrorEstMax(uj,uz,coeffs,F,abstol,reltol)
 	est=0.
 
 	for k in eachindex(uj)
-		
+
 		sum=0.
 		for is in 1:s
         	sum+=coeffs.beta[is]*F[is][k]
