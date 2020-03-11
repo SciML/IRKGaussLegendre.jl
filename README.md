@@ -83,3 +83,8 @@ plot(pl2)
 ```
 ![Burrau problem](/examples/Burrau.png)
 
+## Implementation details
+
+[Antoñana, M., Makazaga, J., Murua, Ander. "Reducing and monitoring round-off error propagation
+for symplectic implicit Runge-Kutta schemes."  Numerical Algorithms. 2017.](https://doi.org/10.1007/s11075-017-0287-z)
+
