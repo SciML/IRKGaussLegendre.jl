@@ -23,6 +23,10 @@ function DiffEqBase.solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isinpl
 #    println("IRK8....")
 
 	s = 8
+
+    reltol2s=sqrt(reltol)
+	abstol2s=sqrt(abstol)
+
 	if (adaptive==false)
 		coeffs=IRK8Coefficients(dt,dt)
 	else
@@ -102,7 +106,7 @@ function DiffEqBase.solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isinpl
 #         println("step:", j, " time=",tj[1]+tj[2]," dt=", dts[1], " dtprev=", dts[2])
 
          (it) = IRKstep!(s,tj,uj,ej,prob,dts,coeffs,U,Uz,L,F,Dmin,maxiter,
-		                  initial_interp,abstol,reltol,adaptive)
+		                  initial_interp,abstol2s,reltol2s,adaptive)
           tit+=it
         end
 
