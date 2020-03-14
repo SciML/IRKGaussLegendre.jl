@@ -5,6 +5,25 @@ include("IRKCoefficients.jl")
 # solve ( alg::IRK8;)
 #
 
+mutable struct tcoeffs{T}
+       mu::Array{T,2}
+       hc::Array{T,1}
+	   hb::Array{T,1}
+	   nu::Array{T,2}
+	   beta::Array{T,2}
+end
+
+mutable struct tcache{utype}
+	U::Array{utype,1}
+	Uz::Array{utype,1}
+    L::Array{utype,1}
+	F::Array{utype,1}
+	Dmin::Array{utype,1}
+    uz::utype
+	ez::utype
+end
+
+
 abstract type IRKAlgorithm  <: OrdinaryDiffEqAlgorithm end
 struct IRK8 <: IRKAlgorithm end
 
@@ -27,14 +46,23 @@ function DiffEqBase.solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isinpl
     reltol2s=sqrt(reltol)
 	abstol2s=sqrt(abstol)
 
+    coeffs=tcoeffs{typeof(dt)}(zeros(s,s),zeros(s),zeros(s),
+	                           zeros(s,s),zeros(s,s))
+	@unpack mu,hc,hb,nu,beta = coeffs
+
+	EstimateCoeffs!(beta,typeof(dt))
+	MuCoefficients!(mu,typeof(dt))
+
 	if (adaptive==false)
-		coeffs=IRK8Coefficients(dt,dt)
+		HCoefficients!(mu,hc,hb,nu,dt,dt)
 	else
-		coeffs=IRK8Coefficients(dt,0.)
+		HCoefficients!(mu,hc,hb,nu,dt,0.)
 	end
 
     dtprev=0.
-	dts=[dt,dtprev]
+	rejects=0
+	nfcn=0
+	dts=[dt,dtprev,rejects,nfcn]
     sdt = sign(dt)
 
     @unpack f,u0,tspan,p=prob
@@ -56,32 +84,31 @@ function DiffEqBase.solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isinpl
     		n=convert(Int64,ceil((tf-t0)/(m*dt)))
 	end
 
+    U1 = Array{typeof(u0)}(undef, s)
+	U2 = Array{typeof(u0)}(undef, s)
+    U3 = Array{typeof(u0)}(undef, s)
+    U4 = Array{typeof(u0)}(undef, s)
+    U5 = Array{typeof(u0)}(undef, s)
 
-    U = Array{typeof(u0)}(undef, s)
-    Uz = Array{typeof(u0)}(undef, s)
-    L = Array{typeof(u0)}(undef, s)
-    L2 = Array{utype}(undef, s)
-    Dmin=Array{typeof(u0)}(undef,s)
-    F = Array{typeof(u0)}(undef, s)
+	for i in 1:s
+		U1[i] = zeros(eltype(u0), size(u0))
+		U2[i] = zeros(eltype(u0), size(u0))
+		U3[i] = zeros(eltype(u0), size(u0))
+		U4[i] = zeros(eltype(u0), size(u0))
+		U5[i] = zeros(eltype(u0), size(u0))
+	end
 
-    for i in 1:s
-      Dmin[i] = zeros(eltype(u0), size(u0))
-      F[i] = zeros(eltype(u0), size(u0))
-    end
+    cache=tcache{typeof(u0)}(U1,U2,U3,U4,U5,zeros(size(u0)),zeros(size(u0)))
+
+	@unpack U,Uz,L,F,Dmin,uz,ez=cache
 
     ej=zeros(eltype(u0), size(u0))
-
-    for i in 1:s
-        U[i] = zeros(eltype(u0), size(u0))
-        Uz[i] = zeros(eltype(u0), size(u0))
-        L[i] = zeros(eltype(u0), size(u0))
-        L2[i] = zeros(eltype(u0), size(u0))
-    end
 
 	uu = Array{typeof(u0)}[]
 	tt = Array{ttype}[]
     iters = Array{Int}[]
 	steps = Array{Int}[]
+
 	uu=[]
 	tt=[]
 	iters=[]
@@ -105,8 +132,8 @@ function DiffEqBase.solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isinpl
         for i in 1:m
 #         println("step:", j, " time=",tj[1]+tj[2]," dt=", dts[1], " dtprev=", dts[2])
 
-         (it) = IRKstep!(s,tj,uj,ej,prob,dts,coeffs,U,Uz,L,F,Dmin,maxiter,
-		                  initial_interp,abstol2s,reltol2s,adaptive)
+		 (it) = IRKstep!(s,tj,uj,ej,prob,dts,coeffs,cache,maxiter,
+				 	     initial_interp,abstol2s,reltol2s,adaptive)
           tit+=it
         end
 
@@ -124,7 +151,9 @@ function DiffEqBase.solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isinpl
 #    println("End IRK8")
 	sol=DiffEqBase.build_solution(prob,alg,tt,uu,retcode= :Success)
 	if (myoutputs==true)
-    	return(sol,iters,steps)
+		rejects=dts[3]
+		nfcn=dts[4]
+    	return(sol,iters,steps,rejects,nfcn)
 	else
 		return(sol)
 	end
@@ -132,15 +161,18 @@ function DiffEqBase.solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isinpl
   end
 
 
-function IRKstep!(s,ttj,uj,ej,prob,dts,coeffs_in,U,Uz,L,F,Dmin,maxiter,
-	               initial_interp,abstol,reltol,adaptive)
+function IRKstep!(s,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
+		           initial_interp,abstol,reltol,adaptive)
 
 
-		@unpack hb,hc,mu,nu,beta = coeffs_in
+		@unpack mu,hc,hb,nu,beta = coeffs
         @unpack f,u0,p,tspan=prob
+		@unpack U,Uz,L,F,Dmin,uz,ez=cache
 
 		dt=dts[1]
 		dtprev=dts[2]
+		rejects=dts[3]
+		nfcn=dts[4]
 		tf=tspan[2]
 
         elems = s*length(uj)
@@ -157,8 +189,8 @@ function IRKstep!(s,ttj,uj,ej,prob,dts,coeffs_in,U,Uz,L,F,Dmin,maxiter,
 		while (!accept)
 
 			if (adaptive == true)
-				coeffs=IRK8Coefficients(dt,dtprev)
-				@unpack hb,hc,mu,nu,beta = coeffs
+				HCoefficients!(mu,hc,hb,nu,dt,dtprev)
+				@unpack mu,hc,hb,nu,beta = coeffs
 			end
 
         	if initial_interp
@@ -178,6 +210,7 @@ function IRKstep!(s,ttj,uj,ej,prob,dts,coeffs_in,U,Uz,L,F,Dmin,maxiter,
         	end
 
         	for is in 1:s
+				nfcn+=1
             	f(F[is], U[is], p, tj + hc[is])
             	@. L[is] = hb[is]*F[is]
         	end
@@ -218,6 +251,7 @@ function IRKstep!(s,ttj,uj,ej,prob,dts,coeffs_in,U,Uz,L,F,Dmin,maxiter,
                 	end
 
                		if eval==true
+						nfcn+=1
                   		f(F[is], U[is], p,  tj + hc[is])
                   		@. L[is] = hb[is]*F[is]
                		end
@@ -235,8 +269,8 @@ function IRKstep!(s,ttj,uj,ej,prob,dts,coeffs_in,U,Uz,L,F,Dmin,maxiter,
         	iter = j
         	indices = eachindex(uj)
 
-            uz=copy(uj)
-			ez=copy(ej)
+            uz.=uj
+			ez.=ej
 
         	for k in indices    #Compensated summation
             	e0 = ej[k]
@@ -254,11 +288,12 @@ function IRKstep!(s,ttj,uj,ej,prob,dts,coeffs_in,U,Uz,L,F,Dmin,maxiter,
             if (adaptive==false)
 				accept=true
 			else
-				estimate=ErrorEstMax(uj+ej,uz+ez,coeffs,F,abstol,reltol)
+				estimate=ErrorEstMax(uj+ej,uz+ez,beta,F,abstol,reltol)
 				if (estimate < 2)
 					accept=true
 				else
 #				println("Rejected step. dt=",dt, " estmate=", estimate)
+				    rejects+=1
 					uj.=uz
 					ej.=ez
 					dt=dt*(1/(estimate)^pow)
@@ -274,8 +309,10 @@ function IRKstep!(s,ttj,uj,ej,prob,dts,coeffs_in,U,Uz,L,F,Dmin,maxiter,
         if (adaptive==true)
         	dts[2]=dt
 	    	dts[1]=min(dt*max(0.5, min(2,(1/estimate)^pow)),tf-(ttj[1]+ttj[2]))
+			dts[3]=rejects
 		end
 
+       dts[4]=nfcn
 #        println("New step size:  dt=",dts[1])
 #        println("")
 
@@ -286,7 +323,7 @@ end
 
 
 
-function ErrorEstMax(uj,uz,coeffs,F,abstol,reltol)
+function ErrorEstMax(uj,uz,beta,F,abstol,reltol)
 
     (s,)=size(F)
 	est=0.
@@ -295,7 +332,7 @@ function ErrorEstMax(uj,uz,coeffs,F,abstol,reltol)
 
 		sum=0.
 		for is in 1:s
-        	sum+=coeffs.beta[is]*F[is][k]
+        	sum+=beta[is]*F[is][k]
         end
 
 		est=max(est,abs(sum)/(abstol+max(abs(uj[k]),abs(uz[k]))*reltol))

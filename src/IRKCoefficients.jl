@@ -1,4 +1,5 @@
-function PolInterp(X::AbstractVector{ctype}, Y::AbstractMatrix{ctype}, Z::AbstractVector{ctype}) where {ctype}
+function PolInterp(X::AbstractVector{ctype}, Y::AbstractMatrix{ctype},
+                   Z::AbstractVector{ctype}) where {ctype}
     N = length(X)
     M = length(Z)
     K = size(Y,1)
@@ -30,9 +31,10 @@ function PolInterp(X::AbstractVector{ctype}, Y::AbstractMatrix{ctype}, Z::Abstra
 end
 
 
-function IRK8Coefficients(h::AbstractFloat, hprev::AbstractFloat)
 
-      mu = convert.(typeof(h), [
+function MuCoefficients!(mu,T)
+
+      mu .= convert.(T, [
              # s=1
              parse(BigFloat,"0.5") parse(BigFloat,"-8.1894963105581497136508164735930892e-02") parse(BigFloat,"+4.0042703777945052339969045601553216e-02") parse(BigFloat,"-2.4721345803200374868044581645082913e-02") parse(BigFloat,"+1.6976173236371093026881708761116103e-02 ") parse(BigFloat,"-1.2225914113298206053942531721943548e-02") parse(BigFloat,"+8.7485667691973688117766530139122287e-03") parse(BigFloat,"-5.4828082532158826793409353214950813e-03")
              # s=2
@@ -51,7 +53,19 @@ function IRK8Coefficients(h::AbstractFloat, hprev::AbstractFloat)
              parse(BigFloat,"+1.0054828082532158826793409353214951e+00") parse(BigFloat,"+9.9125143323080263118822334698608777e-01")  parse(BigFloat,"+1.0122259141132982060539425317219435e+00")  parse(BigFloat,"+9.8302382676362890697311829123888390e-01") parse(BigFloat,"+1.0247213458032003748680445816450829e+00")  parse(BigFloat,"+9.5995729622205494766003095439844678e-01") parse(BigFloat,"+1.0818949631055814971365081647359309e+00") parse(BigFloat,"0.5")
           ])
 
-          b = convert.(typeof(h),
+          s=8
+          for i in 1:s
+              for j in i+1:s
+                  mu[i,j] = 1 - mu[j,i]
+              end
+          end
+
+end
+
+
+function HCoefficients!(mu,hc,hb,nu,h::AbstractFloat, hprev::AbstractFloat)
+
+          hb .= convert.(typeof(h),
 #             h*[ parse(BigFloat,"+5.0614268145188129576265677154981094e-02"),
                 [ parse(BigFloat,"+5.0614268145188129576265677154981094e-02"),
                  parse(BigFloat,"+1.1119051722668723527217799721312045e-01"),
@@ -63,8 +77,7 @@ function IRK8Coefficients(h::AbstractFloat, hprev::AbstractFloat)
                  parse(BigFloat,"+5.0614268145188129576265677154981094e-02")
                ])
 
-
-          c= convert.(typeof(h),
+          hc .= convert.(typeof(h),
 #             h*[ parse(BigFloat,"+1.9855071751231884158219565715263505e-02"),
                 [ parse(BigFloat,"+1.9855071751231884158219565715263505e-02"),
                  parse(BigFloat,"+1.0166676129318663020422303176208480e-01"),
@@ -77,45 +90,72 @@ function IRK8Coefficients(h::AbstractFloat, hprev::AbstractFloat)
           ])
 
 
-  s = length(b)
+  s = length(hb)
 
 
-""" \tilde b_i coefficients i=2,s """
+""" Interpolate coefficients """
 
-  B=[1/(k+1) for k in 0:s-2]
-  M=[ones(s-1)';[c[i]^j for i in 2:s, j in 1:s-2]']
-  tb=M\B
-  beta=b[1:s]-vcat(0,tb)
+   if (hprev==0.)
+       nu.=zeros(s,s)
+   else
+       lambda=h/hprev
+       X=vcat(-hc[end:-1:1],[0])
+       Y=hcat(mu,zeros(s))
+       Z=lambda*hc
+       nu.=-(PolInterp(X,Y,Z))'
+   end
 
-""" mu & hb """
+""" hb """
 
-  for i in 1:s
-      for j in i+1:s
-          mu[i,j] = 1 - mu[j,i]
-      end
-  end
-
-  hb=h*b
+  hb.=hb*h
   hb1 = (h-sum(hb[2:end-1]))/2
   hb[1] = hb1
   hb[end] = hb1
 
-  hc=h*c
+  hc.=hc*h
 
 
- """ Interpolate coefficients """
+return
 
-  if (hprev==0.)
-      nu=zeros(s,s)
-  else
-      lambda=h/hprev
-      X=vcat(-c[end:-1:1],[0])
-      Y=hcat(mu,zeros(s))
-      Z=lambda*c
-      nu=-PolInterp(X,Y,Z)
-  end
+end
 
 
-return (hb = hb, hc = hc, mu = mu, nu=nu', beta=beta)
+
+function EstimateCoeffs!(beta, T=Float64)
+
+    b = convert.(T,
+          [ parse(BigFloat,"+5.0614268145188129576265677154981094e-02"),
+           parse(BigFloat,"+1.1119051722668723527217799721312045e-01"),
+           parse(BigFloat,"+1.5685332293894364366898110099330067e-01"),
+           parse(BigFloat,"+1.8134189168918099148257522463859781e-01"),
+           parse(BigFloat,"+1.8134189168918099148257522463859781e-01"),
+           parse(BigFloat,"+1.5685332293894364366898110099330067e-01"),
+           parse(BigFloat,"+1.1119051722668723527217799721312045e-01"),
+           parse(BigFloat,"+5.0614268145188129576265677154981094e-02")
+         ])
+
+    c= convert.(T,
+          [ parse(BigFloat,"+1.9855071751231884158219565715263505e-02"),
+           parse(BigFloat,"+1.0166676129318663020422303176208480e-01"),
+           parse(BigFloat,"+2.3723379504183550709113047540537686e-01"),
+           parse(BigFloat,"+4.0828267875217509753026192881990801e-01"),
+           parse(BigFloat,"+5.9171732124782490246973807118009203e-01"),
+           parse(BigFloat,"+7.6276620495816449290886952459462321e-01"),
+           parse(BigFloat,"+8.9833323870681336979577696823791522e-01"),
+           parse(BigFloat,"+9.8014492824876811584178043428473653e-01")
+    ])
+
+
+    s = length(b)
+
+    """ \tilde b_i coefficients i=2,s """
+
+    B=[1/(k+1) for k in 0:s-2]
+    M=[ones(s-1)';[c[i]^j for i in 2:s, j in 1:s-2]']
+    tb=M\B
+    beta.=b[1:s]-vcat(0,tb)
+
+
+return
 
 end
