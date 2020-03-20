@@ -27,8 +27,8 @@ end
 abstract type IRKAlgorithm  <: OrdinaryDiffEqAlgorithm end
 struct IRK8 <: IRKAlgorithm end
 
-function DiffEqBase.solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isinplace},
-     alg::IRKAlgorithm;dt=(prob.tspan[2]-prob.tspan[1])/100,
+function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isinplace},
+     alg::IRKAlgorithm,args...;dt=(prob.tspan[2]-prob.tspan[1])/100,
      saveat=dt,
      maxiter=100,
      save_everystep=true,
@@ -229,7 +229,8 @@ function IRKstep!(s,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 
         		for is in 1:s
             		Uz[is] .= U[is]
-            		@. U[is] = uj + (ej+mu[is,1]*L[1] + mu[is,2]*L[2]+
+            		DiffEqBase.@.. U[is] = uj + (ej +
+									mu[is,1]*L[1] + mu[is,2]*L[2]+
 				                    mu[is,3]*L[3] + mu[is,4]*L[4]+
                                  	mu[is,5]*L[5] + mu[is,6]*L[6]+
 									mu[is,7]*L[7] + mu[is,8]*L[8])
