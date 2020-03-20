@@ -1,11 +1,11 @@
-# IRK8
-Implicit Runge-Kutta solver of order 16 
+# IRKGL16
+Implicit Runge-Kutta Gauss-Legendre 16th order 
 (implementation in Julia)
 
 ## Add Package
 
 ```julia
-Pkg.add("https://github.com/mikelehu/IRK.jl")
+Pkg.add("https://github.com/mikelehu/IRKGaussLegendre.jl")
 using IRK
 ```
 
@@ -62,7 +62,7 @@ prob=ODEProblem(NbodyODE!,u0,tspan,Gm);
 After defining a problem, you solve it using solve
 
 ```julia
-sol1=solve(prob,IRK8(),reltol=1e-3, abstol=1e-6);
+sol1=solve(prob,IRKGL16(),reltol=1e-3, abstol=1e-6);
 ```
 
 ## Step 3: Analyzing the solution
