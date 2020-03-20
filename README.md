@@ -6,7 +6,7 @@ Implicit Runge-Kutta Gauss-Legendre 16th order
 
 ```julia
 Pkg.add("https://github.com/mikelehu/IRKGaussLegendre.jl")
-using IRK
+using IRKGaussLegendre
 ```
 
 ## Example: Burrau's problem of three bodies
