@@ -5,7 +5,7 @@ Implicit Runge-Kutta Gauss-Legendre 16th order
 ## Add Package
 
 ```julia
-Pkg.add("https://github.com/mikelehu/IRKGaussLegendre.jl")
+Pkg.add("https://github.com/mikelehu/IRKGL16.jl")
 using IRKGaussLegendre
 ```
 
