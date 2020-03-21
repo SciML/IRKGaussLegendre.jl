@@ -1,12 +1,12 @@
 # IRKGL16
-Implicit Runge-Kutta Gauss-Legendre 16th order 
+Implicit Runge-Kutta Gauss-Legendre 16th order
 (implementation in Julia)
 
 ## Add Package
 
 ```julia
-Pkg.add("https://github.com/mikelehu/IRKGL16.jl")
-using IRKGL16
+Pkg.add("https://github.com/mikelehu/IRKGaussLegendre.jl")
+using IRKGaussLegendre
 ```
 
 ## Example: Burrau's problem of three bodies
@@ -87,4 +87,3 @@ plot(pl2)
 
 [Antoñana, M., Makazaga, J., Murua, Ander. "Reducing and monitoring round-off error propagation
 for symplectic implicit Runge-Kutta schemes."  Numerical Algorithms. 2017.](https://doi.org/10.1007/s11075-017-0287-z)
-

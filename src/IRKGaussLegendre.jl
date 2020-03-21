@@ -1,6 +1,6 @@
 __precompile__()
 
-module IRK
+module IRKGaussLegendre
 
 using Reexport
 @reexport using DiffEqBase
@@ -8,10 +8,11 @@ using Reexport
 using LinearAlgebra,StaticArrays
 using Parameters
 using OrdinaryDiffEq
+using Printf
 
-include("IRK8.jl")
+include("IRKGL16Solver.jl")
 
-export IRK8,IRKAlgorithm
+export IRKGL16,IRKAlgorithm
 export tcoeffs
 
 end # module

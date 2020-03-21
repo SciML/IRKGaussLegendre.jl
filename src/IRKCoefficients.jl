@@ -159,3 +159,29 @@ function EstimateCoeffs!(beta, T=Float64)
 return
 
 end
+
+
+function EstimateCoeffs2!(beta2, T=Float64)
+
+    c= convert.(T,
+          [ parse(BigFloat,"+1.9855071751231884158219565715263505e-02"),
+           parse(BigFloat,"+1.0166676129318663020422303176208480e-01"),
+           parse(BigFloat,"+2.3723379504183550709113047540537686e-01"),
+           parse(BigFloat,"+4.0828267875217509753026192881990801e-01"),
+           parse(BigFloat,"+5.9171732124782490246973807118009203e-01"),
+           parse(BigFloat,"+7.6276620495816449290886952459462321e-01"),
+           parse(BigFloat,"+8.9833323870681336979577696823791522e-01"),
+           parse(BigFloat,"+9.8014492824876811584178043428473653e-01")
+    ])
+
+
+    s = length(c)
+
+    B=vcat(zeros(s-1),1)
+    M=[(c[i]-1/2)^(k-1) for i in 1:s, k in 1:s]'
+    beta2.=M\B
+
+
+return
+
+end
