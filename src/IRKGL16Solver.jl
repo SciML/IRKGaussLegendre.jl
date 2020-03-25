@@ -10,16 +10,15 @@ mutable struct tcoeffs{T}
 	   beta2::Array{T,2}
 end
 
-mutable struct tcache{utype}
+mutable struct tcache{utype,eltypeu}
 	U::Array{utype,1}
 	Uz::Array{utype,1}
     L::Array{utype,1}
 	F::Array{utype,1}
 	Dmin::Array{utype,1}
-    uz::utype
-	ez::utype
 	rejects::Array{Int64,1}
 	nfcn::Array{Int64, 1}
+	lambdas::Array{eltypeu,1}
 end
 
 
@@ -27,9 +26,10 @@ abstract type IRKAlgorithm  <: OrdinaryDiffEqAlgorithm end
 struct IRKGL16 <: IRKAlgorithm end
 
 function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isinplace},
-      alg::IRKAlgorithm,args...;dt=(prob.tspan[2]-prob.tspan[1])/100,
+      alg::IRKAlgorithm,args...;dt=(prob.tspan[2]-prob.tspan[1])/10000,
      saveat=dt,
      maxiter=100,
+	 maxtrials=3,            # maximum of unsuccessful trials
      save_everystep=true,
      initial_interp=true,
 	 adaptive=true,
@@ -39,6 +39,7 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
      kwargs...) where{uType,tType,isinplace}
 
 #    println("IRKGL16....")
+
 
 	s = 8
 
@@ -60,9 +61,7 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 	end
 
     dtprev=0.
-	lambda=0.
-	lambdaprev=0.
-    dts=[dt,dtprev,lambda,lambdaprev]
+	dts=[dt,dtprev]
     sdt = sign(dt)
 
     @unpack f,u0,tspan,p=prob
@@ -85,11 +84,10 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 	end
 
     U1 = Array{typeof(u0)}(undef, s)
-	U2 = Array{typeof(u0)}(undef, s)
+    U2 = Array{typeof(u0)}(undef, s)
     U3 = Array{typeof(u0)}(undef, s)
     U4 = Array{typeof(u0)}(undef, s)
     U5 = Array{typeof(u0)}(undef, s)
-
 	for i in 1:s
 		U1[i] = zeros(eltype(u0), size(u0))
 		U2[i] = zeros(eltype(u0), size(u0))
@@ -98,9 +96,8 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 		U5[i] = zeros(eltype(u0), size(u0))
 	end
 
-    cache=tcache{typeof(u0)}(U1,U2,U3,U4,U5,zeros(size(u0)),zeros(size(u0))
-	                        ,[0],[0])
-	@unpack U,Uz,L,F,Dmin,uz,ez,rejects,nfcn=cache
+    cache=tcache{typeof(u0),eltype(u0)}(U1,U2,U3,U4,U5,[0],[0],[0.,0.])
+	@unpack U,Uz,L,F,Dmin,rejects,nfcn,lambdas=cache
 
     ej=zeros(eltype(u0), size(u0))
 
@@ -132,9 +129,16 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
         for i in 1:m
 #         println("step:", j, " time=",tj[1]+tj[2]," dt=", dts[1], " dtprev=", dts[2])
 
-		 (it) = IRKstep!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiter,
+		 (status,it) = IRKstep!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials,
 				 	     initial_interp,abstol2s,reltol2s,adaptive)
+
+         if (status=="Failure")
+			 println("Fail")
+			 sol=DiffEqBase.build_solution(prob,alg,tt,uu,retcode= :Failure)
+		     return(sol)
+		 end
           tit+=it
+
         end
 
         cont = (sdt*(tj[1]+tj[2]) < sdt*tf) && (j<n)
@@ -159,22 +163,22 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
   end
 
 
-function IRKstep!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
+function IRKstep!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials,
 		           initial_interp,abstol,reltol,adaptive)
 
 
 		@unpack mu,hc,hb,nu,beta,beta2 = coeffs
         @unpack f,u0,p,tspan=prob
-		@unpack U,Uz,L,F,Dmin,uz,ez,rejects,nfcn=cache
+		@unpack U,Uz,L,F,Dmin,rejects,nfcn,lambdas=cache
+
+		lambda=lambdas[1]
+		lambdaprev=lambdas[2]
 
 		dt=dts[1]
 		dtprev=dts[2]
-		lambda=dts[3]
-		lambdaprev=dts[4]
 		tf=tspan[2]
 
         elems = s*length(uj)
-#		pow=1/(s-1)
 		pow=1/(2*s)
 
         tj = ttj[1]
@@ -184,8 +188,9 @@ function IRKstep!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 		estimate=zero
 
         nit=0
+		ntrials=0
 
-		while (!accept)
+		while (!accept && ntrials<maxtrials)
 
 			if (adaptive == true)
 				HCoefficients!(mu,hc,hb,nu,dt,dtprev)
@@ -265,99 +270,72 @@ function IRKstep!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 
         	end # while iter
 
-        	iter = nit
-        	indices = eachindex(uj)
-
-            uz.=uj
-			ez.=ej
-
-        	for k in indices    #Compensated summation
-            	e0 = ej[k]
-            	for is in 1:s
-                	e0 += muladd(F[is][k], hb[is], -L[is][k])
-            	end
-            	res = Base.TwicePrecision(uj[k], e0)
-            	for is in 1:s
-	            	res += L[is][k]
-            	end
-            	uj[k] = res.hi
-            	ej[k] = res.lo
-         	end
+            ntrials+=1
 
             if (adaptive==false)
 				accept=true
 			else
-#				estimate=ErrorEst1(uj+ej,uz+ez,beta,F,abstol,reltol)
-				estimate=ErrorEst2(U,F,dt,beta2,abstol,reltol)
+				estimate=ErrorEst(U,F,dt,beta2,abstol,reltol)
 				lambda=(estimate)^pow
 				if (estimate < 2)
 					accept=true
 				else
 #				println("Rejected step. dt=",dt, " estmate=", estimate)
 				    rejects[1]+=1
-					uj.=uz
-					ej.=ez
 					dt=dt/lambda
 				end
 			end
 
 		end # while accept
 
+
+        if (!accept && ntrials==maxtrials)
+			println("Fail !!!  Step=",j, " dt=", dts[1])
+			return("Failure",0)
+		end
+
+		iter = nit
+		indices = eachindex(uj)
+
+		for k in indices    #Compensated summation
+			e0 = ej[k]
+			for is in 1:s
+				e0 += muladd(F[is][k], hb[is], -L[is][k])
+			end
+			res = Base.TwicePrecision(uj[k], e0)
+			for is in 1:s
+				res += L[is][k]
+			end
+			uj[k] = res.hi
+			ej[k] = res.lo
+		end
+
 		res = Base.TwicePrecision(tj, te) + dt
 		ttj[1] = res.hi
 		ttj[2] = res.lo
 
         if (adaptive==true)
-#			dts[2]=dt
-#	    	dts[1]=min(dt*max(0.5, min(2,(1/estimate)^pow)),tf-(ttj[1]+ttj[2]))
 			if (j==1)
                 dts[1]=min(max(dt/2,min(2*dt,dt/lambda)),tf-(ttj[1]+ttj[2]))
-#				@printf("%i,  %.2e,  %.2e,  %.2e", j+1,  ttj[1]+ttj[2], 1/lambda, dts[1])
 			else
                 barh=dt/lambda*(dt*lambdaprev/(dtprev*lambda))^((lambda+1)/(lambda+lambdaprev))
 				dts[1]= min(max(dt/2,min(2*dt,barh)),tf-(ttj[1]+ttj[2]))
-#				if (dts[1]==barh)
-#					println("barh aukeratu da ******")
-#				end
-#			    @printf("%i,  %.2e,  %.2e,  %.2e,  %.2e,  %.2e,  %.2e\n",
-#                       j+1, ttj[1]+ttj[2],1/lambda,dt/2, 2*dt,barh,dts[1])
 			end
 			dts[2]=dt
-			dts[4]=lambda
+            lambdas[2]=lambda
 		end
 
 #        println("New step size:  dt=",dts[1])
 #        println("")
 
-        return  (nit)
+        return("Success",nit)
 
 
 end
 
 
 
-function ErrorEst1(uj,uz,beta,F,abstol,reltol)
-
-    (s,)=size(F)
-	est=0.
-
-	for k in eachindex(uj)
-
-		sum=0.
-		for is in 1:s
-        	sum+=beta[is]*F[is][k]
-        end
-
-		est=max(est,abs(sum)/(abstol+max(abs(uj[k]),abs(uz[k]))*reltol))
-
-	end
-
-    return(est)
-
-end
-
-
-function ErrorEst2(U,F,dt,beta,abstol,reltol)
+function ErrorEst(U,F,dt,beta,abstol,reltol)
 
     (s,)=size(F)
 	D=length(U[1])
@@ -378,21 +356,5 @@ function ErrorEst2(U,F,dt,beta,abstol,reltol)
 	end
 
     return(est/D)
-
-end
-
-
-function ErrorEstHairer(uj,uz,abstol,reltol)
-
-	est=0.
-
-	for k in eachindex(uj)
-	    aux=(uj[k]-uz[k])/(abstol+max(abs(uj[k]),abs(uz[k]))*reltol)
-		est+=aux*aux
-	end
-
-	est=sqrt(est/(length(uj)))
-
-    return(est)
 
 end
