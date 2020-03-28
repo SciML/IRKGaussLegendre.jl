@@ -54,15 +54,16 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 	EstimateCoeffs2!(beta2,typeof(dt))
 	MuCoefficients!(mu,typeof(dt))
 
+    dts = Array{typeof(dt)}(undef, 1)
+    dtprev=0.
+	dts=[dt,dtprev]
+    sdt = sign(dt)
+
 	if (adaptive==false)
 		HCoefficients!(mu,hc,hb,nu,dt,dt)
 	else
 		HCoefficients!(mu,hc,hb,nu,dt,0.)
 	end
-
-    dtprev=0.
-	dts=[dt,dtprev]
-    sdt = sign(dt)
 
     @unpack f,u0,tspan,p=prob
     t0=tspan[1]
