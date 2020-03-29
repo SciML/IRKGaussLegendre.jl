@@ -42,6 +42,7 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 
 
 	s = 8
+    destats = DiffEqBase.DEStats(0)
 
     reltol2s=sqrt(reltol)
 	abstol2s=sqrt(abstol)
@@ -154,9 +155,14 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
     end
 
 #    println("End IRKGL16")
-	sol=DiffEqBase.build_solution(prob,alg,tt,uu,retcode= :Success)
+
+	sol=DiffEqBase.build_solution(prob,alg,tt,uu,destats=destats,retcode= :Success)
+	sol.destats.nf=nfcn[1]
+	sol.destats.nreject=rejects[1]
+	sol.destats.naccept=j
+
 	if (myoutputs==true)
-    	return(sol,iters,steps,rejects[1],nfcn[1])
+    	return(sol,iters,steps)
 	else
 		return(sol)
 	end
