@@ -26,7 +26,7 @@ abstract type IRKAlgorithm  <: OrdinaryDiffEqAlgorithm end
 struct IRKGL16 <: IRKAlgorithm end
 
 function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isinplace},
-      alg::IRKAlgorithm,args...;dt=(prob.tspan[2]-prob.tspan[1])/10000,
+     alg::IRKAlgorithm,args...;dt=0, #(prob.tspan[2]-prob.tspan[1])/10000,
      saveat=dt,
      maxiter=100,
 	 maxtrials=3,            # maximum of unsuccessful trials
@@ -47,9 +47,31 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
     reltol2s=sqrt(reltol)
 	abstol2s=sqrt(abstol)
 
-    coeffs=tcoeffs{typeof(dt)}(zeros(s,s),zeros(s),zeros(s),
-	                           zeros(s,s),zeros(s,s),zeros(s,s))
+	@unpack f,u0,tspan,p=prob
+    t0=tspan[1]
+	tf=tspan[2]
+	utype = typeof(u0)
+	uitype = eltype(u0)
+    ttype = typeof(t0)
+
+    coeffs=tcoeffs{uitype}(zeros(s,s),zeros(s),zeros(s),
+	                       zeros(s,s),zeros(s,s),zeros(s,s))
 	@unpack mu,hc,hb,nu,beta,beta2 = coeffs
+
+
+    if (dt==0)
+		d0=MyNorm(u0,abstol,reltol)
+		du0=similar(u0)
+		f(du0, u0, p, t0)
+    	d1=MyNorm(du0,abstol,reltol)
+		if (d0<1e-5 || d1<1e-5)
+			dt=convert(uitype,1e-6)
+		else
+			dt=convert(uitype,0.01*(d0/d1))
+		end
+		saveat=dt
+#		println("dt=0 !!! dt=",dt, " typeof(dt)=",typeof(dt))
+	end
 
 	EstimateCoeffs!(beta,typeof(dt))
 	EstimateCoeffs2!(beta2,typeof(dt))
@@ -66,11 +88,7 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 		HCoefficients!(mu,hc,hb,nu,dt,0.)
 	end
 
-    @unpack f,u0,tspan,p=prob
-    t0=tspan[1]
-	tf=tspan[2]
-	utype = typeof(u0)
-    ttype = typeof(t0)
+
 
 #   m: output saved at every m steps
 #   n: Number of macro-steps  (Output is saved for n+1 time values)
@@ -197,7 +215,13 @@ function IRKstep!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials,
         nit=0
 		ntrials=0
 
-		while (!accept && ntrials<maxtrials)
+        if (j==1)
+			mtrials=2*maxtrials
+		else
+			mtrials=maxtrials
+		end
+
+		while (!accept && ntrials<mtrials)
 
 			if (adaptive == true)
 				HCoefficients!(mu,hc,hb,nu,dt,dtprev)
@@ -363,5 +387,21 @@ function ErrorEst(U,F,dt,beta,abstol,reltol)
 	end
 
     return(est/D)
+
+end
+
+
+function MyNorm(u,abstol,reltol)
+
+	norm=0.
+
+	for k in eachindex(u)
+	    aux=u[k]/(abstol+abs(u[k])*reltol)
+		norm+=aux*aux
+	end
+
+	norm=sqrt(norm/(length(u)))
+
+    return(norm)
 
 end
