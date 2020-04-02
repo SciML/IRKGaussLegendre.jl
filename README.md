@@ -39,7 +39,8 @@ function NbodyODE!(du,u,Gm,t)
            du[1,:,j] += Gmi*auxij*qij
         end
      end
-    return 1.
+
+    return
 end
 ```
 
@@ -62,7 +63,7 @@ prob=ODEProblem(NbodyODE!,u0,tspan,Gm);
 After defining a problem, you solve it using solve
 
 ```julia
-sol1=solve(prob,IRKGL16(),reltol=1e-3, abstol=1e-6);
+sol1=solve(prob,IRKGL16(),reltol=1e-12, abstol=1e-12);
 ```
 
 ## Step 3: Analyzing the solution

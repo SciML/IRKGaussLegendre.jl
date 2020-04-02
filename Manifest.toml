@@ -27,6 +27,12 @@ version = "2.6.2"
 [[Base64]]
 uuid = "2a0f44e3-6c83-55bd-87e4-b1978d98bd5f"
 
+[[BenchmarkTools]]
+deps = ["JSON", "Logging", "Printf", "Statistics", "UUIDs"]
+git-tree-sha1 = "9e62e66db34540a0c919d72172cc2f642ac71260"
+uuid = "6e4b80f9-dd63-53aa-95a3-0cdb28fa8baf"
+version = "0.5.0"
+
 [[BinDeps]]
 deps = ["Libdl", "Pkg", "SHA", "URIParser", "Unicode"]
 git-tree-sha1 = "66158ad56b4bf6cc8413b37d0b7bc52402682764"
@@ -65,9 +71,9 @@ version = "3.8.0"
 
 [[CompilerSupportLibraries_jll]]
 deps = ["Libdl", "Pkg"]
-git-tree-sha1 = "ff8101d6736414bc93c0f8df77b1e4095ca988c3"
+git-tree-sha1 = "7c4f882c41faa72118841185afc58a2eb00ef612"
 uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
-version = "0.3.2+0"
+version = "0.3.3+0"
 
 [[ConsoleProgressMonitor]]
 deps = ["Logging", "ProgressMeter"]
@@ -77,9 +83,9 @@ version = "0.1.2"
 
 [[DataStructures]]
 deps = ["InteractiveUtils", "OrderedCollections"]
-git-tree-sha1 = "5a431d46abf2ef2a4d5d00bd0ae61f651cf854c8"
+git-tree-sha1 = "73eb18320fe3ba58790c8b8f6f89420f0a622773"
 uuid = "864edb3b-99cc-5e75-8d2d-829cb0a9cfe8"
-version = "0.17.10"
+version = "0.17.11"
 
 [[Dates]]
 deps = ["Printf"]
@@ -207,6 +213,12 @@ version = "0.8.3"
 git-tree-sha1 = "a3f24677c21f5bbe9d2a714f95dcd58337fb2856"
 uuid = "82899510-4779-5014-852e-03e436cf321d"
 version = "1.0.0"
+
+[[JSON]]
+deps = ["Dates", "Mmap", "Parsers", "Unicode"]
+git-tree-sha1 = "b34d7cef7b337321e97d22242c3c2b91f476748e"
+uuid = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
+version = "0.21.0"
 
 [[JuliaVariables]]
 deps = ["MLStyle", "NameResolution"]
@@ -366,6 +378,12 @@ deps = ["OrderedCollections"]
 git-tree-sha1 = "b62b2558efb1eef1fa44e4be5ff58a515c287e38"
 uuid = "d96e819e-fc66-5662-9728-84c9c7592b0a"
 version = "0.12.0"
+
+[[Parsers]]
+deps = ["Dates", "Test"]
+git-tree-sha1 = "75d07cb840c300084634b4991761886d0d762724"
+uuid = "69de0a69-1ddd-5017-9359-2bf0b02dc9f0"
+version = "1.0.1"
 
 [[Pkg]]
 deps = ["Dates", "LibGit2", "Libdl", "Logging", "Markdown", "Printf", "REPL", "Random", "SHA", "Test", "UUIDs"]

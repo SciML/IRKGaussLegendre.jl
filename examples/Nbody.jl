@@ -35,5 +35,7 @@ function NbodyODE!(du,u,Gm,t)
            du[1,:,j] += Gmi*auxij*qij
         end
      end
-    return 1.
+
+    return
+    
 end

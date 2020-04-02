@@ -83,9 +83,9 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
     sdt = sign(dt)
 
 	if (adaptive==false)
-		HCoefficients!(mu,hc,hb,nu,dt,dt)
+		HCoefficients!(mu,hc,hb,nu,dt,dt,uitype)
 	else
-		HCoefficients!(mu,hc,hb,nu,dt,0.)
+		HCoefficients!(mu,hc,hb,nu,dt,0.,uitype)
 	end
 
 
@@ -196,6 +196,8 @@ function IRKstep!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials,
         @unpack f,u0,p,tspan=prob
 		@unpack U,Uz,L,F,Dmin,rejects,nfcn,lambdas=cache
 
+		uitype = eltype(uj)
+
 		lambda=lambdas[1]
 		lambdaprev=lambdas[2]
 
@@ -224,7 +226,7 @@ function IRKstep!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials,
 		while (!accept && ntrials<mtrials)
 
 			if (adaptive == true)
-				HCoefficients!(mu,hc,hb,nu,dt,dtprev)
+				HCoefficients!(mu,hc,hb,nu,dt,dtprev,uitype)
 				@unpack mu,hc,hb,nu,beta = coeffs
 			end
 
