@@ -78,7 +78,7 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 	MuCoefficients!(mu,typeof(dt))
 
     dts = Array{typeof(dt)}(undef, 1)
-    dtprev=0.
+    dtprev=zero(typeof(dt))
 	dts=[dt,dtprev]
     sdt = sign(dt)
 
@@ -142,11 +142,11 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
     cont=true
 
     while cont
-        j+=1
 		tit=0
 		it=0
 
         for i in 1:m
+		  j+=1
 #         println("step:", j, " time=",tj[1]+tj[2]," dt=", dts[1], " dtprev=", dts[2])
 
 		 (status,it) = IRKstep!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials,
@@ -161,7 +161,7 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 
         end
 
-        cont = (sdt*(tj[1]+tj[2]) < sdt*tf) && (j<n)
+        cont = (sdt*(tj[1]+tj[2]) < sdt*tf) && (j<n*m)
 
 		if (save_everystep==true) || (cont==false)
 			push!(iters,convert(Int64,round(tit/m)))
@@ -225,7 +225,7 @@ function IRKstep!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials,
 
 		while (!accept && ntrials<mtrials)
 
-			if (adaptive == true)
+			if (dt != dtprev)
 				HCoefficients!(mu,hc,hb,nu,dt,dtprev,uitype)
 				@unpack mu,hc,hb,nu,beta = coeffs
 			end
@@ -356,6 +356,9 @@ function IRKstep!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials,
 			end
 			dts[2]=dt
             lambdas[2]=lambda
+		else
+			dts[1]=min(dt,tf-(ttj[1]+ttj[2]))
+			dts[2]=dt
 		end
 
 #        println("New step size:  dt=",dts[1])

@@ -240,11 +240,11 @@ function HCoefficients!(mu,hc,hb,nu,h,hprev,T::Type{<:CompiledFloats})
 """ Interpolate coefficients """
 
    if (hprev==0.)
-       nu.=zeros(s,s)
+       nu.=zeros(T,s,s)
    else
        lambda=h/hprev
        X=vcat(-hc[end:-1:1],[0])
-       Y=hcat(mu,zeros(s))
+       Y=hcat(mu,zeros(T,s))
        Z=lambda*hc
        nu.=-(PolInterp(X,Y,Z))'
    end
@@ -299,11 +299,11 @@ function HCoefficients!(mu,hc,hb,nu,h,hprev,T)
 """ Interpolate coefficients """
 
    if (hprev==0.)
-       nu.=zeros(s,s)
+       nu.=zeros(T,s,s)
    else
        lambda=h/hprev
        X=vcat(-hc[end:-1:1],[0])
-       Y=hcat(mu,zeros(s))
+       Y=hcat(mu,zeros(T,s))
        Z=lambda*hc
        nu.=-(PolInterp(X,Y,Z))'
    end
@@ -427,7 +427,7 @@ function EstimateCoeffs2!(beta2, T::Type{<:CompiledFloats})
 
     s = length(c)
 
-    B=vcat(zeros(s-1),1)
+    B=vcat(zeros(T,s-1),1)
     M=[(c[i]-1/2)^(k-1) for i in 1:s, k in 1:s]'
     beta2.=M\B
 
@@ -455,7 +455,7 @@ function EstimateCoeffs2!(beta2, T=Float64)
 
     s = length(c)
 
-    B=vcat(zeros(s-1),1)
+    B=vcat(zeros(T,s-1),1)
     M=[(c[i]-1/2)^(k-1) for i in 1:s, k in 1:s]'
     beta2.=M\B
 
