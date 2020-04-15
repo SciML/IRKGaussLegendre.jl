@@ -26,10 +26,13 @@ end
 abstract type IRKAlgorithm  <: OrdinaryDiffEqAlgorithm end
 struct IRKGL16 <: IRKAlgorithm end
 
+abstract type IRKAlgorithm2  <: OrdinaryDiffEqAlgorithm end
+struct IRKGL162 <: IRKAlgorithm2 end
+
 function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isinplace},
      alg::IRKAlgorithm,args...;dt=0, #(prob.tspan[2]-prob.tspan[1])/10000,
      saveat=dt,
-     maxiter=9,              # Float64 !!!
+     maxiter=0,              # Float64 !!!
 	 maxtrials=3,            # maximum of unsuccessful trials
      save_everystep=true,
      initial_interp=true,
@@ -54,6 +57,14 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 	utype = typeof(u0)
 	uitype = eltype(u0)
     ttype = typeof(t0)
+
+    if (maxiter==0)
+	   if (precision(uitype)>=106 && precision(uitype)<=256)   # BigFloat
+		   maxiter=10
+	   else
+		   maxiter=9	# Default : precision(Float64)==53
+	   end
+   end
 
 	reltol2s=uitype(sqrt(reltol))
 	abstol2s=uitype(sqrt(abstol))
@@ -191,6 +202,175 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 	end
 
   end
+
+
+ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isinplace},
+       alg::IRKAlgorithm2,args...;dt=0, #(prob.tspan[2]-prob.tspan[1])/10000,
+       saveat=dt,
+       maxiter=100,              # Float64 !!!
+       maxtrials=3,            # maximum of unsuccessful trials
+       save_everystep=true,
+       initial_interp=true,
+  	 adaptive=true,
+  	 reltol=1e-6,
+  	 abstol=1e-6,
+  	 myoutputs=false,
+       kwargs...) where{uType,tType,isinplace}
+
+  #    println("IRKGL16....")
+
+
+  	s = 8
+      destats = DiffEqBase.DEStats(0)
+
+      reltol2s=sqrt(reltol)
+  	abstol2s=sqrt(abstol)
+
+  	@unpack f,u0,tspan,p=prob
+      t0=tspan[1]
+  	tf=tspan[2]
+  	utype = typeof(u0)
+  	uitype = eltype(u0)
+      ttype = typeof(t0)
+
+  	reltol2s=uitype(sqrt(reltol))
+  	abstol2s=uitype(sqrt(abstol))
+
+      coeffs=tcoeffs{uitype}(zeros(s,s),zeros(s),zeros(s),
+  	                       zeros(s,s),zeros(s,s),zeros(s,s))
+  	@unpack mu,hc,hb,nu,beta,beta2 = coeffs
+
+
+      if (dt==0)
+  		d0=MyNorm(u0,abstol,reltol)
+  		du0=similar(u0)
+  		f(du0, u0, p, t0)
+      	d1=MyNorm(du0,abstol,reltol)
+  		if (d0<1e-5 || d1<1e-5)
+  			dt=convert(uitype,1e-6)
+  		else
+  			dt=convert(uitype,0.01*(d0/d1))
+  		end
+  		saveat=dt
+  #		println("dt=0 !!! dt=",dt, " typeof(dt)=",typeof(dt))
+  	end
+
+  	EstimateCoeffs!(beta,typeof(dt))
+  	EstimateCoeffs2!(beta2,typeof(dt))
+  	MuCoefficients!(mu,typeof(dt))
+
+      dts = Array{typeof(dt)}(undef, 1)
+      dtprev=zero(typeof(dt))
+
+  	if (adaptive==false)
+  		dtprev=dt
+  	else
+  		dtprev=zero(typeof(dt))
+  	end
+
+  	dts=[dt,dtprev]
+  	sdt = sign(dt)
+  	HCoefficients!(mu,hc,hb,nu,dt,dtprev,uitype)
+
+  #   m: output saved at every m steps
+  #   n: Number of macro-steps  (Output is saved for n+1 time values)
+  	if (adaptive==true)
+  		m=1
+  		n=Inf
+      elseif (save_everystep==false)
+  			m=convert(Int64,ceil((tf-t0)/(dt)))
+  			n=1
+      	else
+  			m=convert(Int64,(round(saveat/dt)))
+      		n=convert(Int64,ceil((tf-t0)/(m*dt)))
+  	end
+
+      U1 = Array{typeof(u0)}(undef, s)
+      U2 = Array{typeof(u0)}(undef, s)
+      U3 = Array{typeof(u0)}(undef, s)
+      U4 = Array{typeof(u0)}(undef, s)
+      U5 = Array{typeof(u0)}(undef, s)
+  	U6 = Array{typeof(u0)}(undef, s)
+  	for i in 1:s
+  		U1[i] = zeros(eltype(u0), size(u0))
+  		U2[i] = zeros(eltype(u0), size(u0))
+  		U3[i] = zeros(eltype(u0), size(u0))
+  		U4[i] = zeros(eltype(u0), size(u0))
+  		U5[i] = zeros(eltype(u0), size(u0))
+  		U6[i] = zeros(eltype(u0), size(u0))
+  	end
+
+      cache=tcache{typeof(u0),eltype(u0)}(U1,U2,U3,U4,U5,U6,[0],[0],[0.,0.])
+  	@unpack U,Uz,L,Lz,F,Dmin,rejects,nfcn,lambdas=cache
+
+      ej=zeros(eltype(u0), size(u0))
+
+  	uu = Array{typeof(u0)}[]
+  	tt = Array{ttype}[]
+      iters = Array{Int}[]
+  	steps = Array{Int}[]
+
+  	uu=[]
+  	tt=[]
+  	iters=[]
+  	steps=[]
+
+  	push!(uu,u0)
+  	push!(tt,t0)
+  	push!(iters,0)
+  	push!(steps,0)
+      tj = [t0, zero(t0)]
+      uj = copy(u0)
+
+      j=0
+      cont=true
+
+      while cont
+  		tit=0
+  		it=0
+
+          for i in 1:m
+  		  j+=1
+  #         println("step:", j, " time=",tj[1]+tj[2]," dt=", dts[1], " dtprev=", dts[2])
+     	      (status,it) = IRKstep_adaptive!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiter,
+  	                             maxtrials,initial_interp,abstol2s,reltol2s,adaptive)
+
+           if (status=="Failure")
+  			 println("Fail")
+  			 sol=DiffEqBase.build_solution(prob,alg,tt,uu,retcode= :Failure)
+  		     return(sol)
+  		 end
+            tit+=it
+
+          end
+
+          cont = (sdt*(tj[1]+tj[2]) < sdt*tf) && (j<n*m)
+
+  		if (save_everystep==true) || (cont==false)
+  			push!(iters,convert(Int64,round(tit/m)))
+  			push!(uu,uj+ej)
+  			push!(tt,tj[1]+tj[2])
+  			push!(steps,dts[2])
+  		end
+
+      end
+
+  #    println("End IRKGL16")
+
+  	sol=DiffEqBase.build_solution(prob,alg,tt,uu,destats=destats,retcode= :Success)
+  	sol.destats.nf=nfcn[1]
+  	sol.destats.nreject=rejects[1]
+  	sol.destats.naccept=j
+
+  	if (myoutputs==true)
+      	return(sol,iters,steps)
+  	else
+  		return(sol)
+  	end
+
+    end
+
+
 
 
 function IRKStep!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials,
@@ -379,14 +559,14 @@ function IRKstep_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials
 		ntrials=0
 
         if (j==1)
-			mtrials=2*maxtrials
+			maxtrialsj=4*maxtrials
 		else
-			mtrials=maxtrials
+			maxtrialsj=maxtrials
 		end
 
 		for is in 1:s Lz[is].=L[is] end
 
-		while (!accept && ntrials<mtrials)
+		while (!accept && ntrials<maxtrialsj)
 
 			if (dt != dtprev)
 				HCoefficients!(mu,hc,hb,nu,dt,dtprev,uitype)
@@ -552,14 +732,16 @@ function IRKstep_adaptiveNEW!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtri
 		ntrials=0
 
         if (j==1)
-			mtrials=2*maxtrials
+			maxtrialsj=4*maxtrials
+			maxiterj=2*maxiter
 		else
-			mtrials=maxtrials
+			maxtrialsj=maxtrials
+			maxiterj=maxiter
 		end
 
 		for is in 1:s Lz[is].=L[is] end
 
-		while (!accept && ntrials<mtrials)
+		while (!accept && ntrials<maxtrialsj)
 
 			if (dt != dtprev)
 				HCoefficients!(mu,hc,hb,nu,dt,dtprev,uitype)
@@ -585,7 +767,7 @@ function IRKstep_adaptiveNEW!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtri
         	nit=1
 			for is in 1:s Dmin[is] .= Inf end
 
-			while (nit<maxiter)
+			while (nit<maxiterj)
             	nit+=1
         		for is in 1:s
             		Uz[is] .= U[is]
