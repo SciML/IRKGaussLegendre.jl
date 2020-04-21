@@ -332,9 +332,23 @@ function IRKstep_adaptive2!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrial
 		if (j==1)
             dts[1]=min(max(dt/2,min(2*dt,dt/lambda)),tf-(ttj[1]+ttj[2]))
 		else
-            barh=dt/lambda*(dt*lambdaprev/(dtprev*lambda))^((lambda+1)/(lambda+lambdaprev))
+
+#            barh=dt/lambda*(dt*lambdaprev/(dtprev*lambda))^((lambda+1)/(lambda+lambdaprev))   #v0
+#            dts[1]= min(max(dt/2,min(2*dt,barh)),tf-(ttj[1]+ttj[2]))                          #v0
+#
+#            barh=dt/lambda*(dt*lambdaprev/(dtprev*lambda))^(lambda/lambdaprev)			#2020-04-18
+#			dts[1]= min(max(dt/2,min(2*dt,barh)),tf-(ttj[1]+ttj[2]))                    #2020-04-18
+#
+            hath1=dt/lambda
+			hath2=dtprev/lambdaprev
+			tildeh=hath1*(hath1/hath2)^(lambda/lambdaprev)
+			barlamb1=(dt+tildeh)/(hath1+tildeh)
+			barlamb2=(dtprev+dt)/(hath2+hath1)
+			barh=hath1*(hath1/hath2)^(barlamb1/barlamb2)
 			dts[1]= min(max(dt/2,min(2*dt,barh)),tf-(ttj[1]+ttj[2]))
+            
 		end
+
 		dts[2]=dt
         lambdas[2]=lambda
 
