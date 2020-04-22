@@ -33,7 +33,7 @@ struct IRKGL162 <: IRKAlgorithm2 end
   	@unpack f,u0,tspan,p=prob
     t0=tspan[1]
   	tf=tspan[2]
-	tType2=typeof(tspan[1])
+	tType2=eltype(tspan)
   	uiType = eltype(u0)
 	uSize=size(u0)
 

@@ -54,7 +54,8 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 	@unpack f,u0,tspan,p=prob
     t0=tspan[1]
 	tf=tspan[2]
-	tType2=typeof(tspan[1])
+	tType2=eltype(tspan)
+	#tType.parameters[1]
 	uiType = eltype(u0)
     uSize=size(u0)
 
