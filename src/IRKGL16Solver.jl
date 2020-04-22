@@ -10,13 +10,13 @@ mutable struct tcoeffs{T}
 	   beta2::Array{T,2}
 end
 
-mutable struct tcache{utype,eltypeu}
-	U::Array{utype,1}
-	Uz::Array{utype,1}
-    L::Array{utype,1}
-	Lz::Array{utype,1}
-	F::Array{utype,1}
-	Dmin::Array{utype,1}
+mutable struct tcache{uType,eltypeu}
+	U::Array{uType,1}
+	Uz::Array{uType,1}
+    L::Array{uType,1}
+	Lz::Array{uType,1}
+	F::Array{uType,1}
+	Dmin::Array{uType,1}
 	rejects::Array{Int64,1}
 	nfcn::Array{Int64, 1}
 	lambdas::Array{eltypeu,1}
@@ -28,9 +28,11 @@ struct IRKGL16 <: IRKAlgorithm end
 
 
 function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isinplace},
-     alg::IRKAlgorithm,args...;dt=0,
+     alg::IRKAlgorithm,args...;
+#     dt::tType=0.,
+     dt=0.,
      saveat=dt,
-     maxiter=0,
+     maxiter=10,
 	 maxtrials=3,            # maximum of unsuccessful trials
      save_everystep=true,
      initial_interp=true,
@@ -52,24 +54,16 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 	@unpack f,u0,tspan,p=prob
     t0=tspan[1]
 	tf=tspan[2]
-	utype = typeof(u0)
-	uitype = eltype(u0)
-    ttype = typeof(t0)
+	tType2=typeof(tspan[1])
+	uiType = eltype(u0)
+    uSize=size(u0)
 
-#    if (maxiter==0)
-#	   if (precision(uitype)>=106 && precision(uitype)<=256)   # BigFloat
-#		   maxiter=10
-#	   else
-#		   maxiter=12	# Default : precision(Float64)==53
-#	   end
- #  end
+#	println("uType=",uType, ", tType=",tType, ", uiType=", uiType, ", uSize=", uSize)
 
-    maxiter=10  # 10
+    reltol2s=uiType(sqrt(reltol))
+	abstol2s=uiType(sqrt(abstol))
 
-    reltol2s=uitype(sqrt(reltol))
-	abstol2s=uitype(sqrt(abstol))
-
-    coeffs=tcoeffs{uitype}(zeros(s,s),zeros(s),zeros(s),
+    coeffs=tcoeffs{uiType}(zeros(s,s),zeros(s),zeros(s),
 	                       zeros(s,s),zeros(s,s),zeros(s,s))
 	@unpack mu,hc,hb,nu,beta,beta2 = coeffs
 
@@ -80,20 +74,18 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 		f(du0, u0, p, t0)
     	d1=MyNorm(du0,abstol,reltol)
 		if (d0<1e-5 || d1<1e-5)
-			dt=convert(uitype,1e-6)
+			dt=convert(tType2,1e-6)
 		else
-			dt=convert(uitype,0.01*(d0/d1))
+			dt=convert(tType2,0.01*(d0/d1))
 		end
-		saveat=dt
-#		println("dt=0 !!! dt=",dt, " typeof(dt)=",typeof(dt))
 	end
 
-	EstimateCoeffs!(beta,typeof(dt))
-	EstimateCoeffs2!(beta2,typeof(dt))
-	MuCoefficients!(mu,typeof(dt))
+	EstimateCoeffs!(beta,uiType)
+	EstimateCoeffs2!(beta2,uiType)
+	MuCoefficients!(mu,uiType)
 
-    dts = Array{typeof(dt)}(undef, 1)
-    dtprev=zero(typeof(dt))
+    dts = Array{tType2}(undef, 1)
+    dtprev=zero(tType2)
 
 	if (adaptive==false)
 		dtprev=dt
@@ -103,7 +95,7 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 
 	dts=[dt,dtprev]
 	sdt = sign(dt)
-	HCoefficients!(mu,hc,hb,nu,dt,dtprev,uitype)
+	HCoefficients!(mu,hc,hb,nu,dt,dtprev,uiType)
 
 #   m: output saved at every m steps
 #   n: Number of macro-steps  (Output is saved for n+1 time values)
@@ -118,28 +110,28 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
     		n=convert(Int64,ceil((tf-t0)/(m*dt)))
 	end
 
-    U1 = Array{typeof(u0)}(undef, s)
-    U2 = Array{typeof(u0)}(undef, s)
-    U3 = Array{typeof(u0)}(undef, s)
-    U4 = Array{typeof(u0)}(undef, s)
-    U5 = Array{typeof(u0)}(undef, s)
-	U6 = Array{typeof(u0)}(undef, s)
+    U1 = Array{uType}(undef, s)
+    U2 = Array{uType}(undef, s)
+    U3 = Array{uType}(undef, s)
+    U4 = Array{uType}(undef, s)
+    U5 = Array{uType}(undef, s)
+	U6 = Array{uType}(undef, s)
 	for i in 1:s
-		U1[i] = zeros(eltype(u0), size(u0))
-		U2[i] = zeros(eltype(u0), size(u0))
-		U3[i] = zeros(eltype(u0), size(u0))
-		U4[i] = zeros(eltype(u0), size(u0))
-		U5[i] = zeros(eltype(u0), size(u0))
-		U6[i] = zeros(eltype(u0), size(u0))
+		U1[i] = zeros(uiType, uSize)
+		U2[i] = zeros(uiType, uSize)
+		U3[i] = zeros(uiType, uSize)
+		U4[i] = zeros(uiType, uSize)
+		U5[i] = zeros(uiType, uSize)
+		U6[i] = zeros(uiType, uSize)
 	end
 
-    cache=tcache{typeof(u0),eltype(u0)}(U1,U2,U3,U4,U5,U6,[0],[0],[0.,0.])
+    cache=tcache{uType,uiType}(U1,U2,U3,U4,U5,U6,[0],[0],[0.,0.])
 	@unpack U,Uz,L,Lz,F,Dmin,rejects,nfcn,lambdas=cache
 
-    ej=zeros(eltype(u0), size(u0))
+    ej=zeros(uiType, uSize)
 
-	uu = Array{typeof(u0)}[]
-	tt = Array{ttype}[]
+	uu = Array{uType}[]
+	tt = Array{tType2}[]
     iters = Array{Int}[]
 	steps = Array{Int}[]
 
@@ -211,7 +203,7 @@ function IRKStep!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials,
 
    if (adaptive==true)
 #	   println("IRKstep_adaptive. maxiter=", maxiter)
-	  (status,it)= IRKstep_adaptiveNEW!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiter,
+	  (status,it)= IRKstep_adaptive!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiter,
  		     	             maxtrials,initial_interp,abstol,reltol,adaptive)
    else
 #	  println("IRKstep_fixed")
@@ -231,7 +223,7 @@ function IRKstep_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
         @unpack f,u0,p,tspan=prob
 		@unpack U,Uz,L,Lz,F,Dmin,rejects,nfcn,lambdas=cache
 
-		uitype = eltype(uj)
+		uiType = eltype(uj)
 
 		dt=dts[1]
 		dtprev=dts[2]
@@ -245,7 +237,7 @@ function IRKstep_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
         nit=0
 
     	if (dt != dtprev)
-			HCoefficients!(mu,hc,hb,nu,dt,dtprev,uitype)
+			HCoefficients!(mu,hc,hb,nu,dt,dtprev,uiType)
 			@unpack mu,hc,hb,nu,beta,beta2 = coeffs
 		end
 
@@ -355,7 +347,7 @@ end
 
 
 
-function IRKstep_adaptiveNEW!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials,
+function IRKstep_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials,
 		                      initial_interp,abstol,reltol,adaptive)
 
 
@@ -363,7 +355,7 @@ function IRKstep_adaptiveNEW!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtri
         @unpack f,u0,p,tspan=prob
 		@unpack U,Uz,L,Lz,F,Dmin,rejects,nfcn,lambdas=cache
 
-		uitype = eltype(uj)
+		uiType = eltype(uj)
 
 		lambda=lambdas[1]
 		lambdaprev=lambdas[2]
@@ -397,7 +389,7 @@ function IRKstep_adaptiveNEW!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtri
 		while (!accept && ntrials<maxtrialsj)
 
 			if (dt != dtprev)
-				HCoefficients!(mu,hc,hb,nu,dt,dtprev,uitype)
+				HCoefficients!(mu,hc,hb,nu,dt,dtprev,uiType)
 				@unpack mu,hc,hb,nu,beta,beta2 = coeffs
 			end
 

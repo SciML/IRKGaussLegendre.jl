@@ -7,7 +7,8 @@ struct IRKGL162 <: IRKAlgorithm2 end
 
  function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isinplace},
        alg::IRKAlgorithm2,args...;
-	   dt=0,
+#	   dt::tType=zero,
+       dt=0.,
        saveat=dt,
        maxiter=100,
        maxtrials=3,            # maximum of unsuccessful trials
@@ -22,6 +23,7 @@ struct IRKGL162 <: IRKAlgorithm2 end
   #    println("IRKGL16....")
 
 
+
   	s = 8
     destats = DiffEqBase.DEStats(0)
 
@@ -31,38 +33,38 @@ struct IRKGL162 <: IRKAlgorithm2 end
   	@unpack f,u0,tspan,p=prob
     t0=tspan[1]
   	tf=tspan[2]
-  	utype = typeof(u0)
-  	uitype = eltype(u0)
-    ttype = typeof(t0)
+	tType2=typeof(tspan[1])
+  	uiType = eltype(u0)
+	uSize=size(u0)
 
-  	reltol2s=uitype(sqrt(reltol))
-  	abstol2s=uitype(sqrt(abstol))
+#	println("uType=",uType, ", tType=",tType, ", uiType=", uiType, ", uSize=", uSize)
 
-    coeffs=tcoeffs{uitype}(zeros(s,s),zeros(s),zeros(s),
+  	reltol2s=uiType(sqrt(reltol))
+  	abstol2s=uiType(sqrt(abstol))
+
+    coeffs=tcoeffs{uiType}(zeros(s,s),zeros(s),zeros(s),
   	                       zeros(s,s),zeros(s,s),zeros(s,s))
   	@unpack mu,hc,hb,nu,beta,beta2 = coeffs
 
 
-      if (dt==0)
+   if (dt==0)
   		d0=MyNorm(u0,abstol,reltol)
   		du0=similar(u0)
   		f(du0, u0, p, t0)
       	d1=MyNorm(du0,abstol,reltol)
   		if (d0<1e-5 || d1<1e-5)
-  			dt=convert(uitype,1e-6)
+  			dt=convert(tType2,1e-6)
   		else
-  			dt=convert(uitype,0.01*(d0/d1))
+  			dt=convert(tType2,0.01*(d0/d1))
   		end
-  		saveat=dt
-  #		println("dt=0 !!! dt=",dt, " typeof(dt)=",typeof(dt))
-  	end
+	end
 
-  	EstimateCoeffs!(beta,typeof(dt))
-  	EstimateCoeffs2!(beta2,typeof(dt))
-  	MuCoefficients!(mu,typeof(dt))
+  	EstimateCoeffs!(beta,uiType)
+  	EstimateCoeffs2!(beta2,uiType)
+  	MuCoefficients!(mu,uiType)
 
-      dts = Array{typeof(dt)}(undef, 1)
-      dtprev=zero(typeof(dt))
+      dts = Array{tType2}(undef, 1)
+      dtprev=zero(tType2)
 
   	if (adaptive==false)
   		dtprev=dt
@@ -72,7 +74,7 @@ struct IRKGL162 <: IRKAlgorithm2 end
 
   	dts=[dt,dtprev]
   	sdt = sign(dt)
-  	HCoefficients!(mu,hc,hb,nu,dt,dtprev,uitype)
+  	HCoefficients!(mu,hc,hb,nu,dt,dtprev,uiType)
 
   #   m: output saved at every m steps
   #   n: Number of macro-steps  (Output is saved for n+1 time values)
@@ -87,28 +89,28 @@ struct IRKGL162 <: IRKAlgorithm2 end
       		n=convert(Int64,ceil((tf-t0)/(m*dt)))
   	end
 
-      U1 = Array{typeof(u0)}(undef, s)
-      U2 = Array{typeof(u0)}(undef, s)
-      U3 = Array{typeof(u0)}(undef, s)
-      U4 = Array{typeof(u0)}(undef, s)
-      U5 = Array{typeof(u0)}(undef, s)
-  	U6 = Array{typeof(u0)}(undef, s)
+      U1 = Array{uType}(undef, s)
+      U2 = Array{uType}(undef, s)
+      U3 = Array{uType}(undef, s)
+      U4 = Array{uType}(undef, s)
+      U5 = Array{uType}(undef, s)
+  	U6 = Array{uType}(undef, s)
   	for i in 1:s
-  		U1[i] = zeros(eltype(u0), size(u0))
-  		U2[i] = zeros(eltype(u0), size(u0))
-  		U3[i] = zeros(eltype(u0), size(u0))
-  		U4[i] = zeros(eltype(u0), size(u0))
-  		U5[i] = zeros(eltype(u0), size(u0))
-  		U6[i] = zeros(eltype(u0), size(u0))
+  		U1[i] = zeros(uiType, uSize)
+  		U2[i] = zeros(uiType, uSize)
+  		U3[i] = zeros(uiType, uSize)
+  		U4[i] = zeros(uiType, uSize)
+  		U5[i] = zeros(uiType, uSize)
+  		U6[i] = zeros(uiType, uSize)
   	end
 
-      cache=tcache{typeof(u0),eltype(u0)}(U1,U2,U3,U4,U5,U6,[0],[0],[0.,0.])
+      cache=tcache{uType,uiType}(U1,U2,U3,U4,U5,U6,[0],[0],[0.,0.])
   	@unpack U,Uz,L,Lz,F,Dmin,rejects,nfcn,lambdas=cache
 
-      ej=zeros(eltype(u0), size(u0))
+      ej=zeros(uiType, uSize)
 
-  	uu = Array{typeof(u0)}[]
-  	tt = Array{ttype}[]
+  	uu = Array{uType}[]
+  	tt = Array{tType2}[]
       iters = Array{Int}[]
   	steps = Array{Int}[]
 
@@ -182,7 +184,7 @@ function IRKstep_adaptive2!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrial
         @unpack f,u0,p,tspan=prob
 		@unpack U,Uz,L,Lz,F,Dmin,rejects,nfcn,lambdas=cache
 
-		uitype = eltype(uj)
+		uiType = eltype(uj)
 
 		lambda=lambdas[1]
 		lambdaprev=lambdas[2]
@@ -214,7 +216,7 @@ function IRKstep_adaptive2!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrial
 		while (!accept && ntrials<maxtrialsj)
 
 			if (dt != dtprev)
-				HCoefficients!(mu,hc,hb,nu,dt,dtprev,uitype)
+				HCoefficients!(mu,hc,hb,nu,dt,dtprev,uiType)
 				@unpack mu,hc,hb,nu,beta,beta2 = coeffs
 			end
 
@@ -346,7 +348,7 @@ function IRKstep_adaptive2!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrial
 			barlamb2=(dtprev+dt)/(hath2+hath1)
 			barh=hath1*(hath1/hath2)^(barlamb1/barlamb2)
 			dts[1]= min(max(dt/2,min(2*dt,barh)),tf-(ttj[1]+ttj[2]))
-            
+
 		end
 
 		dts[2]=dt
