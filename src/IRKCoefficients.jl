@@ -7,6 +7,8 @@ function PolInterp(X::AbstractVector{ctype}, Y::AbstractMatrix{ctype},
         error("columns(Y) != length(X)")
     end
     pz = zeros(ctype,K,M)
+
+    @inbounds begin
     for i=1:N
         lag = 1.
         for j=1:N
@@ -26,6 +28,7 @@ function PolInterp(X::AbstractVector{ctype}, Y::AbstractMatrix{ctype},
                 pz[k,m] += Y[k,i]*liz
             end
         end
+    end
     end
     return pz
 end
@@ -109,10 +112,12 @@ function MuCoefficients!(mu,T::Type{<:CompiledFloats})
 
 
     s=8
+    @inbounds begin
     for i in 1:s
         for j in i+1:s
             mu[i,j] = 1 - mu[j,i]
         end
+    end
     end
 
 end
@@ -196,10 +201,12 @@ function MuCoefficients!(mu,T)
           mu[8,8]=parse(T,"0.5")
 
           s=8
+          @inbounds begin
           for i in 1:s
               for j in i+1:s
                   mu[i,j] = 1 - mu[j,i]
               end
+          end
           end
 
 end

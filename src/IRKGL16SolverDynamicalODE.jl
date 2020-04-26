@@ -18,14 +18,11 @@ function DiffEqBase.__solve(prob::DiffEqBase.DynamicalODEProblem{isinplace},
 	 myoutputs=false,
      kwargs...) where{isinplace}
 
-    println("IRKGL16....DynamicalProblem")
+    println("IRKGL163....DynamicalProblem")
 
 
 	s = 8
     destats = DiffEqBase.DEStats(0)
-
-    reltol2s=sqrt(reltol)
-	abstol2s=sqrt(abstol)
 
 	@unpack f1,f2,tspan,p=prob
 	r0=prob.v0
@@ -37,9 +34,8 @@ function DiffEqBase.__solve(prob::DiffEqBase.DynamicalODEProblem{isinplace},
 	tType2=eltype(tspan)
 	uType=typeof(u0)
 	uiType = eltype(u0)
-    uSize=size(u0)
 
-#	println("uType=",uType, ", tType=",tType, ", uiType=", uiType, ", uSize=", uSize)
+#	println("uType=",uType, ", tType=",tType, ", uiType=", uiType)
 
     reltol2s=uiType(sqrt(reltol))
 	abstol2s=uiType(sqrt(abstol))
@@ -66,13 +62,12 @@ function DiffEqBase.__solve(prob::DiffEqBase.DynamicalODEProblem{isinplace},
 	EstimateCoeffs2!(beta2,uiType)
 	MuCoefficients!(mu,uiType)
 
-    dts = Array{tType2}(undef, 1)
-    dtprev=zero(tType2)
+	dts = Array{tType2}(undef, 1)
 
 	if (adaptive==false)
 		dtprev=dt
 	else
-		dtprev=zero(typeof(dt))
+		dtprev=zero(tType2)
 	end
 
 	dts=[dt,dtprev]
@@ -136,6 +131,7 @@ function DiffEqBase.__solve(prob::DiffEqBase.DynamicalODEProblem{isinplace},
 		tit=0
 		it=0
 
+        @inbounds begin
         for i in 1:m
 		  j+=1
 #         println("step:", j, " time=",tj[1]+tj[2]," dt=", dts[1], " dtprev=", dts[2])
@@ -150,6 +146,7 @@ function DiffEqBase.__solve(prob::DiffEqBase.DynamicalODEProblem{isinplace},
           tit+=it
 
         end
+	    end
 
         cont = (sdt*(tj[1]+tj[2]) < sdt*tf) && (j<n*m)
 
@@ -226,6 +223,7 @@ function IRKstepDynODE_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 		end
 
     	if initial_interp
+			@inbounds begin
         	for is in 1:s
             	for k in eachindex(uj)
                 	aux=zero(eltype(uj))
@@ -235,18 +233,23 @@ function IRKstepDynODE_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
                 	U[is][k]=(uj[k]+ej[k])+aux
             	end
         	end
+		    end
     	else
+			@inbounds begin
         	for is in 1:s
             	@. U[is] = uj + ej
         	end
+		    end
     	end
 
+        @inbounds begin
     	for is in 1:s
 			nfcn[1]+=1
         	f1(F[is].x[1], U[is].x[2], p, tj + hc[is])
 			f2(F[is].x[2], U[is].x[1], p, tj + hc[is])
         	@. L[is] = hb[is]*F[is]
     	end
+	    end
 
     	iter = true # Initialize iter outside the for loop
     	plusIt=true
@@ -262,6 +265,7 @@ function IRKstepDynODE_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 
 #           First part
 
+            @inbounds begin
     		for is in 1:s
         		Uz[is].x[1] .= U[is].x[1]
         		DiffEqBase.@.. U[is].x[1] = uj.x[1] + (ej.x[1]+mu[is,1]*L[1].x[1] + mu[is,2]*L[2].x[1]+
@@ -293,8 +297,10 @@ function IRKstepDynODE_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 
     		end
 
+
 #           Second part
-    		for is in 1:s
+
+			for is in 1:s
         		Uz[is].x[2] .= U[is].x[2]
         		DiffEqBase.@.. U[is].x[2] = uj.x[2] + (ej.x[2]+mu[is,1]*L[1].x[2] + mu[is,2]*L[2].x[2]+
 	                           mu[is,3]*L[3].x[2] + mu[is,4]*L[4].x[2]+
@@ -324,7 +330,7 @@ function IRKstepDynODE_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
            		end
 
     		end
-
+		end #inbounds
 
 
         	if (iter==false && D0<elems && plusIt)
@@ -338,6 +344,7 @@ function IRKstepDynODE_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 
 		indices = eachindex(uj)
 
+        @inbounds begin
 		for k in indices    #Compensated summation
 			e0 = ej[k]
 			for is in 1:s
@@ -350,6 +357,7 @@ function IRKstepDynODE_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 			uj[k] = res.hi
 			ej[k] = res.lo
 		end
+	    end
 
 		res = Base.TwicePrecision(tj, te) + dt
 		ttj[1] = res.hi
@@ -416,6 +424,7 @@ function IRKstepDynODE_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,max
 				@unpack mu,hc,hb,nu,beta,beta2 = coeffs
 			end
 
+            @inbounds begin
         	for is in 1:s
             	for k in eachindex(uj)
                 	aux=zero(eltype(uj))
@@ -431,12 +440,15 @@ function IRKstepDynODE_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,max
         		f(F[is], U[is], p, tj + hc[is])
         		@. L[is] = hb[is]*F[is]
         	end
+		    end
 
         	nit=1
 			for is in 1:s Dmin[is] .= Inf end
 
 			while (nit<maxiterj)
             	nit+=1
+
+                @inbounds begin
         		for is in 1:s
             		Uz[is] .= U[is]
             		DiffEqBase.@.. U[is] = uj+(ej+mu[is,1]*L[1] + mu[is,2]*L[2]+
@@ -458,6 +470,7 @@ function IRKstepDynODE_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,max
 	            		@. L[is] = hb[is]*F[is]
 					end
 	       	   end
+		       end
 
         	end # while iter
 
@@ -482,6 +495,7 @@ function IRKstepDynODE_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,max
 
 		indices = eachindex(uj)
 
+        @inbounds begin
 		for k in indices    #Compensated summation
 			e0 = ej[k]
 			for is in 1:s
@@ -494,6 +508,7 @@ function IRKstepDynODE_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,max
 			uj[k] = res.hi
 			ej[k] = res.lo
 		end
+	    end
 
 		res = Base.TwicePrecision(tj, te) + dt
 		ttj[1] = res.hi

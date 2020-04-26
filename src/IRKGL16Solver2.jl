@@ -27,17 +27,13 @@ struct IRKGL162 <: IRKAlgorithm2 end
   	s = 8
     destats = DiffEqBase.DEStats(0)
 
-    reltol2s=sqrt(reltol)
-  	abstol2s=sqrt(abstol)
-
   	@unpack f,u0,tspan,p=prob
     t0=tspan[1]
   	tf=tspan[2]
 	tType2=eltype(tspan)
   	uiType = eltype(u0)
-	uSize=size(u0)
 
-#	println("uType=",uType, ", tType=",tType, ", uiType=", uiType, ", uSize=", uSize)
+#	println("uType=",uType, ", tType=",tType, ", uiType=", uiType)
 
   	reltol2s=uiType(sqrt(reltol))
   	abstol2s=uiType(sqrt(abstol))
@@ -63,14 +59,13 @@ struct IRKGL162 <: IRKAlgorithm2 end
   	EstimateCoeffs2!(beta2,uiType)
   	MuCoefficients!(mu,uiType)
 
-      dts = Array{tType2}(undef, 1)
-      dtprev=zero(tType2)
+    dts = Array{tType2}(undef, 1)
 
-  	if (adaptive==false)
-  		dtprev=dt
-  	else
-  		dtprev=zero(typeof(dt))
-  	end
+	if (adaptive==false)
+    	  dtprev=dt
+    else
+    	  dtprev=zero(tType2)
+    end
 
   	dts=[dt,dtprev]
   	sdt = sign(dt)
@@ -96,18 +91,18 @@ struct IRKGL162 <: IRKAlgorithm2 end
       U5 = Array{uType}(undef, s)
   	U6 = Array{uType}(undef, s)
   	for i in 1:s
-  		U1[i] = zeros(uiType, uSize)
-  		U2[i] = zeros(uiType, uSize)
-  		U3[i] = zeros(uiType, uSize)
-  		U4[i] = zeros(uiType, uSize)
-  		U5[i] = zeros(uiType, uSize)
-  		U6[i] = zeros(uiType, uSize)
+        U1[i] = zero(u0)
+		U2[i] = zero(u0)
+		U3[i] = zero(u0)
+		U4[i] = zero(u0)
+		U5[i] = zero(u0)
+		U6[i] = zero(u0)
   	end
 
       cache=tcache{uType,uiType}(U1,U2,U3,U4,U5,U6,[0],[0],[0.,0.])
   	@unpack U,Uz,L,Lz,F,Dmin,rejects,nfcn,lambdas=cache
 
-      ej=zeros(uiType, uSize)
+      ej=zero(u0)
 
   	uu = Array{uType}[]
   	tt = Array{tType2}[]
@@ -133,6 +128,7 @@ struct IRKGL162 <: IRKAlgorithm2 end
   		tit=0
   		it=0
 
+          @inbounds begin
           for i in 1:m
   		  j+=1
   #         println("step:", j, " time=",tj[1]+tj[2]," dt=", dts[1], " dtprev=", dts[2])
@@ -143,10 +139,10 @@ struct IRKGL162 <: IRKAlgorithm2 end
   			 println("Fail")
   			 sol=DiffEqBase.build_solution(prob,alg,tt,uu,retcode= :Failure)
   		     return(sol)
-  		 end
+  		   end
             tit+=it
-
           end
+	      end
 
           cont = (sdt*(tj[1]+tj[2]) < sdt*tf) && (j<n*m)
 
@@ -221,6 +217,7 @@ function IRKstep_adaptive2!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrial
 			end
 
         	if initial_interp
+				@inbounds begin
             	for is in 1:s
                 	for k in eachindex(uj)
                     	aux=zero(eltype(uj))
@@ -230,17 +227,22 @@ function IRKstep_adaptive2!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrial
                     	U[is][k]=(uj[k]+ej[k])+aux
                 	end
             	end
+			    end
         	else
+				@inbounds begin
             	for is in 1:s
                 	@. U[is] = uj + ej
             	end
+			    end
         	end
 
+            @inbounds begin
         	for is in 1:s
 				nfcn[1]+=1
             	f(F[is], U[is], p, tj + hc[is])
             	@. L[is] = hb[is]*F[is]
         	end
+		    end
 
         	iter = true # Initialize iter outside the for loop
         	plusIt=true
@@ -254,6 +256,7 @@ function IRKstep_adaptive2!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrial
             	iter=false
             	D0=0
 
+                @inbounds begin
         		for is in 1:s
             		Uz[is] .= U[is]
             		DiffEqBase.@.. U[is] = uj + (ej+mu[is,1]*L[1] + mu[is,2]*L[2]+
@@ -283,6 +286,7 @@ function IRKstep_adaptive2!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrial
                   		@. L[is] = hb[is]*F[is]
                		end
            		end
+			    end
 
             	if (iter==false && D0<elems && plusIt)
                 	iter=true
@@ -314,6 +318,7 @@ function IRKstep_adaptive2!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrial
 
 		indices = eachindex(uj)
 
+        @inbounds begin
 		for k in indices    #Compensated summation
 			e0 = ej[k]
 			for is in 1:s
@@ -326,6 +331,7 @@ function IRKstep_adaptive2!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrial
 			uj[k] = res.hi
 			ej[k] = res.lo
 		end
+	    end
 
 		res = Base.TwicePrecision(tj, te) + dt
 		ttj[1] = res.hi

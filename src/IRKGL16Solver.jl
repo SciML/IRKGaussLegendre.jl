@@ -42,14 +42,11 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 	 myoutputs=false,
      kwargs...) where{uType,tType,isinplace}
 
-     println("IRKGL16....ODEproblem")
+#     println("IRKGL16....ODEproblem")
 
 
 	s = 8
     destats = DiffEqBase.DEStats(0)
-
-    reltol2s=sqrt(reltol)
-	abstol2s=sqrt(abstol)
 
 	@unpack f,u0,tspan,p=prob
     t0=tspan[1]
@@ -57,9 +54,8 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 	tType2=eltype(tspan)
 	#tType.parameters[1]
 	uiType = eltype(u0)
-    uSize=size(u0)
 
-#	println("uType=",uType, ", tType=",tType, ", uiType=", uiType, ", uSize=", uSize)
+#	println("uType=",uType, ", tType=",tType, ", uiType=", uiType)
 
     reltol2s=uiType(sqrt(reltol))
 	abstol2s=uiType(sqrt(abstol))
@@ -86,12 +82,11 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 	MuCoefficients!(mu,uiType)
 
     dts = Array{tType2}(undef, 1)
-    dtprev=zero(tType2)
 
 	if (adaptive==false)
 		dtprev=dt
 	else
-		dtprev=zero(typeof(dt))
+		dtprev=zero(tType2)
 	end
 
 	dts=[dt,dtprev]
@@ -118,18 +113,18 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
     U5 = Array{uType}(undef, s)
 	U6 = Array{uType}(undef, s)
 	for i in 1:s
-		U1[i] = zeros(uiType, uSize)
-		U2[i] = zeros(uiType, uSize)
-		U3[i] = zeros(uiType, uSize)
-		U4[i] = zeros(uiType, uSize)
-		U5[i] = zeros(uiType, uSize)
-		U6[i] = zeros(uiType, uSize)
+		U1[i] = zero(u0)
+		U2[i] = zero(u0)
+		U3[i] = zero(u0)
+		U4[i] = zero(u0)
+		U5[i] = zero(u0)
+		U6[i] = zero(u0)
 	end
 
     cache=tcache{uType,uiType}(U1,U2,U3,U4,U5,U6,[0],[0],[0.,0.])
 	@unpack U,Uz,L,Lz,F,Dmin,rejects,nfcn,lambdas=cache
 
-    ej=zeros(uiType, uSize)
+    ej=zero(u0)
 
 	uu = Array{uType}[]
 	tt = Array{tType2}[]
@@ -155,6 +150,7 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 		tit=0
 		it=0
 
+        @inbounds begin
         for i in 1:m
 		  j+=1
 #         println("step:", j, " time=",tj[1]+tj[2]," dt=", dts[1], " dtprev=", dts[2])
@@ -169,6 +165,7 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
           tit+=it
 
         end
+	    end
 
         cont = (sdt*(tj[1]+tj[2]) < sdt*tf) && (j<n*m)
 
@@ -243,6 +240,7 @@ function IRKstep_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 		end
 
     	if initial_interp
+			@inbounds begin
         	for is in 1:s
             	for k in eachindex(uj)
                 	aux=zero(eltype(uj))
@@ -252,23 +250,30 @@ function IRKstep_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
                 	U[is][k]=(uj[k]+ej[k])+aux
             	end
         	end
+		    end
     	else
+			@inbounds begin
         	for is in 1:s
             	@. U[is] = uj + ej
         	end
+			end
     	end
 
+        @inbounds begin
     	for is in 1:s
 			nfcn[1]+=1
         	f(F[is], U[is], p, tj + hc[is])
         	@. L[is] = hb[is]*F[is]
     	end
+	    end
 
     	iter = true # Initialize iter outside the for loop
     	plusIt=true
 
     	nit=1
+		@inbounds begin
 		for is in 1:s Dmin[is] .= Inf end
+	    end
 
     	while (nit<maxiter && iter)
 
@@ -276,6 +281,7 @@ function IRKstep_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
         	iter=false
         	D0=0
 
+            @inbounds begin
     		for is in 1:s
         		Uz[is] .= U[is]
         		DiffEqBase.@.. U[is] = uj + (ej+mu[is,1]*L[1] + mu[is,2]*L[2]+
@@ -306,6 +312,7 @@ function IRKstep_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
            		end
 
     		end
+		    end
 
         	if (iter==false && D0<elems && plusIt)
             	iter=true
@@ -318,6 +325,7 @@ function IRKstep_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 
 		indices = eachindex(uj)
 
+        @inbounds begin
 		for k in indices    #Compensated summation
 			e0 = ej[k]
 			for is in 1:s
@@ -330,6 +338,7 @@ function IRKstep_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 			uj[k] = res.hi
 			ej[k] = res.lo
 		end
+	    end
 
 		res = Base.TwicePrecision(tj, te) + dt
 		ttj[1] = res.hi
@@ -394,6 +403,7 @@ function IRKstep_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials
 				@unpack mu,hc,hb,nu,beta,beta2 = coeffs
 			end
 
+            @inbounds begin
         	for is in 1:s
             	for k in eachindex(uj)
                 	aux=zero(eltype(uj))
@@ -409,12 +419,15 @@ function IRKstep_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials
         		f(F[is], U[is], p, tj + hc[is])
         		@. L[is] = hb[is]*F[is]
         	end
+     		end
 
         	nit=1
 			for is in 1:s Dmin[is] .= Inf end
 
 			while (nit<maxiterj)
             	nit+=1
+
+				@inbounds begin
         		for is in 1:s
             		Uz[is] .= U[is]
             		DiffEqBase.@.. U[is] = uj+(ej+mu[is,1]*L[1] + mu[is,2]*L[2]+
@@ -436,6 +449,7 @@ function IRKstep_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials
 	            		@. L[is] = hb[is]*F[is]
 					end
 	       	   end
+		       end
 
         	end # while iter
 
@@ -460,6 +474,7 @@ function IRKstep_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials
 
 		indices = eachindex(uj)
 
+        @inbounds begin
 		for k in indices    #Compensated summation
 			e0 = ej[k]
 			for is in 1:s
@@ -472,6 +487,7 @@ function IRKstep_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials
 			uj[k] = res.hi
 			ej[k] = res.lo
 		end
+	    end
 
 		res = Base.TwicePrecision(tj, te) + dt
 		ttj[1] = res.hi
@@ -513,6 +529,7 @@ function ErrorEst(U,F,dt,beta,abstol,reltol)
 
 	est=zero(typeof(dt))
 
+    @inbounds begin
 	for k in eachindex(U[1])
 
 		sum=zero(typeof(dt))
@@ -523,8 +540,8 @@ function ErrorEst(U,F,dt,beta,abstol,reltol)
         end
 
 		est+=(abs(dt*sum))^2/(abstol+maxU*reltol)
-
 	end
+    end
 
     return(est/D)
 
@@ -535,10 +552,12 @@ function MyNorm(u,abstol,reltol)
 
 	norm=zero(eltype(u))
 
+    @inbounds begin
 	for k in eachindex(u)
 	    aux=u[k]/(abstol+abs(u[k])*reltol)
 		norm+=aux*aux
 	end
+    end
 
 	norm=sqrt(norm/(length(u)))
 
