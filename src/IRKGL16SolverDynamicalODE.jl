@@ -3,7 +3,8 @@
 abstract type IRKAlgorithm3  <: OrdinaryDiffEqAlgorithm end
 struct IRKGL163 <: IRKAlgorithm3 end
 
-function DiffEqBase.__solve(prob::DiffEqBase.DynamicalODEProblem{isinplace},
+#function DiffEqBase.__solve(prob::DiffEqBase.DynamicalODEProblem{isinplace},
+function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isinplace},
      alg::IRKAlgorithm3,args...;
 #     dt::tType=0.,
      dt=0.,
@@ -16,23 +17,26 @@ function DiffEqBase.__solve(prob::DiffEqBase.DynamicalODEProblem{isinplace},
 	 reltol=1e-6,
 	 abstol=1e-6,
 	 myoutputs=false,
-     kwargs...) where{isinplace}
+#     kwargs...) where{isinplace}
+     kwargs...) where{uType,tType,isinplace}
 
-    println("IRKGL163....DynamicalProblem")
+#    println("IRKGL163....DynamicalProblem")
 
 
 	s = 8
     destats = DiffEqBase.DEStats(0)
 
-	@unpack f1,f2,tspan,p=prob
-	r0=prob.v0
-	v0=prob.u0
+	@unpack tspan,p=prob
+	f1=prob.f.f1
+	f2=prob.f.f2
+	r0=prob.u0.x[1]
+	v0=prob.u0.x[2]
 
 	u0 = ArrayPartition(r0,v0)
     t0=tspan[1]
 	tf=tspan[2]
 	tType2=eltype(tspan)
-	uType=typeof(u0)
+#	uType=typeof(u0)
 	uiType = eltype(u0)
 
 #	println("uType=",uType, ", tType=",tType, ", uiType=", uiType)
@@ -48,8 +52,8 @@ function DiffEqBase.__solve(prob::DiffEqBase.DynamicalODEProblem{isinplace},
     if (dt==0)
 		d0=MyNorm(u0,abstol,reltol)
 		du0=similar(u0)
-		f1(du0.x[1], u0,x[2], p, t0)
-		f2(du0.x[2], u0,x[1], p, t0)
+		f1(du0.x[1], u0.x[1],u0.x[2], p, t0)
+		f2(du0.x[2], u0.x[1],u0.x[2], p, t0)
     	d1=MyNorm(du0,abstol,reltol)
 		if (d0<1e-5 || d1<1e-5)
 			dt=convert(tType2,1e-6)
@@ -182,8 +186,8 @@ function IRKStepDynODE!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials,
 
    if (adaptive==true)
 #	   println("IRKstep_adaptive. maxiter=", maxiter)
-#	  (status,it)= IRKstepDynODE_adaptive!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiter,
-# 		     	             maxtrials,initial_interp,abstol,reltol,adaptive)
+	  (status,it)= IRKstepDynODE_adaptive!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiter,
+ 		     	             maxtrials,initial_interp,abstol,reltol,adaptive)
    else
 #	  println("IRKstep_fixed")
 	  (status,it)= IRKstepDynODE_fixed!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiter,
@@ -199,7 +203,9 @@ function IRKstepDynODE_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 		               initial_interp,abstol,reltol,adaptive)
 
         @unpack mu,hc,hb,nu,beta,beta2 = coeffs
-		@unpack f1,f2,tspan,p=prob
+		@unpack tspan,p=prob
+		f1=prob.f.f1
+		f2=prob.f.f2
 #		r0=prob.v0
 #		v0=prob.u0
 		@unpack U,Uz,L,Lz,F,Dmin,rejects,nfcn,lambdas=cache
@@ -245,8 +251,8 @@ function IRKstepDynODE_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
         @inbounds begin
     	for is in 1:s
 			nfcn[1]+=1
-        	f1(F[is].x[1], U[is].x[2], p, tj + hc[is])
-			f2(F[is].x[2], U[is].x[1], p, tj + hc[is])
+        	f1(F[is].x[1], U[is].x[1],U[is].x[2], p, tj + hc[is])
+			f2(F[is].x[2], U[is].x[1],U[is].x[2], p, tj + hc[is])
         	@. L[is] = hb[is]*F[is]
     	end
 	    end
@@ -276,7 +282,7 @@ function IRKstepDynODE_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 
         	for is in 1:s
             	eval=false
-            	for k in eachindex(uj,x[1])
+            	for k in eachindex(uj.x[1])
                     DY=abs(U[is][k]-Uz[is][k])
                     if DY>0.
                        eval=true
@@ -291,8 +297,8 @@ function IRKstepDynODE_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 
            		if eval==true
 					nfcn[1]+=1
-              		f1(F[is].x[1], U[is].x[2], p,  tj + hc[is])
-              		@. L[is].x[1] = hb[is]*F[is].x[1]
+              		f2(F[is].x[2], U[is].x[1],U[is].x[2], p,  tj + hc[is])
+              		@. L[is].x[2] = hb[is]*F[is].x[2]
            		end
 
     		end
@@ -310,7 +316,7 @@ function IRKstepDynODE_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 
         	for is in 1:s
             	eval=false
-        		for k in eachindex(uj,x[2])
+        		for k in eachindex(uj.x[2])
 	                  DY=abs(U[is][k]-Uz[is][k])
 	                    if DY>0.
 	                       eval=true
@@ -325,12 +331,12 @@ function IRKstepDynODE_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 
            		if eval==true
 #					nfcn[1]+=1
-              		f2(F[is].x[2], U[is].x[1], p,  tj + hc[is])
-              		@. L[is].x[2] = hb[is]*F[is].x[2]
+              		f1(F[is].x[1], U[is].x[1], U[is].x[2], p,  tj + hc[is])
+              		@. L[is].x[1] = hb[is]*F[is].x[1]
            		end
 
     		end
-		end #inbounds
+	    	end #inbounds
 
 
         	if (iter==false && D0<elems && plusIt)
@@ -381,7 +387,9 @@ function IRKstepDynODE_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,max
 
 
 		@unpack mu,hc,hb,nu,beta,beta2 = coeffs
-		@unpack f1,f2,tspan,p=prob
+		@unpack tspan,p=prob
+		f1=prob.f.f1
+		f2=prob.f.f2
 #		r0=prob.v0
 #		v0=prob.u0
 		@unpack U,Uz,L,Lz,F,Dmin,rejects,nfcn,lambdas=cache
@@ -437,7 +445,8 @@ function IRKstepDynODE_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,max
 
         	for is in 1:s
 				nfcn[1]+=1
-        		f(F[is], U[is], p, tj + hc[is])
+				f1(F[is].x[1], U[is].x[1],U[is].x[2], p, tj + hc[is])
+				f2(F[is].x[2], U[is].x[1],U[is].x[2], p, tj + hc[is])
         		@. L[is] = hb[is]*F[is]
         	end
 		    end
@@ -448,29 +457,61 @@ function IRKstepDynODE_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,max
 			while (nit<maxiterj)
             	nit+=1
 
+
+#               First part
+
                 @inbounds begin
         		for is in 1:s
-            		Uz[is] .= U[is]
-            		DiffEqBase.@.. U[is] = uj+(ej+mu[is,1]*L[1] + mu[is,2]*L[2]+
-				                           mu[is,3]*L[3] + mu[is,4]*L[4]+
-                                           mu[is,5]*L[5] + mu[is,6]*L[6]+
-									       mu[is,7]*L[7] + mu[is,8]*L[8])
+            		Uz[is].x[1] .= U[is].x[1]
+            		DiffEqBase.@.. U[is].x[1] = uj.x[1]+(ej.x[1]+mu[is,1]*L[1].x[1] + mu[is,2]*L[2].x[1]+
+				                           mu[is,3]*L[3].x[1] + mu[is,4]*L[4].x[1]+
+                                           mu[is,5]*L[5].x[1] + mu[is,6]*L[6].x[1]+
+									       mu[is,7]*L[7].x[1] + mu[is,8]*L[8].x[1])
         		end
 
 				for is in 1:s
 					eval=false
-					for k in eachindex(uj)
+					for k in eachindex(uj.x[1])
 						if (abs(U[is][k]-Uz[is][k])>0.)
 							eval=true
 						end
 					end
 					if (eval==true)
 						nfcn[1]+=1
-	            		f(F[is], U[is], p, tj + hc[is])
-	            		@. L[is] = hb[is]*F[is]
+	            		f2(F[is].x[2], U[is].x[1],U[is].x[2], p,  tj + hc[is])
+	            		@. L[is].x[2] = hb[is]*F[is].x[2]
 					end
-	       	   end
-		       end
+	       	    end
+		        end
+
+
+#               Second part
+
+                @inbounds begin
+        		for is in 1:s
+            		Uz[is].x[2] .= U[is].x[2]
+            		DiffEqBase.@.. U[is].x[2] = uj.x[2]+(ej.x[2]+mu[is,1]*L[1].x[2] + mu[is,2]*L[2].x[2]+
+				                           mu[is,3]*L[3].x[2] + mu[is,4]*L[4].x[2]+
+                                           mu[is,5]*L[5].x[2] + mu[is,6]*L[6].x[2]+
+									       mu[is,7]*L[7].x[2] + mu[is,8]*L[8].x[2])
+        		end
+
+				for is in 1:s
+					eval=false
+					for k in eachindex(uj.x[2])
+						if (abs(U[is][k]-Uz[is][k])>0.)
+							eval=true
+						end
+					end
+					if (eval==true)
+#						nfcn[1]+=1
+	            		f1(F[is].x[1], U[is].x[1],U[is].x[2], p,  tj + hc[is])
+	            		@. L[is].x[1] = hb[is]*F[is].x[1]
+					end
+	       	    end
+		        end
+
+
 
         	end # while iter
 
