@@ -9,7 +9,7 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 #     dt::tType=0.,
      dt=0.,
      saveat=dt,
-     maxiter=10,
+     maxiter=6,              #10
 	 maxtrials=3,            # maximum of unsuccessful trials
      save_everystep=true,
      initial_interp=true,
@@ -106,8 +106,8 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 		U6[i] = zero(u0)
 	end
 
-    cache=tcache{uType,uiType}(U1,U2,U3,U4,U5,U6,[0],[0],[0.,0.])
-	@unpack U,Uz,L,Lz,F,Dmin,rejects,nfcn,lambdas=cache
+    cache=tcache{uType,uiType}(U1,U2,U3,U4,U5,U6,fill(true,s),[0],[0],[0.,0.])
+	@unpack U,Uz,L,Lz,F,Dmin,Eval,rejects,nfcn,lambdas=cache
 
     ej=zero(u0)
 
@@ -392,7 +392,7 @@ function IRKstepDynODE_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,max
 		f2=prob.f.f2
 #		r0=prob.v0
 #		v0=prob.u0
-		@unpack U,Uz,L,Lz,F,Dmin,rejects,nfcn,lambdas=cache
+		@unpack U,Uz,L,Lz,F,Dmin,Eval,rejects,nfcn,lambdas=cache
 
 		uiType = eltype(uj)
 
@@ -443,7 +443,7 @@ function IRKstepDynODE_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,max
             	end
         	end
 
-        	for is in 1:s
+        	Threads.@threads for is in 1:s
 				nfcn[1]+=1
 				f1(F[is].x[1], U[is].x[1],U[is].x[2], p, tj + hc[is])
 				f2(F[is].x[2], U[is].x[1],U[is].x[2], p, tj + hc[is])
@@ -469,14 +469,17 @@ function IRKstepDynODE_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,max
 									       mu[is,7]*L[7].x[1] + mu[is,8]*L[8].x[1])
         		end
 
-				for is in 1:s
-					eval=false
+				Threads.@threads for is in 1:s
+#					eval=false
+	                Eval[is]=false
 					for k in eachindex(uj.x[1])
 						if (abs(U[is][k]-Uz[is][k])>0.)
-							eval=true
+#							eval=true
+                            Eval[is]=true
 						end
 					end
-					if (eval==true)
+#					if (eval==true)
+                    if (Eval[is]==true)
 						nfcn[1]+=1
 	            		f2(F[is].x[2], U[is].x[1],U[is].x[2], p,  tj + hc[is])
 	            		@. L[is].x[2] = hb[is]*F[is].x[2]
@@ -496,14 +499,17 @@ function IRKstepDynODE_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,max
 									       mu[is,7]*L[7].x[2] + mu[is,8]*L[8].x[2])
         		end
 
-				for is in 1:s
-					eval=false
+				Threads.@threads for is in 1:s
+#					eval=false
+					Eval[is]=false
 					for k in eachindex(uj.x[2])
 						if (abs(U[is][k]-Uz[is][k])>0.)
-							eval=true
+#							eval=true
+							Eval[is]=true
 						end
 					end
-					if (eval==true)
+#					if (eval==true)
+                    if (Eval[is]==true)
 #						nfcn[1]+=1
 	            		f1(F[is].x[1], U[is].x[1],U[is].x[2], p,  tj + hc[is])
 	            		@. L[is].x[1] = hb[is]*F[is].x[1]

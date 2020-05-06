@@ -17,6 +17,7 @@ mutable struct tcache{uType,eltypeu}
 	Lz::Array{uType,1}
 	F::Array{uType,1}
 	Dmin::Array{uType,1}
+	Eval::Array{Bool,1}
 	rejects::Array{Int64,1}
 	nfcn::Array{Int64, 1}
 	lambdas::Array{eltypeu,1}
@@ -121,8 +122,8 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 		U6[i] = zero(u0)
 	end
 
-    cache=tcache{uType,uiType}(U1,U2,U3,U4,U5,U6,[0],[0],[0.,0.])
-	@unpack U,Uz,L,Lz,F,Dmin,rejects,nfcn,lambdas=cache
+    cache=tcache{uType,uiType}(U1,U2,U3,U4,U5,U6,fill(true,s),[0],[0],[0.,0.])
+	@unpack U,Uz,L,Lz,F,Dmin,Eval,rejects,nfcn,lambdas=cache
 
     ej=zero(u0)
 
@@ -363,7 +364,7 @@ function IRKstep_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials
 
 		@unpack mu,hc,hb,nu,beta,beta2 = coeffs
         @unpack f,u0,p,tspan=prob
-		@unpack U,Uz,L,Lz,F,Dmin,rejects,nfcn,lambdas=cache
+		@unpack U,Uz,L,Lz,F,Dmin,Eval,rejects,nfcn,lambdas=cache
 
 		uiType = eltype(uj)
 
@@ -414,8 +415,9 @@ function IRKstep_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials
             	end
         	end
 
-        	for is in 1:s
+         	Threads.@threads for is in 1:s
 				nfcn[1]+=1
+#                atomic_add!(nfcn[1],1)
         		f(F[is], U[is], p, tj + hc[is])
         		@. L[is] = hb[is]*F[is]
         	end
@@ -436,15 +438,19 @@ function IRKstep_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials
 									       mu[is,7]*L[7] + mu[is,8]*L[8])
         		end
 
-				for is in 1:s
-					eval=false
+				Threads.@threads for is in 1:s
+#					eval=false
+                    Eval[is]=false
 					for k in eachindex(uj)
 						if (abs(U[is][k]-Uz[is][k])>0.)
-							eval=true
+#							eval=true
+                            Eval[is]=true
 						end
 					end
-					if (eval==true)
+#					if (eval==true)
+					if (Eval[is]==true)
 						nfcn[1]+=1
+#		                atomic_add!(nfcn[1],1)
 	            		f(F[is], U[is], p, tj + hc[is])
 	            		@. L[is] = hb[is]*F[is]
 					end
