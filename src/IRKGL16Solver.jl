@@ -33,7 +33,7 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 #     dt::tType=0.,
      dt=0.,
      saveat=dt,
-     maxiter=10,
+     maxiter=12,
 	 maxtrials=3,            # maximum of unsuccessful trials
      save_everystep=true,
      initial_interp=true,
@@ -96,16 +96,29 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 
 #   m: output saved at every m steps
 #   n: Number of macro-steps  (Output is saved for n+1 time values)
+
+
 	if (adaptive==true)
-		m=1
-		n=Inf
-    elseif (save_everystep==false)
+	   if (save_everystep==false)
+    		m=1
+		    n=Inf
+       else
+			m=Int64(saveat)
+		    n=Inf
+      end
+    end
+
+    if (adaptive==false)
+	    if (save_everystep==false)
 			m=convert(Int64,ceil((tf-t0)/(dt)))
 			n=1
     	else
 			m=convert(Int64,(round(saveat/dt)))
     		n=convert(Int64,ceil((tf-t0)/(m*dt)))
-	end
+        end
+    end
+
+
 
     U1 = Array{uType}(undef, s)
     U2 = Array{uType}(undef, s)
@@ -150,10 +163,12 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
     while cont
 		tit=0
 		it=0
+        k=0
 
         @inbounds begin
         for i in 1:m
 		  j+=1
+		  k+=1
 #         println("step:", j, " time=",tj[1]+tj[2]," dt=", dts[1], " dtprev=", dts[2])
    	      (status,it) = IRKStep!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiter,
 	                             maxtrials,initial_interp,abstol2s,reltol2s,adaptive)
@@ -163,19 +178,24 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 			 sol=DiffEqBase.build_solution(prob,alg,tt,uu,retcode= :Failure)
 		     return(sol)
 		 end
-          tit+=it
+         tit+=it
 
-        end
-	    end
+		 if (dts[1]==0)
+			 break
+		 end
 
-        cont = (sdt*(tj[1]+tj[2]) < sdt*tf) && (j<n*m)
+       end
+	   end
 
-		if (save_everystep==true) || (cont==false)
-			push!(iters,convert(Int64,round(tit/m)))
+	   cont = (sdt*(tj[1]+tj[2]) < sdt*tf) && (j<n*m)
+#	   cont = (sdt*(tj[1]+tj[2]) < sdt*tf)  && (j<n*k)
+
+       if (save_everystep==true) || (cont==false)
+			push!(iters,convert(Int64,round(tit/k)))
 			push!(uu,uj+ej)
 			push!(tt,tj[1]+tj[2])
 			push!(steps,dts[2])
-		end
+       end
 
     end
 

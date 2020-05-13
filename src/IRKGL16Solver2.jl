@@ -72,23 +72,35 @@ struct IRKGL162 <: IRKAlgorithm2 end
 
   #   m: output saved at every m steps
   #   n: Number of macro-steps  (Output is saved for n+1 time values)
-  	if (adaptive==true)
-  		m=1
-  		n=Inf
-      elseif (save_everystep==false)
-  			m=convert(Int64,ceil((tf-t0)/(dt)))
-  			n=1
-      	else
-  			m=convert(Int64,(round(saveat/dt)))
-      		n=convert(Int64,ceil((tf-t0)/(m*dt)))
-  	end
 
-      U1 = Array{uType}(undef, s)
-      U2 = Array{uType}(undef, s)
-      U3 = Array{uType}(undef, s)
-      U4 = Array{uType}(undef, s)
-      U5 = Array{uType}(undef, s)
+
+	if (adaptive==true)
+	   if (save_everystep==false)
+    		m=1
+		    n=Inf
+       else
+			m=Int64(saveat)
+		    n=Inf
+      end
+    end
+
+    if (adaptive==false)
+	    if (save_everystep==false)
+			m=convert(Int64,ceil((tf-t0)/(dt)))
+			n=1
+    	else
+			m=convert(Int64,(round(saveat/dt)))
+    		n=convert(Int64,ceil((tf-t0)/(m*dt)))
+        end
+    end
+
+    U1 = Array{uType}(undef, s)
+    U2 = Array{uType}(undef, s)
+    U3 = Array{uType}(undef, s)
+    U4 = Array{uType}(undef, s)
+    U5 = Array{uType}(undef, s)
   	U6 = Array{uType}(undef, s)
+
   	for i in 1:s
         U1[i] = zero(u0)
 		U2[i] = zero(u0)
@@ -98,8 +110,8 @@ struct IRKGL162 <: IRKAlgorithm2 end
 		U6[i] = zero(u0)
   	end
 
-      cache=tcache{uType,uiType}(U1,U2,U3,U4,U5,U6,[0],[0],[0.,0.])
-  	@unpack U,Uz,L,Lz,F,Dmin,rejects,nfcn,lambdas=cache
+    cache=tcache{uType,uiType}(U1,U2,U3,U4,U5,U6,fill(true,s),[0],[0],[0.,0.])
+  	@unpack U,Uz,L,Lz,F,Dmin,Eval,rejects,nfcn,lambdas=cache
 
       ej=zero(u0)
 
@@ -126,27 +138,34 @@ struct IRKGL162 <: IRKAlgorithm2 end
       while cont
   		tit=0
   		it=0
+		k=0
 
-          @inbounds begin
-          for i in 1:m
-  		  j+=1
+        @inbounds begin
+        for i in 1:m
+  	    	  j+=1
+		      k+=1
   #         println("step:", j, " time=",tj[1]+tj[2]," dt=", dts[1], " dtprev=", dts[2])
      	      (status,it) = IRKstep_adaptive2!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiter,
   	                             maxtrials,initial_interp,abstol2s,reltol2s,adaptive)
 
-           if (status=="Failure")
-  			 println("Fail")
-  			 sol=DiffEqBase.build_solution(prob,alg,tt,uu,retcode= :Failure)
-  		     return(sol)
-  		   end
-            tit+=it
-          end
-	      end
+              if (status=="Failure")
+  			      println("Fail")
+  			      sol=DiffEqBase.build_solution(prob,alg,tt,uu,retcode= :Failure)
+  		          return(sol)
+  		      end
+              tit+=it
 
-          cont = (sdt*(tj[1]+tj[2]) < sdt*tf) && (j<n*m)
+			  if (dts[1]==0)
+	             break
+              end
+
+       end
+	   end
+
+       cont = (sdt*(tj[1]+tj[2]) < sdt*tf) && (j<n*m)
 
   		if (save_everystep==true) || (cont==false)
-  			push!(iters,convert(Int64,round(tit/m)))
+  			push!(iters,convert(Int64,round(tit/k)))
   			push!(uu,uj+ej)
   			push!(tt,tj[1]+tj[2])
   			push!(steps,dts[2])
@@ -177,7 +196,7 @@ function IRKstep_adaptive2!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrial
 
 		@unpack mu,hc,hb,nu,beta,beta2 = coeffs
         @unpack f,u0,p,tspan=prob
-		@unpack U,Uz,L,Lz,F,Dmin,rejects,nfcn,lambdas=cache
+		@unpack U,Uz,L,Lz,F,Dmin,Eval,rejects,nfcn,lambdas=cache
 
 		uiType = eltype(uj)
 
@@ -236,7 +255,7 @@ function IRKstep_adaptive2!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrial
         	end
 
             @inbounds begin
-        	for is in 1:s
+        	Threads.@threads for is in 1:s
 				nfcn[1]+=1
             	f(F[is], U[is], p, tj + hc[is])
             	@. L[is] = hb[is]*F[is]
@@ -264,12 +283,14 @@ function IRKstep_adaptive2!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrial
 									       mu[is,7]*L[7] + mu[is,8]*L[8])
         		end
 
-            	for is in 1:s
-                	eval=false
+            	Threads.@threads for is in 1:s
+#                	eval=false
+					Eval[is]=false
                 	for k in eachindex(uj)
                         DY=abs(U[is][k]-Uz[is][k])
                         if DY>0.
-                           eval=true
+#                          eval=true
+						   Eval[is]=true
                            if DY< Dmin[is][k]
                               Dmin[is][k]=DY
                               iter=true
@@ -279,7 +300,8 @@ function IRKstep_adaptive2!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrial
                        end
                 	end
 
-               		if eval==true
+#             		if eval==true
+               		if Eval[is]==true
 						nfcn[1]+=1
                   		f(F[is], U[is], p,  tj + hc[is])
                   		@. L[is] = hb[is]*F[is]
