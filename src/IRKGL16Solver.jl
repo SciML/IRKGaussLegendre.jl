@@ -32,7 +32,7 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
      alg::IRKAlgorithm,args...;
 #     dt::tType=0.,
      dt=0.,
-     saveat=dt,
+     saveat=1,
      maxiter=12,
 	 maxtrials=3,            # maximum of unsuccessful trials
      save_everystep=true,
@@ -55,8 +55,6 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 	tType2=eltype(tspan)
 	#tType.parameters[1]
 	uiType = eltype(u0)
-
-#	println("uType=",uType, ", tType=",tType, ", uiType=", uiType)
 
     reltol2s=uiType(sqrt(reltol))
 	abstol2s=uiType(sqrt(abstol))
@@ -99,6 +97,7 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 
 
 	if (adaptive==true)
+	   maxiter=12
 	   if (save_everystep==false)
     		m=1
 		    n=Inf
@@ -109,11 +108,14 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
     end
 
     if (adaptive==false)
+		maxiter=100
 	    if (save_everystep==false)
-			m=convert(Int64,ceil((tf-t0)/(dt)))
-			n=1
+##			m=convert(Int64,ceil((tf-t0)/(dt)))
+            m=1
+    		n=convert(Int64,ceil((tf-t0)/(m*dt)))
     	else
-			m=convert(Int64,(round(saveat/dt)))
+##			m=convert(Int64,(round(saveat/dt)))
+            m=Int64(saveat)
     		n=convert(Int64,ceil((tf-t0)/(m*dt)))
         end
     end
@@ -169,7 +171,6 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
         for i in 1:m
 		  j+=1
 		  k+=1
-#         println("step:", j, " time=",tj[1]+tj[2]," dt=", dts[1], " dtprev=", dts[2])
    	      (status,it) = IRKStep!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiter,
 	                             maxtrials,initial_interp,abstol2s,reltol2s,adaptive)
 
@@ -188,7 +189,6 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 	   end
 
 	   cont = (sdt*(tj[1]+tj[2]) < sdt*tf) && (j<n*m)
-#	   cont = (sdt*(tj[1]+tj[2]) < sdt*tf)  && (j<n*k)
 
        if (save_everystep==true) || (cont==false)
 			push!(iters,convert(Int64,round(tit/k)))
@@ -199,9 +199,8 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 
     end
 
-#    println("End IRKGL16")
-
 	sol=DiffEqBase.build_solution(prob,alg,tt,uu,destats=destats,retcode= :Success)
+
 	sol.destats.nf=nfcn[1]
 	sol.destats.nreject=rejects[1]
 	sol.destats.naccept=j
@@ -240,7 +239,7 @@ function IRKstep_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 
         @unpack mu,hc,hb,nu,beta,beta2 = coeffs
         @unpack f,u0,p,tspan=prob
-		@unpack U,Uz,L,Lz,F,Dmin,rejects,nfcn,lambdas=cache
+		@unpack U,Uz,L,Lz,F,Dmin,Eval,rejects,nfcn,lambdas=cache
 
 		uiType = eltype(uj)
 
@@ -281,7 +280,7 @@ function IRKstep_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
     	end
 
         @inbounds begin
-    	for is in 1:s
+    	Threads.@threads for is in 1:s
 			nfcn[1]+=1
         	f(F[is], U[is], p, tj + hc[is])
         	@. L[is] = hb[is]*F[is]
@@ -311,12 +310,12 @@ function IRKstep_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 								       mu[is,7]*L[7] + mu[is,8]*L[8])
     		end
 
-        	for is in 1:s
-            	eval=false
+        	Threads.@threads for is in 1:s
+            	Eval[is]=false
             	for k in eachindex(uj)
                     DY=abs(U[is][k]-Uz[is][k])
                     if DY>0.
-                       eval=true
+                       Eval[is]=true
                        if DY< Dmin[is][k]
                           Dmin[is][k]=DY
                           iter=true
@@ -326,7 +325,7 @@ function IRKstep_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
                    end
             	end
 
-           		if eval==true
+           		if Eval[is]==true
 					nfcn[1]+=1
               		f(F[is], U[is], p,  tj + hc[is])
               		@. L[is] = hb[is]*F[is]
@@ -367,9 +366,6 @@ function IRKstep_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 
     	dts[1]=min(dt,tf-(ttj[1]+ttj[2]))
 		dts[2]=dt
-
-#        println("New step size:  dt=",dts[1])
-#        println("")
 
         return("Success",nit)
 
@@ -459,15 +455,12 @@ function IRKstep_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials
         		end
 
 				Threads.@threads for is in 1:s
-#					eval=false
                     Eval[is]=false
 					for k in eachindex(uj)
 						if (abs(U[is][k]-Uz[is][k])>0.)
-#							eval=true
                             Eval[is]=true
 						end
 					end
-#					if (eval==true)
 					if (Eval[is]==true)
 						nfcn[1]+=1
 #		                atomic_add!(nfcn[1],1)
@@ -522,12 +515,6 @@ function IRKstep_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials
 		if (j==1)
             dts[1]=min(max(dt/2,min(2*dt,dt/lambda)),tf-(ttj[1]+ttj[2]))
 		else
-#            barh=dt/lambda*(dt*lambdaprev/(dtprev*lambda))^((lambda+1)/(lambda+lambdaprev))   #v0
-#            dts[1]= min(max(dt/2,min(2*dt,barh)),tf-(ttj[1]+ttj[2]))                          #v0
-#
-#            barh=dt/lambda*(dt*lambdaprev/(dtprev*lambda))^(lambda/lambdaprev)			#2020-04-18
-#			dts[1]= min(max(dt/2,min(2*dt,barh)),tf-(ttj[1]+ttj[2]))                    #2020-04-18
-#
             hath1=dt/lambda
 			hath2=dtprev/lambdaprev
 			tildeh=hath1*(hath1/hath2)^(lambda/lambdaprev)
@@ -538,9 +525,6 @@ function IRKstep_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials
 		end
 		dts[2]=dt
         lambdas[2]=lambda
-
-#        println("New step size:  dt=",dts[1])
-#        println("")
 
         return("Success",nit)
 

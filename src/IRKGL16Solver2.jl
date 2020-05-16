@@ -8,7 +8,7 @@ struct IRKGL162 <: IRKAlgorithm2 end
        alg::IRKAlgorithm2,args...;
 #	   dt::tType=zero,
        dt=0.,
-       saveat=dt,
+       saveat=1,
        maxiter=100,
        maxtrials=3,            # maximum of unsuccessful trials
        save_everystep=true,
@@ -31,8 +31,6 @@ struct IRKGL162 <: IRKAlgorithm2 end
   	tf=tspan[2]
 	tType2=eltype(tspan)
   	uiType = eltype(u0)
-
-#	println("uType=",uType, ", tType=",tType, ", uiType=", uiType)
 
   	reltol2s=uiType(sqrt(reltol))
   	abstol2s=uiType(sqrt(abstol))
@@ -86,10 +84,12 @@ struct IRKGL162 <: IRKAlgorithm2 end
 
     if (adaptive==false)
 	    if (save_everystep==false)
-			m=convert(Int64,ceil((tf-t0)/(dt)))
-			n=1
+#			m=convert(Int64,ceil((tf-t0)/(dt)))
+            m=1
+    		n=convert(Int64,ceil((tf-t0)/(m*dt)))
     	else
-			m=convert(Int64,(round(saveat/dt)))
+#			m=convert(Int64,(round(saveat/dt)))
+            m=Int64(saveat)
     		n=convert(Int64,ceil((tf-t0)/(m*dt)))
         end
     end
@@ -144,7 +144,6 @@ struct IRKGL162 <: IRKAlgorithm2 end
         for i in 1:m
   	    	  j+=1
 		      k+=1
-  #         println("step:", j, " time=",tj[1]+tj[2]," dt=", dts[1], " dtprev=", dts[2])
      	      (status,it) = IRKstep_adaptive2!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiter,
   	                             maxtrials,initial_interp,abstol2s,reltol2s,adaptive)
 
@@ -165,15 +164,13 @@ struct IRKGL162 <: IRKAlgorithm2 end
        cont = (sdt*(tj[1]+tj[2]) < sdt*tf) && (j<n*m)
 
   		if (save_everystep==true) || (cont==false)
-  			push!(iters,convert(Int64,round(tit/k)))
+  			push!(iters,convert(Int64,round(tit/k)))   #tit/k
   			push!(uu,uj+ej)
   			push!(tt,tj[1]+tj[2])
   			push!(steps,dts[2])
   		end
 
       end
-
-  #    println("End IRKGL16")
 
   	sol=DiffEqBase.build_solution(prob,alg,tt,uu,destats=destats,retcode= :Success)
   	sol.destats.nf=nfcn[1]
@@ -284,12 +281,10 @@ function IRKstep_adaptive2!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrial
         		end
 
             	Threads.@threads for is in 1:s
-#                	eval=false
 					Eval[is]=false
                 	for k in eachindex(uj)
                         DY=abs(U[is][k]-Uz[is][k])
                         if DY>0.
-#                          eval=true
 						   Eval[is]=true
                            if DY< Dmin[is][k]
                               Dmin[is][k]=DY
@@ -300,7 +295,6 @@ function IRKstep_adaptive2!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrial
                        end
                 	end
 
-#             		if eval==true
                		if Eval[is]==true
 						nfcn[1]+=1
                   		f(F[is], U[is], p,  tj + hc[is])
@@ -361,13 +355,6 @@ function IRKstep_adaptive2!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrial
 		if (j==1)
             dts[1]=min(max(dt/2,min(2*dt,dt/lambda)),tf-(ttj[1]+ttj[2]))
 		else
-
-#            barh=dt/lambda*(dt*lambdaprev/(dtprev*lambda))^((lambda+1)/(lambda+lambdaprev))   #v0
-#            dts[1]= min(max(dt/2,min(2*dt,barh)),tf-(ttj[1]+ttj[2]))                          #v0
-#
-#            barh=dt/lambda*(dt*lambdaprev/(dtprev*lambda))^(lambda/lambdaprev)			#2020-04-18
-#			dts[1]= min(max(dt/2,min(2*dt,barh)),tf-(ttj[1]+ttj[2]))                    #2020-04-18
-#
             hath1=dt/lambda
 			hath2=dtprev/lambdaprev
 			tildeh=hath1*(hath1/hath2)^(lambda/lambdaprev)
@@ -380,9 +367,6 @@ function IRKstep_adaptive2!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrial
 
 		dts[2]=dt
         lambdas[2]=lambda
-
-#        println("New step size:  dt=",dts[1])
-#        println("")
 
         return("Success",nit)
 
