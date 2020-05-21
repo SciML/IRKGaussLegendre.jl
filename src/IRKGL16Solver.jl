@@ -10,7 +10,7 @@ mutable struct tcoeffs{T}
 	   beta2::Array{T,2}
 end
 
-mutable struct tcache{uType,eltypeu}
+mutable struct tcache{uType,elTypeu}
 	U::Array{uType,1}
 	Uz::Array{uType,1}
     L::Array{uType,1}
@@ -20,7 +20,7 @@ mutable struct tcache{uType,eltypeu}
 	Eval::Array{Bool,1}
 	rejects::Array{Int64,1}
 	nfcn::Array{Int64, 1}
-	lambdas::Array{eltypeu,1}
+	lambdas::Array{elTypeu,1}
 end
 
 
@@ -41,6 +41,8 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 	 reltol=1e-6,
 	 abstol=1e-6,
 	 myoutputs=false,
+     mixed_precision=false,
+	 low_prec_type = Float64,
      kwargs...) where{uType,tType,isinplace}
 
 #     println("IRKGL16....ODEproblem")
@@ -49,11 +51,11 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 	s = 8
     destats = DiffEqBase.DEStats(0)
 
-	@unpack f,u0,tspan,p=prob
+	@unpack f,u0,tspan,p,kwargs=prob
     t0=tspan[1]
 	tf=tspan[2]
 	tType2=eltype(tspan)
-	#tType.parameters[1]
+#	low_prec_type=typeof(kwargs[:lpp])
 	uiType = eltype(u0)
 
     reltol2s=uiType(sqrt(reltol))
@@ -137,7 +139,7 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 		U6[i] = zero(u0)
 	end
 
-    cache=tcache{uType,uiType}(U1,U2,U3,U4,U5,U6,fill(true,s),[0],[0],[0.,0.])
+    cache=tcache{uType,uiType}(U1,U2,U3,U4,U5,U6,fill(true,s),[0],[0,0],[0.,0.])
 	@unpack U,Uz,L,Lz,F,Dmin,Eval,rejects,nfcn,lambdas=cache
 
     ej=zero(u0)
@@ -172,7 +174,8 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 		  j+=1
 		  k+=1
    	      (status,it) = IRKStep!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiter,
-	                             maxtrials,initial_interp,abstol2s,reltol2s,adaptive)
+	                             maxtrials,initial_interp,abstol2s,reltol2s,adaptive,
+								 mixed_precision,low_prec_type)
 
          if (status=="Failure")
 			 println("Fail")
@@ -202,6 +205,7 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 	sol=DiffEqBase.build_solution(prob,alg,tt,uu,destats=destats,retcode= :Success)
 
 	sol.destats.nf=nfcn[1]
+	sol.destats.nf2=nfcn[2]
 	sol.destats.nreject=rejects[1]
 	sol.destats.naccept=j
 
@@ -216,17 +220,20 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 
 
 function IRKStep!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials,
-  		               initial_interp,abstol,reltol,adaptive)
+  		               initial_interp,abstol,reltol,adaptive,
+					   mixed_precision,low_prec_type)
 
 
    if (adaptive==true)
 #	   println("IRKstep_adaptive. maxiter=", maxiter)
 	  (status,it)= IRKstep_adaptive!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiter,
- 		     	             maxtrials,initial_interp,abstol,reltol,adaptive)
+ 		     	             maxtrials,initial_interp,abstol,reltol,adaptive,
+							 mixed_precision,low_prec_type)
    else
 #	  println("IRKstep_fixed")
 	  (status,it)= IRKstep_fixed!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiter,
- 			                      initial_interp,abstol,reltol,adaptive)
+ 			                      initial_interp,abstol,reltol,adaptive,
+								  mixed_precision,low_prec_type)
    end
 
    return(status,it)
@@ -235,12 +242,14 @@ end
 
 
 function IRKstep_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
-		               initial_interp,abstol,reltol,adaptive)
+		               initial_interp,abstol,reltol,adaptive,
+					   mixed_precision,low_prec_type)
 
         @unpack mu,hc,hb,nu,beta,beta2 = coeffs
-        @unpack f,u0,p,tspan=prob
+        @unpack f,u0,p,tspan,kwargs=prob
 		@unpack U,Uz,L,Lz,F,Dmin,Eval,rejects,nfcn,lambdas=cache
 
+        lpp=kwargs[:lpp]
 		uiType = eltype(uj)
 
 		dt=dts[1]
@@ -281,8 +290,14 @@ function IRKstep_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 
         @inbounds begin
     	Threads.@threads for is in 1:s
-			nfcn[1]+=1
-        	f(F[is], U[is], p, tj + hc[is])
+			if (mixed_precision==true)
+                nfcn[2]+=1
+			   f(F[is], convert.(low_prec_type,U[is]),lpp,
+			     convert(low_prec_type, tj + hc[is]))
+			else
+			    nfcn[1]+=1
+        	   f(F[is], U[is], p, tj + hc[is])
+		    end
         	@. L[is] = hb[is]*F[is]
     	end
 	    end
@@ -295,16 +310,28 @@ function IRKstep_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 		for is in 1:s Dmin[is] .= Inf end
 	    end
 
-    	while (nit<maxiter && iter)
 
-        	nit+=1
+##
+##  Low-prec iterations
+##
+
+##        println("***************************************************")
+##        println("urratsa=",j)
+
+        if (mixed_precision==true)
+
+    	while (iter)
+
+            nit+=1
+
         	iter=false
         	D0=0
 
             @inbounds begin
     		for is in 1:s
         		Uz[is] .= U[is]
-        		DiffEqBase.@.. U[is] = uj + (ej+mu[is,1]*L[1] + mu[is,2]*L[2]+
+        		DiffEqBase.@.. U[is] =uj +
+				                      (ej+mu[is,1]*L[1] + mu[is,2]*L[2]+
 			                           mu[is,3]*L[3] + mu[is,4]*L[4]+
                                        mu[is,5]*L[5] + mu[is,6]*L[6]+
 								       mu[is,7]*L[7] + mu[is,8]*L[8])
@@ -326,22 +353,93 @@ function IRKstep_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
             	end
 
            		if Eval[is]==true
-					nfcn[1]+=1
-              		f(F[is], U[is], p,  tj + hc[is])
-              		@. L[is] = hb[is]*F[is]
+					nfcn[2]+=1
+   				    f(F[is], convert.(low_prec_type,U[is]),lpp,
+				     		 convert(low_prec_type, tj + hc[is]))
+					@. L[is] = hb[is]*F[is]
            		end
 
     		end
 		    end
 
-        	if (iter==false && D0<elems && plusIt)
-            	iter=true
-            	plusIt=false
-        	else
-            	plusIt=true
-        	end
+##			println("low-prec-iters=",nit-1, " D0=", D0," Norm=", norm(U.-Uz))
 
-    	end # while iter
+    	end # while iter low-prec
+
+##       println(" ")
+
+       @inbounds begin
+       Threads.@threads for is in 1:s
+	       nfcn[1]+=1
+	       f(F[is], U[is], p, tj + hc[is])
+	       @. L[is] = hb[is]*F[is]
+       end
+       end
+
+       iter = true # Initialize iter outside the for loop
+       plusIt=true
+
+#	   @inbounds begin
+#	   for is in 1:s Dmin[is] .= Inf end
+#	   end
+
+	end # if (mixed_precision==true)
+
+	   ##
+	   ##  High-prec iterations
+	   ##
+
+       while (nit<maxiter && iter)
+
+      	  nit+=1
+
+		  iter=false
+	      D0=0
+
+	      @inbounds begin
+	      for is in 1:s
+	    	Uz[is] .= U[is]
+		    DiffEqBase.@.. U[is] = uj + (ej+mu[is,1]*L[1] + mu[is,2]*L[2]+
+			  				   mu[is,3]*L[3] + mu[is,4]*L[4]+
+							   mu[is,5]*L[5] + mu[is,6]*L[6]+
+							   mu[is,7]*L[7] + mu[is,8]*L[8])
+	     end
+
+	     Threads.@threads for is in 1:s
+	     	Eval[is]=false
+		    for k in eachindex(uj)
+			    DY=abs(U[is][k]-Uz[is][k])
+			    if DY>0.
+			       Eval[is]=true
+			       if DY< Dmin[is][k]
+				      Dmin[is][k]=DY
+				      iter=true
+			      end
+		       else
+			      D0+=1
+		      end
+		   end
+
+		   if Eval[is]==true
+	    		nfcn[1]+=1
+		    	f(F[is], U[is],lpp, tj + hc[is])
+			    @. L[is] = hb[is]*F[is]
+		   end
+	    end
+	    end
+
+	    if (iter==false && D0<elems && plusIt)
+		    iter=true
+	    	plusIt=false
+	    else
+		    plusIt=true
+	    end
+
+##		 println("high-prec-iters=",nit-1, " D0=", D0, " Norm=", norm(U.-Uz))
+
+     end # while iter high-prec
+
+
 
 		indices = eachindex(uj)
 
@@ -375,7 +473,8 @@ end
 
 
 function IRKstep_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials,
-		                      initial_interp,abstol,reltol,adaptive)
+		                      initial_interp,abstol,reltol,adaptive,
+							  mixed_precision,low_prec_type)
 
 
 		@unpack mu,hc,hb,nu,beta,beta2 = coeffs
