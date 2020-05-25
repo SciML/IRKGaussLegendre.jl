@@ -288,19 +288,6 @@ function IRKstep_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 			end
     	end
 
-        @inbounds begin
-    	Threads.@threads for is in 1:s
-			if (mixed_precision==true)
-                nfcn[2]+=1
-			   f(F[is], convert.(low_prec_type,U[is]),lpp,
-			     convert(low_prec_type, tj + hc[is]))
-			else
-			    nfcn[1]+=1
-        	   f(F[is], U[is], p, tj + hc[is])
-		    end
-        	@. L[is] = hb[is]*F[is]
-    	end
-	    end
 
     	iter = true # Initialize iter outside the for loop
     	plusIt=true
@@ -320,6 +307,18 @@ function IRKstep_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 
         if (mixed_precision==true)
 
+#        setprecision(BigFloat,precision(low_prec_type)+11)   #+11?
+
+		@inbounds begin
+		Threads.@threads for is in 1:s
+				nfcn[2]+=1
+				f(F[is], convert.(low_prec_type,U[is]),lpp,
+				convert(low_prec_type, tj + hc[is]))
+				@. L[is] = hb[is]*F[is]
+		end
+		end
+
+
     	while (iter)
 
             nit+=1
@@ -330,7 +329,7 @@ function IRKstep_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
             @inbounds begin
     		for is in 1:s
         		Uz[is] .= U[is]
-        		DiffEqBase.@.. U[is] =uj +
+        		DiffEqBase.@.. U[is] = uj +
 				                      (ej+mu[is,1]*L[1] + mu[is,2]*L[2]+
 			                           mu[is,3]*L[3] + mu[is,4]*L[4]+
                                        mu[is,5]*L[5] + mu[is,6]*L[6]+
@@ -362,19 +361,16 @@ function IRKstep_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
     		end
 		    end
 
-##			println("low-prec-iters=",nit-1, " D0=", D0," Norm=", norm(U.-Uz))
+#			println("low-prec-iters=",nit-1, " D0=", D0," Norm=", norm(U.-Uz))
 
     	end # while iter low-prec
 
-##       println(" ")
+#       println(" ")
 
-       @inbounds begin
-       Threads.@threads for is in 1:s
-	       nfcn[1]+=1
-	       f(F[is], U[is], p, tj + hc[is])
-	       @. L[is] = hb[is]*F[is]
-       end
-       end
+#       setprecision(BigFloat,108)
+#	   println("Recover precision:",precision(BigFloat))
+
+#	   println(" ")
 
        iter = true # Initialize iter outside the for loop
        plusIt=true
@@ -383,11 +379,22 @@ function IRKstep_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 #	   for is in 1:s Dmin[is] .= Inf end
 #	   end
 
+
+
 	end # if (mixed_precision==true)
 
 	   ##
 	   ##  High-prec iterations
 	   ##
+
+	   @inbounds begin
+	   Threads.@threads for is in 1:s
+		   nfcn[1]+=1
+	       f(F[is], U[is], p, tj + hc[is])
+		   @. L[is] = hb[is]*F[is]
+	   end
+       end
+
 
        while (nit<maxiter && iter)
 
@@ -435,7 +442,7 @@ function IRKstep_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 		    plusIt=true
 	    end
 
-##		 println("high-prec-iters=",nit-1, " D0=", D0, " Norm=", norm(U.-Uz))
+#		 println("high-prec-iters=",nit-1, " D0=", D0, " Norm=", norm(U.-Uz))
 
      end # while iter high-prec
 
