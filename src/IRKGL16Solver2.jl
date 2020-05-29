@@ -9,7 +9,7 @@ struct IRKGL162 <: IRKAlgorithm2 end
 #	   dt::tType=zero,
        dt=0.,
        saveat=1,
-       maxiter=100,
+       maxiter=12,
        maxtrials=3,            # maximum of unsuccessful trials
        save_everystep=true,
        initial_interp=true,
@@ -73,6 +73,7 @@ struct IRKGL162 <: IRKAlgorithm2 end
 
 
 	if (adaptive==true)
+		maxiter=12
 	   if (save_everystep==false)
     		m=1
 		    n=Inf
@@ -187,188 +188,159 @@ struct IRKGL162 <: IRKAlgorithm2 end
 
 
 
-function IRKstep_adaptive2!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials,
-		                   initial_interp,abstol,reltol,adaptive)
+	function IRKstep_adaptive2!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials,
+			                      initial_interp,abstol,reltol,adaptive)
 
 
-		@unpack mu,hc,hb,nu,beta,beta2 = coeffs
-        @unpack f,u0,p,tspan=prob
-		@unpack U,Uz,L,Lz,F,Dmin,Eval,rejects,nfcn,lambdas=cache
+			@unpack mu,hc,hb,nu,beta,beta2 = coeffs
+	        @unpack f,u0,p,tspan=prob
+			@unpack U,Uz,L,Lz,F,Dmin,Eval,rejects,nfcn,lambdas=cache
 
-		uiType = eltype(uj)
+			uiType = eltype(uj)
 
-		lambda=lambdas[1]
-		lambdaprev=lambdas[2]
+			lambda=lambdas[1]
+			lambdaprev=lambdas[2]
 
-		dt=dts[1]
-		dtprev=dts[2]
-		tf=tspan[2]
+			dt=dts[1]
+			dtprev=dts[2]
+			tf=tspan[2]
 
-        elems = s*length(uj)
-		pow=eltype(uj)(1/(2*s))
+	        elems = s*length(uj)
+			pow=eltype(uj)(1/(2*s))
 
-        tj = ttj[1]
-        te = ttj[2]
+	        tj = ttj[1]
+	        te = ttj[2]
 
-        accept=false
-		estimate=zero(eltype(uj))
+	        accept=false
+			estimate=zero(eltype(uj))
 
-        nit=0
-		ntrials=0
+	        nit=0
+			ntrials=0
 
-        if (j==1)
-			maxtrialsj=4*maxtrials
-		else
-			maxtrialsj=maxtrials
-		end
-
-		for is in 1:s Lz[is].=L[is] end
-
-		while (!accept && ntrials<maxtrialsj)
-
-			if (dt != dtprev)
-				HCoefficients!(mu,hc,hb,nu,dt,dtprev,uiType)
-				@unpack mu,hc,hb,nu,beta,beta2 = coeffs
+	        if (j==1)
+				maxtrialsj=4*maxtrials
+				maxiterj=2*maxiter
+			else
+				maxtrialsj=maxtrials
+				maxiterj=maxiter
 			end
 
-        	if initial_interp
-				@inbounds begin
-            	for is in 1:s
-                	for k in eachindex(uj)
-                    	aux=zero(eltype(uj))
-                    	for js in 1:s
-                        	aux+=nu[is,js]*Lz[js][k]
-                    	end
-                    	U[is][k]=(uj[k]+ej[k])+aux
-                	end
-            	end
-			    end
-        	else
-				@inbounds begin
-            	for is in 1:s
-                	@. U[is] = uj + ej
-            	end
-			    end
-        	end
+			for is in 1:s Lz[is].=L[is] end
 
-            @inbounds begin
-        	Threads.@threads for is in 1:s
-				nfcn[1]+=1
-            	f(F[is], U[is], p, tj + hc[is])
-            	@. L[is] = hb[is]*F[is]
-        	end
+			while (!accept && ntrials<maxtrialsj)
+
+				if (dt != dtprev)
+					HCoefficients!(mu,hc,hb,nu,dt,dtprev,uiType)
+					@unpack mu,hc,hb,nu,beta,beta2 = coeffs
+				end
+
+	            @inbounds begin
+	        	for is in 1:s
+	            	for k in eachindex(uj)
+	                	aux=zero(eltype(uj))
+	                	for js in 1:s
+	                		aux+=nu[is,js]*Lz[js][k]
+	                	end
+	                	U[is][k]=(uj[k]+ej[k])+aux
+	            	end
+	        	end
+
+	         	Threads.@threads for is in 1:s
+					nfcn[1]+=1
+	#                atomic_add!(nfcn[1],1)
+	        		f(F[is], U[is], p, tj + hc[is])
+	        		@. L[is] = hb[is]*F[is]
+	        	end
+	     		end
+
+	        	nit=1
+				for is in 1:s Dmin[is] .= Inf end
+
+				while (nit<maxiterj)
+	            	nit+=1
+
+					@inbounds begin
+	        		for is in 1:s
+	            		Uz[is] .= U[is]
+	            		DiffEqBase.@.. U[is] = uj+(ej+mu[is,1]*L[1] + mu[is,2]*L[2]+
+					                           mu[is,3]*L[3] + mu[is,4]*L[4]+
+	                                           mu[is,5]*L[5] + mu[is,6]*L[6]+
+										       mu[is,7]*L[7] + mu[is,8]*L[8])
+	        		end
+
+					Threads.@threads for is in 1:s
+	                    Eval[is]=false
+						for k in eachindex(uj)
+							if (abs(U[is][k]-Uz[is][k])>0.)
+	                            Eval[is]=true
+							end
+						end
+						if (Eval[is]==true)
+							nfcn[1]+=1
+	#		                atomic_add!(nfcn[1],1)
+		            		f(F[is], U[is], p, tj + hc[is])
+		            		@. L[is] = hb[is]*F[is]
+						end
+		       	   end
+			       end
+
+	        	end # while iter
+
+	            ntrials+=1
+
+	     		estimate=ErrorEst(U,F,dt,beta2,abstol,reltol)
+				lambda=(estimate)^pow
+				if (estimate < 2)
+					accept=true
+				else
+				    rejects[1]+=1
+					dt=dt/lambda
+				end
+
+			end # while accept
+
+
+	        if (!accept && ntrials==maxtrials)
+				println("Fail !!!  Step=",j, " dt=", dts[1])
+				return("Failure",0)
+			end
+
+			indices = eachindex(uj)
+
+	        @inbounds begin
+			for k in indices    #Compensated summation
+				e0 = ej[k]
+				for is in 1:s
+					e0 += muladd(F[is][k], hb[is], -L[is][k])
+				end
+				res = Base.TwicePrecision(uj[k], e0)
+				for is in 1:s
+					res += L[is][k]
+				end
+				uj[k] = res.hi
+				ej[k] = res.lo
+			end
 		    end
 
-        	iter = true # Initialize iter outside the for loop
-        	plusIt=true
+			res = Base.TwicePrecision(tj, te) + dt
+			ttj[1] = res.hi
+			ttj[2] = res.lo
 
-        	nit=1
-			for is in 1:s Dmin[is] .= Inf end
-
-        	while (nit<maxiter && iter)
-
-            	nit+=1
-            	iter=false
-            	D0=0
-
-                @inbounds begin
-        		for is in 1:s
-            		Uz[is] .= U[is]
-            		DiffEqBase.@.. U[is] = uj + (ej+mu[is,1]*L[1] + mu[is,2]*L[2]+
-				                           mu[is,3]*L[3] + mu[is,4]*L[4]+
-                                           mu[is,5]*L[5] + mu[is,6]*L[6]+
-									       mu[is,7]*L[7] + mu[is,8]*L[8])
-        		end
-
-            	Threads.@threads for is in 1:s
-					Eval[is]=false
-                	for k in eachindex(uj)
-                        DY=abs(U[is][k]-Uz[is][k])
-                        if DY>0.
-						   Eval[is]=true
-                           if DY< Dmin[is][k]
-                              Dmin[is][k]=DY
-                              iter=true
-                           end
-                       else
-                           D0+=1
-                       end
-                	end
-
-               		if Eval[is]==true
-						nfcn[1]+=1
-                  		f(F[is], U[is], p,  tj + hc[is])
-                  		@. L[is] = hb[is]*F[is]
-               		end
-           		end
-			    end
-
-            	if (iter==false && D0<elems && plusIt)
-                	iter=true
-                	plusIt=false
-            	else
-                	plusIt=true
-            	end
-
-        	end # while iter
-
-            ntrials+=1
-
-     		estimate=ErrorEst(U,F,dt,beta2,abstol,reltol)
-			lambda=(estimate)^pow
-			if (estimate < 2)
-				accept=true
+			if (j==1)
+	            dts[1]=min(max(dt/2,min(2*dt,dt/lambda)),tf-(ttj[1]+ttj[2]))
 			else
-			    rejects[1]+=1
-				dt=dt/lambda
+	            hath1=dt/lambda
+				hath2=dtprev/lambdaprev
+				tildeh=hath1*(hath1/hath2)^(lambda/lambdaprev)
+				barlamb1=(dt+tildeh)/(hath1+tildeh)
+				barlamb2=(dtprev+dt)/(hath2+hath1)
+				barh=hath1*(hath1/hath2)^(barlamb1/barlamb2)
+				dts[1]= min(max(dt/2,min(2*dt,barh)),tf-(ttj[1]+ttj[2]))
 			end
+			dts[2]=dt
+	        lambdas[2]=lambda
 
-		end # while accept
-
-
-        if (!accept && ntrials==maxtrials)
-			println("Fail !!!  Step=",j, " dt=", dts[1])
-			return("Failure",0)
-		end
-
-		indices = eachindex(uj)
-
-        @inbounds begin
-		for k in indices    #Compensated summation
-			e0 = ej[k]
-			for is in 1:s
-				e0 += muladd(F[is][k], hb[is], -L[is][k])
-			end
-			res = Base.TwicePrecision(uj[k], e0)
-			for is in 1:s
-				res += L[is][k]
-			end
-			uj[k] = res.hi
-			ej[k] = res.lo
-		end
-	    end
-
-		res = Base.TwicePrecision(tj, te) + dt
-		ttj[1] = res.hi
-		ttj[2] = res.lo
-
-		if (j==1)
-            dts[1]=min(max(dt/2,min(2*dt,dt/lambda)),tf-(ttj[1]+ttj[2]))
-		else
-            hath1=dt/lambda
-			hath2=dtprev/lambdaprev
-			tildeh=hath1*(hath1/hath2)^(lambda/lambdaprev)
-			barlamb1=(dt+tildeh)/(hath1+tildeh)
-			barlamb2=(dtprev+dt)/(hath2+hath1)
-			barh=hath1*(hath1/hath2)^(barlamb1/barlamb2)
-			dts[1]= min(max(dt/2,min(2*dt,barh)),tf-(ttj[1]+ttj[2]))
-
-		end
-
-		dts[2]=dt
-        lambdas[2]=lambda
-
-        return("Success",nit)
+	        return("Success",nit)
 
 
-end
+	end

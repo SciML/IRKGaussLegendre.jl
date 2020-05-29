@@ -17,6 +17,8 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 	 reltol=1e-6,
 	 abstol=1e-6,
 	 myoutputs=false,
+	 mixed_precision=false,
+     low_prec_type = Float64,
      kwargs...) where{uType,tType,isinplace}
 
 #    println("IRKGL163....DynamicalProblem")
@@ -153,7 +155,8 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 		  j+=1
 		  k+=1
    	      (status,it) = IRKStepDynODE!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiter,
-	                              maxtrials,initial_interp,abstol2s,reltol2s,adaptive)
+	                              maxtrials,initial_interp,abstol2s,reltol2s,adaptive,
+								  mixed_precision,low_prec_type)
 
           if (status=="Failure")
 			 println("Fail")
@@ -196,17 +199,20 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 
 
 function IRKStepDynODE!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials,
-  		               initial_interp,abstol,reltol,adaptive)
+  		               initial_interp,abstol,reltol,adaptive,
+					   mixed_precision,low_prec_type)
 
 
    if (adaptive==true)
 #	   println("IRKstep_adaptive. maxiter=", maxiter)
 	  (status,it)= IRKstepDynODE_adaptive!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiter,
- 		     	             maxtrials,initial_interp,abstol,reltol,adaptive)
+ 		     	             maxtrials,initial_interp,abstol,reltol,adaptive,
+							 mixed_precision,low_prec_type)
    else
 #	  println("IRKstep_fixed")
 	  (status,it)= IRKstepDynODE_fixed!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiter,
- 			                      initial_interp,abstol,reltol,adaptive)
+ 			                      initial_interp,abstol,reltol,adaptive,
+								  mixed_precision,low_prec_type)
    end
 
    return(status,it)
@@ -215,10 +221,12 @@ end
 
 
 function IRKstepDynODE_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
-		               initial_interp,abstol,reltol,adaptive)
+		               initial_interp,abstol,reltol,adaptive,
+					   mixed_precision,low_prec_type)
 
         @unpack mu,hc,hb,nu,beta,beta2 = coeffs
-		@unpack tspan,p=prob
+		@unpack tspan,p,kwargs=prob
+		if !isempty(kwargs) lpp=kwargs[:lpp] end
 		f1=prob.f.f1
 		f2=prob.f.f2
 #		r0=prob.v0
@@ -263,6 +271,138 @@ function IRKstepDynODE_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 		    end
     	end
 
+
+		iter = true # Initialize iter outside the for loop
+    	plusIt=true
+
+    	nit=1
+		for is in 1:s Dmin[is] .= Inf end
+
+
+##
+##  Low-prec iterations
+##
+
+	   println("***************************************************")
+       println("urratsa=",j)
+
+       if (mixed_precision==true)
+
+		   @inbounds begin
+		    Threads.@threads for is in 1:s
+				nfcn[1]+=1
+				f1(F[is].x[1],
+				    convert.(low_prec_type,U[is].x[1]),
+					convert.(low_prec_type,U[is].x[2]),
+				    lpp, convert(low_prec_type, tj + hc[is]))
+				f2(F[is].x[2],
+				    convert.(low_prec_type,U[is].x[1]),
+					convert.(low_prec_type,U[is].x[2]),
+				    lpp, convert(low_prec_type, tj + hc[is]))
+				@. L[is] = hb[is]*F[is]
+			end
+			end
+
+			while (nit<maxiter && iter)
+
+				nit+=1
+				iter=false
+				D0=0
+
+#          	 First part
+
+				@inbounds begin
+				for is in 1:s
+					Uz[is].x[1] .= U[is].x[1]
+					DiffEqBase.@.. U[is].x[1] = uj.x[1] + (ej.x[1]+mu[is,1]*L[1].x[1] + mu[is,2]*L[2].x[1]+
+							   mu[is,3]*L[3].x[1] + mu[is,4]*L[4].x[1]+
+							   mu[is,5]*L[5].x[1] + mu[is,6]*L[6].x[1]+
+							   mu[is,7]*L[7].x[1] + mu[is,8]*L[8].x[1])
+				end
+
+				Threads.@threads for is in 1:s
+					Eval[is]=false
+					for k in eachindex(uj.x[1])
+						DY=abs(U[is][k]-Uz[is][k])
+						if DY>0.
+			   				Eval[is]=true
+			   				if DY< Dmin[is][k]
+				  				Dmin[is][k]=DY
+				  				iter=true
+			   				end
+		   				else
+			   				D0+=1
+		   				end
+					end
+
+					if Eval[is]==true
+						nfcn[1]+=1
+						f2(F[is].x[2],
+					   		convert.(low_prec_type, U[is].x[1]),
+					   		convert.(low_prec_type, U[is].x[2]),
+					   		lpp,  convert(low_prec_type, tj + hc[is]))
+						@. L[is].x[2] = hb[is]*F[is].x[2]
+					end
+				end
+
+
+#           Second part
+
+				for is in 1:s
+					Uz[is].x[2] .= U[is].x[2]
+					DiffEqBase.@.. U[is].x[2] = uj.x[2] + (ej.x[2]+mu[is,1]*L[1].x[2] + mu[is,2]*L[2].x[2]+
+					   mu[is,3]*L[3].x[2] + mu[is,4]*L[4].x[2]+
+					   mu[is,5]*L[5].x[2] + mu[is,6]*L[6].x[2]+
+					   mu[is,7]*L[7].x[2] + mu[is,8]*L[8].x[2])
+				end
+
+				Threads.@threads for is in 1:s
+					Eval[is]=false
+					for k in eachindex(uj.x[2])
+			  			DY=abs(U[is][k]-Uz[is][k])
+						if DY>0.
+				   			Eval[is]=true
+				   			if DY< Dmin[is][k]
+					  			Dmin[is][k]=DY
+					  			iter=true
+				   			end
+				   		else
+					   		D0+=1
+				   		end
+					end
+
+					if Eval[is]==true
+#					nfcn[1]+=1
+						f1(F[is].x[1],
+							convert.(low_prec_type,U[is].x[1]),
+							convert.(low_prec_type,U[is].x[2]),
+							lpp,  convert(low_prec_type,tj + hc[is]))
+						@. L[is].x[1] = hb[is]*F[is].x[1]
+					end
+
+				end
+			end #inbounds
+
+#			println("low-=",nit-1, " D0=", D0," Norm=", norm(U.-Uz))
+            println(j,",","low-=",nit-1, ",", D0,",", norm(U.-Uz))
+
+		 end # while iter
+
+	     println(" ")
+  		 iter = true
+	     plusIt=true
+
+		 @inbounds begin
+	     for is in 1:s Dmin[is] .= Inf end
+		  end
+
+       end # if (mixed_precision==true)
+
+##
+##  High-prec iterations
+##
+
+
         @inbounds begin
     	Threads.@threads for is in 1:s
 			nfcn[1]+=1
@@ -271,12 +411,6 @@ function IRKstepDynODE_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
         	@. L[is] = hb[is]*F[is]
     	end
 	    end
-
-    	iter = true # Initialize iter outside the for loop
-    	plusIt=true
-
-    	nit=1
-		for is in 1:s Dmin[is] .= Inf end
 
     	while (nit<maxiter && iter)
 
@@ -361,6 +495,9 @@ function IRKstepDynODE_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
             	plusIt=true
         	end
 
+#			 println("high-=",nit-1, " D0=", D0, " Norm=", norm(U.-Uz))
+			 println(j,",","high-=",nit-1, ",", D0, ",", norm(U.-Uz))
+
     	end # while iter
 
 		indices = eachindex(uj)
@@ -395,7 +532,8 @@ end
 
 
 function IRKstepDynODE_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials,
-		                      initial_interp,abstol,reltol,adaptive)
+		                      initial_interp,abstol,reltol,adaptive,
+							  mixed_precision,low_prec_type)
 
 
 		@unpack mu,hc,hb,nu,beta,beta2 = coeffs
