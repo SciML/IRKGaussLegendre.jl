@@ -41,7 +41,7 @@ end
 
 # OdeProblem
 
-"""
+
 function NbodyODE!(du,u,Gm,t)
      N = length(Gm)
      du[1,:,:] .= 0
@@ -60,8 +60,9 @@ function NbodyODE!(du,u,Gm,t)
      end
     return
 end
-"""
 
+
+"""
 function NbodyODE!(du,u,Gm,t)
 # 2020-05-19 Valid for mixed prec
      N = length(Gm)
@@ -87,12 +88,12 @@ function NbodyODE!(du,u,Gm,t)
     return
 
 end
-
+"""
 
 
 # DynamicalODEProblem
 
-"""
+
 function NbodyODEv!(dv,q,v,Gm,t)
 #
 #    dotv
@@ -115,8 +116,9 @@ function NbodyODEv!(dv,q,v,Gm,t)
     return
 
 end
-"""
 
+
+"""
 function NbodyODEv!(dv,q,v,Gm,t)
 #    2020-05-19 Adapted to Mixed-precision
 #
@@ -144,7 +146,7 @@ function NbodyODEv!(dv,q,v,Gm,t)
     return
 
 end
-
+"""
 
 function NbodyODEq!(dq,q,v,Gm,t)
 #
