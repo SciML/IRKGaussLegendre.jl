@@ -1,4 +1,4 @@
-include("IRKCoefficients.jl")
+#include("IRKCoefficients.jl")
 
 
 mutable struct tcoeffs{T}
@@ -129,8 +129,6 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
         end
     end
 
-
-
     U1 = Array{uType}(undef, s)
     U2 = Array{uType}(undef, s)
     U3 = Array{uType}(undef, s)
@@ -164,14 +162,6 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 	             U11,U12,U13,U14,U15,U16,U17)
 	@unpack U,Uz,L,Lz,F,Dmin,Eval,rejects,nfcn,lambdas,
 	        Ulow,DU,DF,DL,delta,Fa,Fb=cache
-
-	Ulow:: Array{uLowType,1}
-	DU::Array{uLowType,1}
-	DF::Array{uLowType,1}
-	DL::Array{uLowType,1}
-	delta::Array{uLowType,1}
-	Fa::Array{uLowType,1}
-	Fb::Array{uLowType,1}
 
     ej=zero(u0)
 
@@ -499,6 +489,7 @@ function IRKstep_fixed_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 	   lmax=1
 
        lmu=convert.(low_prec_type,mu)
+	   lhb=convert.(low_prec_type,hb)
 
        while (nit<maxiter && iter)
 
@@ -518,14 +509,31 @@ function IRKstep_fixed_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 
 
 		  Threads.@threads for is in 1:s
-			  if norm(U[is]-Uz[s]) !=0
-			    nfcn[1]+=1
-			    f(F[is], U[is],p, tj + hc[is])
-			  end
-#	    	 @. delta[is] = hb[is]*F[is]-L[is]
- 			 @. delta[is] = muladd(F[is],hb[is],-L[is])
-			 DL[is].=delta[is]
-		  end
+  			Eval[is]=false
+  			for k in eachindex(uj)
+#	  			DY=abs(U[is][k]-Uz[is][k])
+				DY=abs(Rdigits(U[is][k],10)-Rdigits(Uz[is][k],10))
+	  			if DY>0.
+					Eval[is]=true
+					if DY< Dmin[is][k]
+						Dmin[is][k]=DY
+						iter=true
+					end
+	 	   	   else
+				   D0+=1
+			   end
+ 		   end
+
+ 	       if Eval[is]==true
+	  			nfcn[1]+=1
+	  			f(F[is], U[is],p, tj + hc[is])
+				@. delta[is] = muladd(F[is],hb[is],-L[is])
+		   else
+			    delta[is].=0
+ 		   end
+
+		   DL[is].=delta[is]
+	     end
 
 
 		 lmax=min(lmax*2,6)
@@ -533,47 +541,37 @@ function IRKstep_fixed_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
          for l in 1:lmax
 
 	       for is in 1:s
+			   if (Eval[is]==true)
 				DiffEqBase.@.. DU[is] =  lmu[is,1]*DL[1]+lmu[is,2]*DL[2]+
 		   					        	 lmu[is,3]*DL[3]+lmu[is,4]*DL[4]+
 		   								 lmu[is,5]*DL[5]+lmu[is,6]*DL[6]+
 		   								 lmu[is,7]*DL[7]+lmu[is,8]*DL[8]
+			  end
            end
 
            Threads.@threads for is in 1:s
 
-				if (norm(DU[is])!=0)
+#				if (norm(DU[is])!=0)
+
+                if (Eval[is]==true && norm(DU[is])!=0)
 
         			beta=1e-6*norm(Ulow[is])/norm(DU[is])
 					nfcn[2]+=2
 					tjci=convert(low_prec_type, tj + hc[is])
-#					f(Fa[is], Ulow[is].+beta*DU[is],lpp,tjci)
-#					f(Fb[is], Ulow[is].-beta*DU[is],lpp,tjci)
 					f(Fa[is], muladd.(beta,DU[is],Ulow[is]),lpp,tjci)
 					f(Fb[is], muladd.(-beta,DU[is],Ulow[is]),lpp,tjci)
         			DF[is].=1/(2*beta)*(Fa[is].-Fb[is])
-#					@. DL[is] = delta[is]+hb[is]*DF[is]
-					@. DL[is] = muladd(DF[is],hb[is],delta[is])
+					@. DL[is] = muladd(DF[is],lhb[is],delta[is])
 
 		    	end
           	end
 		end # end  for l
 
-        L[is]+.=DL[is]
-
-		for is in 1:s
-				for k in eachindex(uj)
-#					L[is][k] +=DL[is][k]
-					DY=abs(U[is][k]-Uz[is][k])
-					if DY>0.
-						if DY< Dmin[is][k]
-							Dmin[is][k]=DY
-							iter=true
-						end
-					else
-						D0+=1
-					end
-				end
-		end
+        for is in 1:s
+			if (Eval[is]==true)
+			  @. L[is] +=DL[is]
+		   end
+	   end
 
        	end # inbound
 
@@ -806,48 +804,5 @@ function IRKstep_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials
 
         return("Success",nit)
 
-
-end
-
-function ErrorEst(U,F,dt,beta,abstol,reltol)
-
-    (s,)=size(F)
-	D=length(U[1])
-
-	est=zero(typeof(dt))
-
-    @inbounds begin
-	for k in eachindex(U[1])
-
-		sum=zero(typeof(dt))
-		maxU=zero(typeof(dt))
-		for is in 1:s
-        	sum+=beta[is]*F[is][k]
-			maxU=max(maxU,abs(U[is][k]))
-        end
-
-		est+=(abs(dt*sum))^2/(abstol+maxU*reltol)
-	end
-    end
-
-    return(est/D)
-
-end
-
-
-function MyNorm(u,abstol,reltol)
-
-	norm=zero(eltype(u))
-
-    @inbounds begin
-	for k in eachindex(u)
-	    aux=u[k]/(abstol+abs(u[k])*reltol)
-		norm+=aux*aux
-	end
-    end
-
-	norm=sqrt(norm/(length(u)))
-
-    return(norm)
 
 end
