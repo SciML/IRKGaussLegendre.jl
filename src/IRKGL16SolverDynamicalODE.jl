@@ -106,15 +106,19 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
         end
     end
 
-
-    U1 = Array{uType}(undef, s)
+	U1 = Array{uType}(undef, s)
     U2 = Array{uType}(undef, s)
     U3 = Array{uType}(undef, s)
     U4 = Array{uType}(undef, s)
     U5 = Array{uType}(undef, s)
 	U6 = Array{uType}(undef, s)
-	U7 = Array{uType}(undef, s)
-	U8 = Array{uType}(undef, s)
+	U11 = Array{uLowType}(undef, s)
+	U12 = Array{uLowType}(undef, s)
+	U13 = Array{uLowType}(undef, s)
+	U14 = Array{uLowType}(undef, s)
+	U15 = Array{uLowType}(undef, s)
+	U16 = Array{uLowType}(undef, s)
+	U17 = Array{uLowType}(undef, s)
 	for i in 1:s
 		U1[i] = zero(u0)
 		U2[i] = zero(u0)
@@ -122,15 +126,19 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 		U4[i] = zero(u0)
 		U5[i] = zero(u0)
 		U6[i] = zero(u0)
-		U7[i] = zero(u0)
-		U8[i] = zero(u0)
+		U11[i] = zero(convert.(low_prec_type,u0))
+		U12[i] = zero(convert.(low_prec_type,u0))
+		U13[i] = zero(convert.(low_prec_type,u0))
+		U14[i] = zero(convert.(low_prec_type,u0))
+		U15[i] = zero(convert.(low_prec_type,u0))
+		U16[i] = zero(convert.(low_prec_type,u0))
+		U17[i] = zero(convert.(low_prec_type,u0))
 	end
 
-    cache=tcache{uType,uiType,uLowType}(U1,U2,U3,U4,U5,U6,U7,U8,
-	         fill(true,s),[0],[0,0],[0.,0.],
-	         zero(convert.(low_prec_type,u0)), zero(convert.(low_prec_type,u0)),
-             zero(convert.(low_prec_type,u0)), zero(convert.(low_prec_type,u0)))
-	@unpack U,Uz,barU,L,Lz,F,barF,Dmin,Eval,rejects,nfcn,lambdas,UU,delta,Fa,Fb=cache
+    cache=tcache{uType,uiType,uLowType}(U1,U2,U3,U4,U5,U6,fill(true,s),[0],[0,0],[0.,0.],
+	             U11,U12,U13,U14,U15,U16,U17)
+	@unpack U,Uz,L,Lz,F,Dmin,Eval,rejects,nfcn,lambdas,
+	        Ulow,DU,DF,DL,delta,Fa,Fb=cache
 
     ej=zero(u0)
 
@@ -220,14 +228,8 @@ function IRKStepDynODE!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials,
 							 mixed_precision,low_prec_type)
    else
 #	  println("IRKstep_fixed")
-      if (mixed_precision==true)
-	      (status,it)= IRKstepDynODE_fixed_Mix!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiter,
- 		     	                      initial_interp,abstol,reltol,adaptive,
-			    					  mixed_precision,low_prec_type)
-	  else
-	     (status,it)= IRKstepDynODE_fixed!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiter,
+     (status,it)= IRKstepDynODE_fixed!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiter,
  									 initial_interp,abstol,reltol,adaptive)
-      end
    end
 
    return(status,it)
@@ -389,256 +391,6 @@ function IRKstepDynODE_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
         	end
 
 #	  	 println(j,",","high-=",nit-1, ",", D0, ",", norm(U.-Uz))
-
-    	end # while iter
-
-		indices = eachindex(uj)
-
-        @inbounds begin
-		for k in indices    #Compensated summation
-			e0 = ej[k]
-			for is in 1:s
-				e0 += muladd(F[is][k], hb[is], -L[is][k])
-			end
-			res = Base.TwicePrecision(uj[k], e0)
-			for is in 1:s
-				res += L[is][k]
-			end
-			uj[k] = res.hi
-			ej[k] = res.lo
-		end
-	    end
-
-		res = Base.TwicePrecision(tj, te) + dt
-		ttj[1] = res.hi
-		ttj[2] = res.lo
-
-    	dts[1]=min(dt,tf-(ttj[1]+ttj[2]))
-		dts[2]=dt
-
-        return("Success",nit)
-
-
-end
-
-
-
-
-function IRKstepDynODE_fixed_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
-		               initial_interp,abstol,reltol,adaptive,
-					   mixed_precision,low_prec_type)
-
-        @unpack mu,hc,hb,nu,beta,beta2 = coeffs
-		@unpack tspan,p,kwargs=prob
-		if !isempty(kwargs) lpp=kwargs[:lpp] end
-		f1=prob.f.f1
-		f2=prob.f.f2
-#		r0=prob.v0
-#		v0=prob.u0
-		@unpack U,Uz,barU,L,Lz,F,barF,Dmin,Eval,rejects,nfcn,lambdas,UU,delta,Fa,Fb=cache
-
-		uiType = eltype(uj)
-
-		dt=dts[1]
-		dtprev=dts[2]
-		tf=tspan[2]
-
-        elems = s*length(uj)
-
-        tj = ttj[1]
-        te = ttj[2]
-
-        nit=0
-
-    	if (dt != dtprev)
-			HCoefficients!(mu,hc,hb,nu,dt,dtprev,uiType)
-			@unpack mu,hc,hb,nu,beta,beta2 = coeffs
-		end
-
-    	if initial_interp
-			@inbounds begin
-        	for is in 1:s
-            	for k in eachindex(uj)
-                	aux=zero(eltype(uj))
-                	for js in 1:s
-                    	aux+=nu[is,js]*L[js][k]
-                	end
-                	U[is][k]=(uj[k]+ej[k])+aux
-            	end
-        	end
-		    end
-    	else
-			@inbounds begin
-        	for is in 1:s
-            	@. U[is] = uj + ej
-        	end
-		    end
-    	end
-
-
-		iter = true # Initialize iter outside the for loop
-    	plusIt=true
-
-    	nit=1
-		for is in 1:s Dmin[is] .= Inf end
-
-
-#	   println("***************************************************")
-#       println("urratsa=",j)
-
-
-        @inbounds begin
-    	Threads.@threads for is in 1:s
-			nfcn[1]+=1
-        	f1(F[is].x[1], U[is].x[1],U[is].x[2], p, tj + hc[is])
-			f2(F[is].x[2], U[is].x[1],U[is].x[2], p, tj + hc[is])
-        	@. L[is] = hb[is]*F[is]
-    	end
-	    end
-
-		lmax=0
-
-    	while (nit<maxiter && iter)
-
-        	nit+=1
-        	iter=false
-        	D0=0
-
-
-#            println("First part--------")
-
-            @inbounds begin
-    		for is in 1:s
-#        		Uz[is].x[1] .= U[is].x[1]
-				Uz[is] .= U[is]
-        		DiffEqBase.@.. U[is].x[1] = uj.x[1] +
-				              (ej.x[1]+mu[is,1]*L[1].x[1] + mu[is,2]*L[2].x[1]+
-			                   mu[is,3]*L[3].x[1] + mu[is,4]*L[4].x[1]+
-                               mu[is,5]*L[5].x[1] + mu[is,6]*L[6].x[1]+
-							   mu[is,7]*L[7].x[1] + mu[is,8]*L[8].x[1])
-    		end
-
-
-			Threads.@threads for is in 1:s
-				if norm(U[is].x[1]-Uz[s].x[1]) !=0
-					nfcn[1]+=1
-					f2(F[is].x[2], U[is].x[1],U[is].x[2], p,  tj + hc[is])
-					@. L[is].x[2] = hb[is]*F[is].x[2]
-				end
-
-			end
-
-
-#			println("Second part")
-
-			for is in 1:s
-#        		Uz[is].x[2] .= U[is].x[2]
-        		DiffEqBase.@.. U[is].x[2] = uj.x[2] +
-						      (ej.x[2]+mu[is,1]*L[1].x[2] + mu[is,2]*L[2].x[2]+
-	                           mu[is,3]*L[3].x[2] + mu[is,4]*L[4].x[2]+
-                               mu[is,5]*L[5].x[2] + mu[is,6]*L[6].x[2]+
-    					       mu[is,7]*L[7].x[2] + mu[is,8]*L[8].x[2])
-    		end
-
-			Threads.@threads for is in 1:s
-				if norm(U[is].x[2]-Uz[s].x[2]) !=0
-#					nfcn[1]+=1
-					f1(F[is].x[1], U[is].x[1], U[is].x[2], p,  tj + hc[is])
-					@. L[is].x[1] = hb[is]*F[is].x[1]
-				end
-			end
-
-
-			lmax=min(lmax+1,2)
-
-			for l in 1:lmax
-
-#		     	println("First part")
-
-				Threads.@threads for is in 1:s
-
-					DiffEqBase.@.. barU[is].x[1] = uj.x[1] +
-				  				(ej.x[1]+mu[is,1]*L[1].x[1] + mu[is,2]*L[2].x[1]+
-						   		mu[is,3]*L[3].x[1] + mu[is,4]*L[4].x[1]+
-						   		mu[is,5]*L[5].x[1] + mu[is,6]*L[6].x[1]+
-						   		mu[is,7]*L[7].x[1] + mu[is,8]*L[8].x[1])
-
-					delta=convert.(low_prec_type,barU[is].-U[is])
-
-					if (norm(delta.x[1])!=0)
-
-						beta=convert(low_prec_type,1e-6*norm(U[is].x[1])/norm(delta.x[1]))
-
-						UU=convert.(low_prec_type,U[is])
-						nfcn[2]+=2
-						f2(Fa.x[2], UU.x[1].+beta*delta.x[1], UU.x[2],
-						   lpp,convert(low_prec_type, tj + hc[is]))
-						f2(Fb.x[2], UU.x[1].-beta*delta.x[1], UU.x[2],
-							lpp,convert(low_prec_type, tj + hc[is]))
-
-						barF[is].x[2].=F[is].x[2]+1/(2*beta)*(Fa.x[2].-Fb.x[2])
-						@. L[is].x[2] = hb[is]*barF[is].x[2]
-
-					 end
-				  end
-
-
-#		          println("second part")
-
-				  Threads.@threads for is in 1:s
-
-					DiffEqBase.@.. barU[is].x[2] = uj.x[2] +
-			  				(ej.x[1]+mu[is,1]*L[1].x[2] + mu[is,2]*L[2].x[2]+
-					   		mu[is,3]*L[3].x[2] + mu[is,4]*L[4].x[2]+
-					   		mu[is,5]*L[5].x[2] + mu[is,6]*L[6].x[2]+
-					   		mu[is,7]*L[7].x[2] + mu[is,8]*L[8].x[2])
-
-					delta=convert.(low_prec_type,barU[is].-U[is])
-
-	  				if (norm(delta.x[2])!=0)
-
-	  					beta=convert(low_prec_type,1e-6*norm(U[is].x[2])/norm(delta.x[2]))
-
-						UU=convert.(low_prec_type,U[is])
-						f1(Fa.x[1], UU.x[1], UU.x[2].+beta*delta.x[2],
-						   lpp,convert(low_prec_type, tj + hc[is]))
-						f1(Fb.x[1], UU.x[1], UU.x[2].-beta*delta.x[2],
-							lpp,convert(low_prec_type, tj + hc[is]))
-
-						barF[is].x[1].=F[is].x[1]+1/(2*beta)*(Fa.x[1].-Fb.x[1])
-  						@. L[is].x[1] = hb[is]*barF[is].x[1]
-
-
-				 end
-			  end
-
-			end # for l
-
-        	for is in 1:s
-            	for k in eachindex(uj)
-                    DY=abs(U[is][k]-Uz[is][k])
-                    if DY>0.
-                       if DY< Dmin[is][k]
-                          Dmin[is][k]=DY
-                          iter=true
-                       end
-                   else
-                       D0+=1
-                   end
-                end
-    		end
-
-    	end #inbounds
-
-
-    	if (iter==false && D0<elems && plusIt)
-        	iter=true
-        	plusIt=false
-    	else
-        	plusIt=true
-    	end
-
-#		 println(j,",","high-=",nit-1, ",", D0, ",", norm(U.-Uz))
 
     	end # while iter
 

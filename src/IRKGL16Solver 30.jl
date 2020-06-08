@@ -10,14 +10,13 @@ mutable struct tcoeffs{T}
 	   beta2::Array{T,2}
 end
 
-mutable struct tcache{uType,elTypeu,uLowType,low_prec_type}
+mutable struct tcache{uType,elTypeu,uLowType}
 	U::Array{uType,1}
 	Uz::Array{uType,1}
     L::Array{uType,1}
 	Lz::Array{uType,1}
 	F::Array{uType,1}
 	Dmin::Array{uType,1}
-	deltaHigh::Array{uType,1}
 	Eval::Array{Bool,1}
 	rejects::Array{Int64,1}
 	nfcn::Array{Int64, 1}
@@ -26,10 +25,9 @@ mutable struct tcache{uType,elTypeu,uLowType,low_prec_type}
 	DU::Array{uLowType,1}
 	DF::Array{uLowType,1}
 	DL::Array{uLowType,1}
-	deltaLow::Array{uLowType,1}
+	delta::Array{uLowType,1}
 	Fa::Array{uLowType,1}
 	Fb::Array{uLowType,1}
-	normU::Array{low_prec_type,1}
 end
 
 
@@ -131,13 +129,14 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
         end
     end
 
+
+
     U1 = Array{uType}(undef, s)
     U2 = Array{uType}(undef, s)
     U3 = Array{uType}(undef, s)
     U4 = Array{uType}(undef, s)
     U5 = Array{uType}(undef, s)
 	U6 = Array{uType}(undef, s)
-	U7 = Array{uType}(undef, s)
 	U11 = Array{uLowType}(undef, s)
 	U12 = Array{uLowType}(undef, s)
 	U13 = Array{uLowType}(undef, s)
@@ -152,7 +151,6 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 		U4[i] = zero(u0)
 		U5[i] = zero(u0)
 		U6[i] = zero(u0)
-		U7[i] = zero(u0)
 		U11[i] = zero(convert.(low_prec_type,u0))
 		U12[i] = zero(convert.(low_prec_type,u0))
 		U13[i] = zero(convert.(low_prec_type,u0))
@@ -162,10 +160,18 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 		U17[i] = zero(convert.(low_prec_type,u0))
 	end
 
-    cache=tcache{uType,uiType,uLowType,low_prec_type}(U1,U2,U3,U4,U5,U6,U7,fill(true,s),[0],[0,0],[0.,0.],
-	              U11,U12,U13,U14,U15,U16,U17,fill(zero(low_prec_type),s))
-	@unpack U,Uz,L,Lz,F,Dmin,deltaHigh,Eval,rejects,nfcn,lambdas,
-	        Ulow,DU,DF,DL,deltaLow,Fa,Fb,normU=cache
+    cache=tcache{uType,uiType,uLowType}(U1,U2,U3,U4,U5,U6,fill(true,s),[0],[0,0],[0.,0.],
+	             U11,U12,U13,U14,U15,U16,U17)
+	@unpack U,Uz,L,Lz,F,Dmin,Eval,rejects,nfcn,lambdas,
+	        Ulow,DU,DF,DL,delta,Fa,Fb=cache
+
+	Ulow:: Array{uLowType,1}
+	DU::Array{uLowType,1}
+	DF::Array{uLowType,1}
+	DL::Array{uLowType,1}
+	delta::Array{uLowType,1}
+	Fa::Array{uLowType,1}
+	Fb::Array{uLowType,1}
 
     ej=zero(u0)
 
@@ -426,8 +432,8 @@ function IRKstep_fixed_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
         @unpack mu,hc,hb,nu,beta,beta2 = coeffs
         @unpack f,u0,p,tspan,kwargs=prob
 
-		@unpack U,Uz,L,Lz,F,Dmin,deltaHigh,Eval,rejects,nfcn,lambdas,
-				Ulow,DU,DF,DL,deltaLow,Fa,Fb,normU=cache
+		@unpack U,Uz,L,Lz,F,Dmin,Eval,rejects,nfcn,lambdas,
+				Ulow,DU,DF,DL,delta,Fa,Fb=cache
 
         if !isempty(kwargs) lpp=kwargs[:lpp] end
 		uiType = eltype(uj)
@@ -478,8 +484,8 @@ function IRKstep_fixed_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 	    end
 
 
-#        println("***************************************************")
-#        println("urratsa=",j)
+        println("***************************************************")
+        println("urratsa=",j)
 
 
 	   @inbounds begin
@@ -493,7 +499,6 @@ function IRKstep_fixed_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 	   lmax=1
 
        lmu=convert.(low_prec_type,mu)
-	   lhb=convert.(low_prec_type,hb)
 
        while (nit<maxiter && iter)
 
@@ -509,35 +514,18 @@ function IRKstep_fixed_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 							   mu[is,5]*L[5] + mu[is,6]*L[6]+
 							   mu[is,7]*L[7] + mu[is,8]*L[8])
 			Ulow[is].=U[is]
-			normU[is]=copy(norm(Ulow[is]))
 	      end
 
+
 		  Threads.@threads for is in 1:s
-  			Eval[is]=false
-  			for k in eachindex(uj)
-	  			DY=abs(U[is][k]-Uz[is][k])
-	  			if DY>0.
-					Eval[is]=true
-					if DY< Dmin[is][k]
-						Dmin[is][k]=DY
-						iter=true
-					end
-	 	   	   else
-				   D0+=1
-			   end
- 		   end
-
- 	       if Eval[is]==true
-	  			nfcn[1]+=1
-	  			f(F[is], U[is],p, tj + hc[is])
-				@. deltaHigh[is] = muladd(F[is],hb[is],-L[is])
- 		   else
-	            @. deltaHigh[is] = 0
-		   end
-			 deltaLow[is].=deltaHigh[is]
-			 DL[is].=deltaLow[is]
-
-	     end
+			  if norm(U[is]-Uz[s]) !=0
+			    nfcn[1]+=1
+			    f(F[is], U[is],p, tj + hc[is])
+			  end
+#	    	 @. delta[is] = hb[is]*F[is]-L[is]
+ 			 @. delta[is] = muladd(F[is],hb[is],-L[is])
+			 DL[is].=delta[is]
+		  end
 
 
 		 lmax=min(lmax*2,6)
@@ -545,40 +533,48 @@ function IRKstep_fixed_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
          for l in 1:lmax
 
 	       for is in 1:s
-			  if (Eval[is]==true)
 				DiffEqBase.@.. DU[is] =  lmu[is,1]*DL[1]+lmu[is,2]*DL[2]+
 		   					        	 lmu[is,3]*DL[3]+lmu[is,4]*DL[4]+
 		   								 lmu[is,5]*DL[5]+lmu[is,6]*DL[6]+
 		   								 lmu[is,7]*DL[7]+lmu[is,8]*DL[8]
-			 end
            end
 
            Threads.@threads for is in 1:s
 
-                if (Eval[is]==true && norm(DU[is])!=0)
+				if (norm(DU[is])!=0)
 
-        			beta=1e-6*normU[is]/norm(DU[is])
+        			beta=1e-6*norm(Ulow[is])/norm(DU[is])
 					nfcn[2]+=2
 					tjci=convert(low_prec_type, tj + hc[is])
-                    Ulow[is].=muladd.(beta,DU[is],U[is])
-					f(Fa[is], Ulow[is],lpp,tjci)
-					Ulow[is].=muladd.(-beta,DU[is],U[is])
-					f(Fb[is], Ulow[is],lpp,tjci)
+#					f(Fa[is], Ulow[is].+beta*DU[is],lpp,tjci)
+#					f(Fb[is], Ulow[is].-beta*DU[is],lpp,tjci)
+					f(Fa[is], muladd.(beta,DU[is],Ulow[is]),lpp,tjci)
+					f(Fb[is], muladd.(-beta,DU[is],Ulow[is]),lpp,tjci)
         			DF[is].=1/(2*beta)*(Fa[is].-Fb[is])
-					@. DL[is] = muladd(DF[is],lhb[is],deltaLow[is])
-
-#					if isnan(norm(DF[is]))
-#						println(j,",",l,",", is,", DFa:",norm(DF[is]), ",beta:", beta, ",Fa:", norm(Fa[is]), ",Fb:", norm(Fb[is]) )
-#                    end
+#					@. DL[is] = delta[is]+hb[is]*DF[is]
+					@. DL[is] = muladd(DF[is],hb[is],delta[is])
 
 		    	end
           	end
 		end # end  for l
 
-       for is in 1:s
-		   if (Eval[is]==true)
-		       @. L[is] +=muladd(DF[is],hb[is],deltaHigh[is]) end
-           end
+        L[is]+.=DL[is]
+
+		for is in 1:s
+				for k in eachindex(uj)
+#					L[is][k] +=DL[is][k]
+					DY=abs(U[is][k]-Uz[is][k])
+					if DY>0.
+						if DY< Dmin[is][k]
+							Dmin[is][k]=DY
+							iter=true
+						end
+					else
+						D0+=1
+					end
+				end
+		end
+
        	end # inbound
 
 	    if (iter==false && D0<elems && plusIt)
@@ -588,7 +584,7 @@ function IRKstep_fixed_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 		    plusIt=true
 	    end
 
-#		println(j,",","high-=",nit-1, ",", D0, ",", norm(U.-Uz))
+		println(j,",","high-=",nit-1, ",", D0, ",", norm(U.-Uz))
 
      end # while iter high-prec
 
