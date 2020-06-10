@@ -1,16 +1,13 @@
-#include("IRKCoefficients.jl")
-
 
 mutable struct tcoeffs{T}
        mu::Array{T,2}
        hc::Array{T,1}
 	   hb::Array{T,1}
 	   nu::Array{T,2}
-	   beta::Array{T,2}
-	   beta2::Array{T,2}
+	   alpha::Array{T,2}
 end
 
-mutable struct tcache{uType,elTypeu,uLowType}
+mutable struct tcache{uType,elTypeu,uLowType,low_prec_type}
 	U::Array{uType,1}
 	Uz::Array{uType,1}
     L::Array{uType,1}
@@ -28,6 +25,9 @@ mutable struct tcache{uType,elTypeu,uLowType}
 	delta::Array{uLowType,1}
 	Fa::Array{uLowType,1}
 	Fb::Array{uLowType,1}
+	normU::Array{low_prec_type,1}
+	lhb::Array{low_prec_type,1}
+	lmu::Array{low_prec_type,2}
 end
 
 
@@ -62,18 +62,18 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
     t0=tspan[1]
 	tf=tspan[2]
 	tType2=eltype(tspan)
-#	low_prec_type=typeof(kwargs[:lpp])
 	uiType = eltype(u0)
 
-	uLowType=typeof(convert.(low_prec_type,u0))
+    lu0 = convert.(low_prec_type,u0)
+	uLowType=typeof(lu0)
 
     reltol2s=uiType(sqrt(reltol))
 	abstol2s=uiType(sqrt(abstol))
 
-    coeffs=tcoeffs{uiType}(zeros(s,s),zeros(s),zeros(s),
-	                       zeros(s,s),zeros(s,s),zeros(s,s))
-	@unpack mu,hc,hb,nu,beta,beta2 = coeffs
+	coeffs=tcoeffs{uiType}(zeros(s,s),zeros(s),zeros(s),
+	               zeros(s,s),zeros(s,s))
 
+	@unpack mu,hc,hb,nu,alpha = coeffs
 
     if (dt==0)
 		d0=MyNorm(u0,abstol,reltol)
@@ -87,8 +87,7 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 		end
 	end
 
-	EstimateCoeffs!(beta,uiType)
-	EstimateCoeffs2!(beta2,uiType)
+	EstimateCoeffs!(alpha,uiType)
 	MuCoefficients!(mu,uiType)
 
     dts = Array{tType2}(undef, 1)
@@ -149,19 +148,25 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 		U4[i] = zero(u0)
 		U5[i] = zero(u0)
 		U6[i] = zero(u0)
-		U11[i] = zero(convert.(low_prec_type,u0))
-		U12[i] = zero(convert.(low_prec_type,u0))
-		U13[i] = zero(convert.(low_prec_type,u0))
-		U14[i] = zero(convert.(low_prec_type,u0))
-		U15[i] = zero(convert.(low_prec_type,u0))
-		U16[i] = zero(convert.(low_prec_type,u0))
-		U17[i] = zero(convert.(low_prec_type,u0))
+		U11[i] = zero(lu0)
+		U12[i] = zero(lu0)
+		U13[i] = zero(lu0)
+		U14[i] = zero(lu0)
+		U15[i] = zero(lu0)
+		U16[i] = zero(lu0)
+		U17[i] = zero(lu0)
 	end
 
-    cache=tcache{uType,uiType,uLowType}(U1,U2,U3,U4,U5,U6,fill(true,s),[0],[0,0],[0.,0.],
-	             U11,U12,U13,U14,U15,U16,U17)
+	lmu=convert.(low_prec_type,mu)
+	lhb=convert.(low_prec_type,hb)
+
+    cache=tcache{uType,uiType,uLowType,low_prec_type}(U1,U2,U3,U4,U5,U6,fill(true,s),[0],[0,0],[0.,0.],
+	             U11,U12,U13,U14,U15,U16,U17,
+				 fill(zero(low_prec_type),s),lhb,lmu)
 	@unpack U,Uz,L,Lz,F,Dmin,Eval,rejects,nfcn,lambdas,
-	        Ulow,DU,DF,DL,delta,Fa,Fb=cache
+	        Ulow,DU,DF,DL,delta,Fa,Fb,normU,lhb,lmu=cache
+
+
 
     ej=zero(u0)
 
@@ -270,7 +275,7 @@ end
 function IRKstep_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 		               initial_interp,abstol,reltol,adaptive)
 
-        @unpack mu,hc,hb,nu,beta,beta2 = coeffs
+        @unpack mu,hc,hb,nu,alpha = coeffs
         @unpack f,u0,p,tspan=prob
 		@unpack U,Uz,L,Lz,F,Dmin,Eval,rejects,nfcn,lambdas=cache
 
@@ -289,7 +294,7 @@ function IRKstep_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 
     	if (dt != dtprev)
 			HCoefficients!(mu,hc,hb,nu,dt,dtprev,uiType)
-			@unpack mu,hc,hb,nu,beta,beta2 = coeffs
+			@unpack mu,hc,hb,nu,alpha = coeffs
 		end
 
     	if initial_interp
@@ -384,11 +389,10 @@ function IRKstep_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
      end
 
 
+    indices = eachindex(uj)
 
-		indices = eachindex(uj)
-
-        @inbounds begin
-		for k in indices    #Compensated summation
+    @inbounds begin
+	for k in indices    #Compensated summation
 			e0 = ej[k]
 			for is in 1:s
 				e0 += muladd(F[is][k], hb[is], -L[is][k])
@@ -399,17 +403,17 @@ function IRKstep_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 			end
 			uj[k] = res.hi
 			ej[k] = res.lo
-		end
-	    end
+	end
+    end
 
-		res = Base.TwicePrecision(tj, te) + dt
-		ttj[1] = res.hi
-		ttj[2] = res.lo
+	res = Base.TwicePrecision(tj, te) + dt
+	ttj[1] = res.hi
+	ttj[2] = res.lo
 
-    	dts[1]=min(dt,tf-(ttj[1]+ttj[2]))
-		dts[2]=dt
+	dts[1]=min(dt,tf-(ttj[1]+ttj[2]))
+	dts[2]=dt
 
-        return("Success",nit)
+    return("Success",nit)
 
 
 end
@@ -419,11 +423,12 @@ function IRKstep_fixed_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 		               initial_interp,abstol,reltol,adaptive,
 					   mixed_precision,low_prec_type)
 
-        @unpack mu,hc,hb,nu,beta,beta2 = coeffs
-        @unpack f,u0,p,tspan,kwargs=prob
+		@unpack mu,hc,hb,nu,alpha = coeffs
+		@unpack f,u0,p,tspan,kwargs=prob
 
 		@unpack U,Uz,L,Lz,F,Dmin,Eval,rejects,nfcn,lambdas,
-				Ulow,DU,DF,DL,delta,Fa,Fb=cache
+				Ulow,DU,DF,DL,delta,Fa,Fb,
+				normU,lhb,lmu=cache
 
         if !isempty(kwargs) lpp=kwargs[:lpp] end
 		uiType = eltype(uj)
@@ -441,7 +446,8 @@ function IRKstep_fixed_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 
     	if (dt != dtprev)
 			HCoefficients!(mu,hc,hb,nu,dt,dtprev,uiType)
-			@unpack mu,hc,hb,nu,beta,beta2 = coeffs
+			@unpack mu,hc,hb,nu,alpha = coeffs
+			lhb.=hb
 		end
 
     	if initial_interp
@@ -488,8 +494,6 @@ function IRKstep_fixed_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 
 	   lmax=1
 
-       lmu=convert.(low_prec_type,mu)
-	   lhb=convert.(low_prec_type,hb)
 
        while (nit<maxiter && iter)
 
@@ -505,6 +509,7 @@ function IRKstep_fixed_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 							   mu[is,5]*L[5] + mu[is,6]*L[6]+
 							   mu[is,7]*L[7] + mu[is,8]*L[8])
 			Ulow[is].=U[is]
+			normU[is]=copy(norm(Ulow[is]))
 	      end
 
 
@@ -551,16 +556,14 @@ function IRKstep_fixed_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 
            Threads.@threads for is in 1:s
 
-#				if (norm(DU[is])!=0)
-
                 if (Eval[is]==true && norm(DU[is])!=0)
 
-        			beta=1e-6*norm(Ulow[is])/norm(DU[is])
+        			beta=1e-6*norm(normU[is])/norm(DU[is])
 					nfcn[2]+=2
 					tjci=convert(low_prec_type, tj + hc[is])
 					f(Fa[is], muladd.(beta,DU[is],Ulow[is]),lpp,tjci)
 					f(Fb[is], muladd.(-beta,DU[is],Ulow[is]),lpp,tjci)
-        			DF[is].=1/(2*beta)*(Fa[is].-Fb[is])
+        			@. DF[is]=1/(2*beta)*(Fa[is]-Fb[is])
 					@. DL[is] = muladd(DF[is],lhb[is],delta[is])
 
 		    	end
@@ -587,32 +590,31 @@ function IRKstep_fixed_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
      end # while iter high-prec
 
 
+	indices = eachindex(uj)
 
-		indices = eachindex(uj)
-
-        @inbounds begin
-		for k in indices    #Compensated summation
-			e0 = ej[k]
-			for is in 1:s
-				e0 += muladd(F[is][k], hb[is], -L[is][k])
-			end
-			res = Base.TwicePrecision(uj[k], e0)
-			for is in 1:s
-				res += L[is][k]
-			end
+    @inbounds begin
+	for k in indices    #Compensated summation
+		e0 = ej[k]
+		for is in 1:s
+			e0 += muladd(F[is][k], hb[is], -L[is][k])
+		end
+		res = Base.TwicePrecision(uj[k], e0)
+		for is in 1:s
+			res += L[is][k]
+		end
 			uj[k] = res.hi
 			ej[k] = res.lo
-		end
-	    end
+	end
+    end
 
-		res = Base.TwicePrecision(tj, te) + dt
-		ttj[1] = res.hi
-		ttj[2] = res.lo
+	res = Base.TwicePrecision(tj, te) + dt
+	ttj[1] = res.hi
+	ttj[2] = res.lo
 
-    	dts[1]=min(dt,tf-(ttj[1]+ttj[2]))
-		dts[2]=dt
+	dts[1]=min(dt,tf-(ttj[1]+ttj[2]))
+	dts[2]=dt
 
-        return("Success",nit)
+    return("Success",nit)
 
 
 end
@@ -625,7 +627,7 @@ function IRKstep_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials
 						   mixed_precision,low_prec_type)
 
 
-		@unpack mu,hc,hb,nu,beta,beta2 = coeffs
+		@unpack mu,hc,hb,nu,alpha = coeffs
         @unpack f,u0,p,tspan=prob
 		@unpack U,Uz,L,Lz,F,Dmin,Eval,rejects,nfcn,lambdas=cache
 
@@ -662,7 +664,7 @@ function IRKstep_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials
 
 			if (dt != dtprev)
 				HCoefficients!(mu,hc,hb,nu,dt,dtprev,uiType)
-				@unpack mu,hc,hb,nu,beta,beta2 = coeffs
+				@unpack mu,hc,hb,nu,alpha = coeffs
 			end
 
         	if initial_interp
@@ -748,7 +750,7 @@ function IRKstep_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials
 
             ntrials+=1
 
-     		estimate=ErrorEst(U,F,dt,beta2,abstol,reltol)
+     		estimate=ErrorEst(U,F,dt,alpha,abstol,reltol)
 			lambda=(estimate)^pow
 			if (estimate < 2)
 				accept=true

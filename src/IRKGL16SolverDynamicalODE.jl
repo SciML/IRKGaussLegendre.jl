@@ -37,7 +37,6 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
     t0=tspan[1]
 	tf=tspan[2]
 	tType2=eltype(tspan)
-#	uType=typeof(u0)
 	uiType = eltype(u0)
 
 	uLowType=typeof(convert.(low_prec_type,u0))
@@ -46,8 +45,8 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 	abstol2s=uiType(sqrt(abstol))
 
     coeffs=tcoeffs{uiType}(zeros(s,s),zeros(s),zeros(s),
-	                       zeros(s,s),zeros(s,s),zeros(s,s))
-	@unpack mu,hc,hb,nu,beta,beta2 = coeffs
+	                       zeros(s,s),zeros(s,s))
+	@unpack mu,hc,hb,nu,alpha = coeffs
 
 
     if (dt==0)
@@ -63,8 +62,7 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 		end
 	end
 
-	EstimateCoeffs!(beta,uiType)
-	EstimateCoeffs2!(beta2,uiType)
+	EstimateCoeffs!(alpha,uiType)
 	MuCoefficients!(mu,uiType)
 
 	dts = Array{tType2}(undef, 1)
@@ -135,10 +133,14 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 		U17[i] = zero(convert.(low_prec_type,u0))
 	end
 
-    cache=tcache{uType,uiType,uLowType}(U1,U2,U3,U4,U5,U6,fill(true,s),[0],[0,0],[0.,0.],
-	             U11,U12,U13,U14,U15,U16,U17)
+	lmu=convert.(low_prec_type,mu)
+	lhb=convert.(low_prec_type,hb)
+
+    cache=tcache{uType,uiType,uLowType,low_prec_type}(U1,U2,U3,U4,U5,U6,fill(true,s),[0],[0,0],[0.,0.],
+	             U11,U12,U13,U14,U15,U16,U17,
+				 fill(zero(low_prec_type),s),lhb,lmu)
 	@unpack U,Uz,L,Lz,F,Dmin,Eval,rejects,nfcn,lambdas,
-	        Ulow,DU,DF,DL,delta,Fa,Fb=cache
+	        Ulow,DU,DF,DL,delta,Fa,Fb,normU,lhb,lmu=cache
 
     ej=zero(u0)
 
@@ -240,7 +242,7 @@ end
 function IRKstepDynODE_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 		               initial_interp,abstol,reltol,adaptive)
 
-        @unpack mu,hc,hb,nu,beta,beta2 = coeffs
+		@unpack mu,hc,hb,nu,alpha = coeffs
 		@unpack tspan,p=prob
 		f1=prob.f.f1
 		f2=prob.f.f2
@@ -263,7 +265,7 @@ function IRKstepDynODE_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 
     	if (dt != dtprev)
 			HCoefficients!(mu,hc,hb,nu,dt,dtprev,uiType)
-			@unpack mu,hc,hb,nu,beta,beta2 = coeffs
+			@unpack mu,hc,hb,nu,alpha = coeffs
 		end
 
     	if initial_interp
@@ -430,7 +432,7 @@ function IRKstepDynODE_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,max
 							  mixed_precision,low_prec_type)
 
 
-		@unpack mu,hc,hb,nu,beta,beta2 = coeffs
+		@unpack mu,hc,hb,nu,alpha = coeffs
 		@unpack tspan,p=prob
 		f1=prob.f.f1
 		f2=prob.f.f2
@@ -473,7 +475,7 @@ function IRKstepDynODE_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,max
 
 			if (dt != dtprev)
 				HCoefficients!(mu,hc,hb,nu,dt,dtprev,uiType)
-				@unpack mu,hc,hb,nu,beta,beta2 = coeffs
+				@unpack mu,hc,hb,nu,alpha = coeffs
 			end
 
             @inbounds begin
@@ -555,13 +557,11 @@ function IRKstepDynODE_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,max
 	       	    end
 		        end
 
-
-
         	end # while iter
 
             ntrials+=1
 
-     		estimate=ErrorEst(U,F,dt,beta2,abstol,reltol)
+     		estimate=ErrorEst(U,F,dt,alpha,abstol,reltol)
 			lambda=(estimate)^pow
 			if (estimate < 2)
 				accept=true
