@@ -396,26 +396,33 @@ function IRKstepDynODE_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 
     	end # while iter
 
-		indices = eachindex(uj)
 
-        @inbounds begin
-		for k in indices    #Compensated summation
-			e0 = ej[k]
-			for is in 1:s
-				e0 += muladd(F[is][k], hb[is], -L[is][k])
+	    if (uiType<:CompiledFloats)
+
+			indices = eachindex(uj)
+        	@inbounds begin
+			for k in indices    #Compensated summation
+				e0 = ej[k]
+				for is in 1:s
+					e0 += muladd(F[is][k], hb[is], -L[is][k])
+				end
+				res = Base.TwicePrecision(uj[k], e0)
+				for is in 1:s
+					res += L[is][k]
+				end
+				uj[k] = res.hi
+				ej[k] = res.lo
 			end
-			res = Base.TwicePrecision(uj[k], e0)
-			for is in 1:s
-				res += L[is][k]
-			end
-			uj[k] = res.hi
-			ej[k] = res.lo
+	    	end
+
+			res = Base.TwicePrecision(tj, te) + dt
+			ttj[1] = res.hi
+			ttj[2] = res.lo
+
+		else
+		 	@. uj+=L[1]+L[2]+L[3]+L[4]+L[5]+L[6]+L[7]+L[8]
+		 	ttj[1]=tj+dt
 		end
-	    end
-
-		res = Base.TwicePrecision(tj, te) + dt
-		ttj[1] = res.hi
-		ttj[2] = res.lo
 
     	dts[1]=min(dt,tf-(ttj[1]+ttj[2]))
 		dts[2]=dt
@@ -578,26 +585,33 @@ function IRKstepDynODE_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,max
 			return("Failure",0)
 		end
 
-		indices = eachindex(uj)
 
-        @inbounds begin
-		for k in indices    #Compensated summation
-			e0 = ej[k]
-			for is in 1:s
-				e0 += muladd(F[is][k], hb[is], -L[is][k])
+		if (uiType<:CompiledFloats)
+
+			indices = eachindex(uj)
+        	@inbounds begin
+			for k in indices    #Compensated summation
+				e0 = ej[k]
+				for is in 1:s
+					e0 += muladd(F[is][k], hb[is], -L[is][k])
+				end
+				res = Base.TwicePrecision(uj[k], e0)
+				for is in 1:s
+					res += L[is][k]
+				end
+				uj[k] = res.hi
+				ej[k] = res.lo
 			end
-			res = Base.TwicePrecision(uj[k], e0)
-			for is in 1:s
-				res += L[is][k]
-			end
-			uj[k] = res.hi
-			ej[k] = res.lo
+	    	end
+			res = Base.TwicePrecision(tj, te) + dt
+			ttj[1] = res.hi
+			ttj[2] = res.lo
+
+	    else
+		 	@. uj+=L[1]+L[2]+L[3]+L[4]+L[5]+L[6]+L[7]+L[8]
+		 	ttj[1]=tj+dt
 		end
-	    end
 
-		res = Base.TwicePrecision(tj, te) + dt
-		ttj[1] = res.hi
-		ttj[2] = res.lo
 
 		if (j==1)
             dts[1]=min(max(dt/2,min(2*dt,dt/lambda)),tf-(ttj[1]+ttj[2]))
