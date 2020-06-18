@@ -9,7 +9,7 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 #     dt::tType=0.,
      dt=0.,
      saveat=1,
-     maxiter=8,              #10
+     maxiter=100,              #10
 	 maxtrials=3,            # maximum of unsuccessful trials
      save_everystep=true,
      initial_interp=true,
@@ -62,6 +62,8 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 		end
 	end
 
+	dt=min(dt,tf-t0)
+
 	EstimateCoeffs!(alpha,uiType)
 	MuCoefficients!(mu,uiType)
 
@@ -81,7 +83,6 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 #   n: Number of macro-steps  (Output is saved for n+1 time values)
 
 	if (adaptive==true)
-		maxiter=8
 	   if (save_everystep==false)
     		m=1
 		    n=Inf
@@ -92,15 +93,16 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
     end
 
     if (adaptive==false)
-		maxiter=100
 	    if (save_everystep==false)
 #			m=convert(Int64,ceil((tf-t0)/(dt)))
             m=1
-    		n=convert(Int64,ceil((tf-t0)/(m*dt)))
+#    		n=convert(Int64,ceil((tf-t0)/(m*dt)))
+			n=Inf
     	else
 #			m=convert(Int64,(round(saveat/dt)))
             m=Int64(saveat)
-    		n=convert(Int64,ceil((tf-t0)/(m*dt)))
+#    		n=convert(Int64,ceil((tf-t0)/(m*dt)))
+			n=Inf
         end
     end
 
@@ -136,7 +138,8 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 	lmu=convert.(low_prec_type,mu)
 	lhb=convert.(low_prec_type,hb)
 
-    cache=tcache{uType,uiType,uLowType,low_prec_type}(U1,U2,U3,U4,U5,U6,fill(true,s),[0],[0,0],[0.,0.],
+    cache=tcache{uType,uiType,uLowType,low_prec_type}(U1,U2,U3,U4,U5,U6,
+	             fill(true,s),[0],[0,0],fill(zero(uiType),2),
 	             U11,U12,U13,U14,U15,U16,U17,
 				 fill(zero(low_prec_type),s),lhb,lmu)
 	@unpack U,Uz,L,Lz,F,Dmin,Eval,rejects,nfcn,lambdas,
@@ -295,11 +298,6 @@ function IRKstepDynODE_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
     	nit=1
 		for is in 1:s Dmin[is] .= Inf end
 
-
-#		println("***************************************************")
-#        println("urratsa=",j)
-
-
         @inbounds begin
     	Threads.@threads for is in 1:s
 			nfcn[1]+=1
@@ -308,6 +306,9 @@ function IRKstepDynODE_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
         	@. L[is] = hb[is]*F[is]
     	end
 	    end
+
+#		println("***************************************************")
+#       println("urratsa=",j)
 
     	while (nit<maxiter && iter)
 
@@ -470,10 +471,8 @@ function IRKstepDynODE_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,max
 
         if (j==1)
 			maxtrialsj=4*maxtrials
-			maxiterj=2*maxiter
 		else
 			maxtrialsj=maxtrials
-			maxiterj=maxiter
 		end
 
 		for is in 1:s Lz[is].=L[is] end
@@ -504,13 +503,16 @@ function IRKstepDynODE_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,max
         	end
 		    end
 
+            plusIt=true
+			iter = true # Initialize iter outside the for loop
         	nit=1
 			for is in 1:s Dmin[is] .= Inf end
 
-			while (nit<maxiterj)
+			while (nit<maxiter && iter)
+
             	nit+=1
-
-
+                iter=false
+				D0=0
 #               First part
 
                 @inbounds begin
@@ -525,17 +527,25 @@ function IRKstepDynODE_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,max
 				Threads.@threads for is in 1:s
 	                Eval[is]=false
 					for k in eachindex(uj.x[1])
-						if (abs(U[is][k]-Uz[is][k])>0.)
+						DY=abs(U[is][k]-Uz[is][k])
+						if DY>0.
                             Eval[is]=true
+							if DY< Dmin[is][k]
+								Dmin[is][k]=DY
+								iter=true
+							end
+						else
+							D0+=1
 						end
-					end
-                    if (Eval[is]==true)
+				   end
+
+                   if (Eval[is]==true)
 						nfcn[1]+=1
 	            		f2(F[is].x[2], U[is].x[1],U[is].x[2], p,  tj + hc[is])
 	            		@. L[is].x[2] = hb[is]*F[is].x[2]
-					end
+				   end
 	       	    end
-		        end
+		       end #inbound
 
 
 #               Second part
@@ -552,17 +562,33 @@ function IRKstepDynODE_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,max
 				Threads.@threads for is in 1:s
 					Eval[is]=false
 					for k in eachindex(uj.x[2])
-						if (abs(U[is][k]-Uz[is][k])>0.)
+						DY=abs(U[is][k]-Uz[is][k])
+						if DY>0.
 							Eval[is]=true
+							if DY< Dmin[is][k]
+								Dmin[is][k]=DY
+								iter=true
+							end
+						else
+							D0+=1
 						end
 					end
+
                     if (Eval[is]==true)
 #						nfcn[1]+=1
 	            		f1(F[is].x[1], U[is].x[1],U[is].x[2], p,  tj + hc[is])
 	            		@. L[is].x[1] = hb[is]*F[is].x[1]
 					end
 	       	    end
-		        end
+		        end #inbound
+
+				if (iter==false && D0<elems && plusIt)
+					iter=true
+					plusIt=false
+				else
+					plusIt=true
+				end
+
 
         	end # while iter
 

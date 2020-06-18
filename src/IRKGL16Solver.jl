@@ -87,6 +87,8 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 		end
 	end
 
+	dt=min(dt,tf-t0)
+
 	EstimateCoeffs!(alpha,uiType)
 	MuCoefficients!(mu,uiType)
 
@@ -120,11 +122,13 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 	    if (save_everystep==false)
 ##			m=convert(Int64,ceil((tf-t0)/(dt)))
             m=1
-    		n=convert(Int64,ceil((tf-t0)/(m*dt)))
+##    		n=convert(Int64,ceil((tf-t0)/(m*dt)))
+            n=Inf
     	else
 ##			m=convert(Int64,(round(saveat/dt)))
             m=Int64(saveat)
-    		n=convert(Int64,ceil((tf-t0)/(m*dt)))
+##    		n=convert(Int64,ceil((tf-t0)/(m*dt)))
+			n=Inf
         end
     end
 
@@ -160,12 +164,12 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 	lmu=convert.(low_prec_type,mu)
 	lhb=convert.(low_prec_type,hb)
 
-    cache=tcache{uType,uiType,uLowType,low_prec_type}(U1,U2,U3,U4,U5,U6,fill(true,s),[0],[0,0],[0.,0.],
+    cache=tcache{uType,uiType,uLowType,low_prec_type}(U1,U2,U3,U4,U5,U6,
+	             fill(true,s),[0],[0,0],fill(zero(uiType),2),
 	             U11,U12,U13,U14,U15,U16,U17,
 				 fill(zero(low_prec_type),s),lhb,lmu)
 	@unpack U,Uz,L,Lz,F,Dmin,Eval,rejects,nfcn,lambdas,
 	        Ulow,DU,DF,DL,delta,Fa,Fb,normU,lhb,lmu=cache
-
 
 
     ej=zero(u0)
@@ -394,7 +398,7 @@ function IRKstep_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
      end
 
 	if (uiType<:CompiledFloats)
-		
+
     	indices = eachindex(uj)
     	@inbounds begin
 		for k in indices    #Compensated summation
@@ -438,7 +442,10 @@ function IRKstep_fixed_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 				Ulow,DU,DF,DL,delta,Fa,Fb,
 				normU,lhb,lmu=cache
 
-        if !isempty(kwargs) lpp=kwargs[:lpp] end
+        if !isempty(kwargs) lpp=kwargs[:lpp]
+		else
+			lpp=[]
+		end
 		uiType = eltype(uj)
 
 		dt=dts[1]
@@ -848,7 +855,10 @@ function IRKstep_adaptive_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtr
 	         	Ulow,DU,DF,DL,delta,Fa,Fb,
 	         	normU,lhb,lmu=cache
 
-        if !isempty(kwargs) lpp=kwargs[:lpp] end
+        if !isempty(kwargs) lpp=kwargs[:lpp]
+		else
+			lpp=[]
+		end
 		uiType = eltype(uj)
 
 		lambda=lambdas[1]

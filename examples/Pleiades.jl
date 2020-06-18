@@ -19,8 +19,8 @@ function NbodyEnergy(u, Gm)
     v = view(u,15:21) # x′
     w = view(u,22:28) # y′
 
-    H=0.
-    P=0.
+    H=zero(eltype(u))
+    P=zero(eltype(u))
 
     for i in 1:nbody
         H+=Gm[i]*(v[i]*v[i]+w[i]*w[i])
@@ -92,5 +92,30 @@ function dotq(dq,q,v,par,t)
   vy = view(v,8:14)  # y′
   dq[1:7] .= vx
   dq[8:14].= vy
+  end
+end
+
+
+#
+#  Second Order Problem
+#
+function f2nd!(ddu,du,u,p,t)
+  @inbounds begin
+  x = view(u,1:7)   # x
+  y = view(u,8:14)  # y
+  vx = view(du,1:7) # x′
+  vy = view(du,8:14) # y′
+
+  for i in 1:14
+    ddu[i] = zero(x[1])
+  end
+
+  for i=1:7,j=1:7
+    if i != j
+      r = ((x[i]-x[j])^2 + (y[i] - y[j])^2)^(3/2)
+      ddu[i] += j*(x[j] - x[i])/r
+      ddu[7+i] += j*(y[j] - y[i])/r
+    end
+  end
   end
 end
