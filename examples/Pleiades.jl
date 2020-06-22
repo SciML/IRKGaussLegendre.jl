@@ -1,7 +1,7 @@
 
 # Energy
 
-function NbodyEnergy(u, Gm)
+function NbodyEnergy(u,Gm)
 """
      Nbody problem Hamiltonian (Cartesian Coordinates)
 """

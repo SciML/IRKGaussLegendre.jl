@@ -1,11 +1,23 @@
-function InitialPleiades(T=Float64)
 
-    u0=convert.(T,[3.0,3.0,-1.0,-3.0,2.0,-2.0,2.0,
-        3.0,-3.0,2.0,0,0,-4.0,4.0,
-        0,0,0,0,0,1.75,-1.5,
-        0,0,0,-1.25,1,0,0])
+function InitialPleiades(T)
 
-    Gm=convert.(T,[1,2,3,4,5,6,7])
-    return u0,Gm
+    q=[parse(BigFloat,"3.0"), parse(BigFloat,"3.0"),parse(BigFloat,"-1.0"),
+       parse(BigFloat,"-3.0"),parse(BigFloat,"2.0"),parse(BigFloat,"-2.0"),
+       parse(BigFloat,"2.0"), parse(BigFloat,"3.0"),parse(BigFloat,"-3.0"),
+       parse(BigFloat,"2.0"),parse(BigFloat,"0.0"),parse(BigFloat,"0.0"),
+       parse(BigFloat,"-4.0"),parse(BigFloat,"4.0")]
+
+    v=[parse(BigFloat,"0.0"), parse(BigFloat,"0.0"),parse(BigFloat,"0.0"),
+       parse(BigFloat,"0.0"),parse(BigFloat,"0.0"),parse(BigFloat,"1.75"),
+       parse(BigFloat,"-1.5"), parse(BigFloat,"0.0"),parse(BigFloat,"0.0"),
+       parse(BigFloat,"0.0"),parse(BigFloat,"-1.25"),parse(BigFloat,"1.0"),
+       parse(BigFloat,"0.0"),parse(BigFloat,"0.0")]
+
+
+    u0 = Array{T}(undef,1)
+
+    u0=convert.(T,[q;v])
+
+    return u0
 
 end

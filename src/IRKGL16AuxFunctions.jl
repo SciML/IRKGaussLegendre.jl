@@ -7,16 +7,19 @@
 
 function ErrorEst(U,F,dt,beta,abstol,reltol)
 
+
+    uiType=eltype(U[1])
+
     (s,)=size(F)
 	D=length(U[1])
 
-	est=zero(typeof(dt))
+	est=zero(uiType)
 
     @inbounds begin
 	for k in eachindex(U[1])
 
-		sum=zero(typeof(dt))
-		maxU=zero(typeof(dt))
+		sum=zero(uiType)
+		maxU=zero(uiType)
 		for is in 1:s
         	sum+=beta[is]*F[is][k]
 			maxU=max(maxU,abs(U[is][k]))
@@ -33,7 +36,8 @@ end
 
 function MyNorm(u,abstol,reltol)
 
-	norm=zero(eltype(u))
+    uiType=eltype(u)
+	norm=zero(uiType)
 
     @inbounds begin
 	for k in eachindex(u)

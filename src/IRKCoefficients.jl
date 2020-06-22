@@ -359,7 +359,7 @@ return
 end
 
 
-function EstimateCoeffs!(beta2, T=Float64)
+function EstimateCoeffs!(beta2,T)
 
 
 #    println("Estimate2: NO Compiled")

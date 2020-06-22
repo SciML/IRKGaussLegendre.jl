@@ -50,11 +50,11 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 
 
     if (dt==0)
-		d0=MyNorm(u0,abstol,reltol)
+		d0=MyNorm(u0,abstol2s,reltol2s)
 		du0=similar(u0)
 		f1(du0.x[1], u0.x[1],u0.x[2], p, t0)
 		f2(du0.x[2], u0.x[1],u0.x[2], p, t0)
-    	d1=MyNorm(du0,abstol,reltol)
+    	d1=MyNorm(du0,abstol2s,reltol2s)
 		if (d0<1e-5 || d1<1e-5)
 			dt=convert(tType2,1e-6)
 		else
@@ -495,6 +495,11 @@ function IRKstepDynODE_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,max
             	end
         	end
 
+			iter = true # Initialize iter outside the for loop
+			plusIt=true
+        	nit=1
+			for is in 1:s Dmin[is] .= Inf end
+
         	Threads.@threads for is in 1:s
 				nfcn[1]+=1
 				f1(F[is].x[1], U[is].x[1],U[is].x[2], p, tj + hc[is])
@@ -502,11 +507,6 @@ function IRKstepDynODE_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,max
         		@. L[is] = hb[is]*F[is]
         	end
 		    end
-
-            plusIt=true
-			iter = true # Initialize iter outside the for loop
-        	nit=1
-			for is in 1:s Dmin[is] .= Inf end
 
 			while (nit<maxiter && iter)
 
@@ -547,7 +547,6 @@ function IRKstepDynODE_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,max
 	       	    end
 		       end #inbound
 
-
 #               Second part
 
                 @inbounds begin
@@ -572,22 +571,22 @@ function IRKstepDynODE_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,max
 						else
 							D0+=1
 						end
-					end
+				   end
 
-                    if (Eval[is]==true)
+                   if (Eval[is]==true)
 #						nfcn[1]+=1
 	            		f1(F[is].x[1], U[is].x[1],U[is].x[2], p,  tj + hc[is])
 	            		@. L[is].x[1] = hb[is]*F[is].x[1]
-					end
-	       	    end
-		        end #inbound
+				   end
+	       	   end
+		      end #inbound
 
-				if (iter==false && D0<elems && plusIt)
+			  if (iter==false && D0<elems && plusIt)
 					iter=true
 					plusIt=false
-				else
+			  else
 					plusIt=true
-				end
+			  end
 
 
         	end # while iter

@@ -62,6 +62,10 @@ function NbodyODE!(du,u,Gm,t)
 end
 
 
+
+
+
+
 # DynamicalODEProblem
 
 
@@ -70,7 +74,7 @@ function NbodyODEv!(dv,q,v,Gm,t)
 #    dotv
 #
      N = length(Gm)
-     dv[:,:] .= 0
+     dv[:,:] .= zero(eltype(q))
      for i in 1:N
         qi = q[:,i]
         Gmi = Gm[i]
@@ -103,12 +107,13 @@ function NbodyODEq!(dq,q,v,Gm,t)
 end
 
 
+
 ## 2ndOrderProblem
 
 
 function NbodyODE2nd!(ddu,du,u,Gm,t)
      N = length(Gm)
-     ddu[:,:] .= 0
+     ddu[:,:] .= zero(eltype(u))
      for i in 1:N
         qi = u[:,i]
         Gmi = Gm[i]

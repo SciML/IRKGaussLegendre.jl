@@ -76,10 +76,10 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 	@unpack mu,hc,hb,nu,alpha = coeffs
 
     if (dt==0)
-		d0=MyNorm(u0,abstol,reltol)
+		d0=MyNorm(u0,abstol2s,reltol2s)
 		du0=similar(u0)
 		f(du0, u0, p, t0)
-    	d1=MyNorm(du0,abstol,reltol)
+    	d1=MyNorm(du0,abstol2s,reltol2s)
 		if (d0<1e-5 || d1<1e-5)
 			dt=convert(tType2,1e-6)
 		else
@@ -168,6 +168,7 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 	             fill(true,s),[0],[0,0],fill(zero(uiType),2),
 	             U11,U12,U13,U14,U15,U16,U17,
 				 fill(zero(low_prec_type),s),lhb,lmu)
+
 	@unpack U,Uz,L,Lz,F,Dmin,Eval,rejects,nfcn,lambdas,
 	        Ulow,DU,DF,DL,delta,Fa,Fb,normU,lhb,lmu=cache
 
@@ -705,10 +706,6 @@ function IRKstep_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials
 			    end
         	end
 
-#			println("***************************************************")
-#			println("urratsa=",j)
-
-
             @inbounds begin
         	Threads.@threads for is in 1:s
 				nfcn[1]+=1
@@ -753,13 +750,12 @@ function IRKstep_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials
                        end
                 	end
 
-               		if Eval[is]==true
-						nfcn[1]+=1
-                  		f(F[is], U[is], p,  tj + hc[is])
-                  		@. L[is] = hb[is]*F[is]
-               		end
+               	  if Eval[is]==true
+				   	 nfcn[1]+=1
+                  	 f(F[is], U[is], p,  tj + hc[is])
+                  	 @. L[is] = hb[is]*F[is]
+                  end
 	       		end
-
 				end #inbound
 
                 if (iter==false && D0<elems && plusIt)
@@ -795,6 +791,8 @@ function IRKstep_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials
 
 	    if (uiType<:CompiledFloats)
 
+#            println("Urratsa:", j, " batura konpensatua-BAI")
+
 			indices = eachindex(uj)
         	@inbounds begin
 			for k in indices    #Compensated summation
@@ -815,6 +813,9 @@ function IRKstep_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials
 			ttj[1] = res.hi
 			ttj[2] = res.lo
 		else
+
+#			println("Urratsa:", j, " batura konpensatua-EZ", " uitype:",uiType )
+
 	   		@. uj+=L[1]+L[2]+L[3]+L[4]+L[5]+L[6]+L[7]+L[8]
 	   		ttj[1]=tj+dt
 		end
