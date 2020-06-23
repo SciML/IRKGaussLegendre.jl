@@ -331,7 +331,7 @@ end
 
 
 
-function EstimateCoeffs!(beta2, T::Type{<:CompiledFloats})
+function EstimateCoeffs!(alpha, T::Type{<:CompiledFloats})
 
 
 #    println("Estimate2: CompiledFloats")
@@ -351,7 +351,7 @@ function EstimateCoeffs!(beta2, T::Type{<:CompiledFloats})
 
     B=vcat(zeros(T,s-1),1)
     M=[(c[i]-1/2)^(k-1) for i in 1:s, k in 1:s]'
-    beta2.=M\B
+    alpha.=1000*M\B
 
 
 return
@@ -359,7 +359,7 @@ return
 end
 
 
-function EstimateCoeffs!(beta2,T)
+function EstimateCoeffs!(alpha,T)
 
 
 #    println("Estimate2: NO Compiled")
@@ -379,7 +379,7 @@ function EstimateCoeffs!(beta2,T)
 
     B=vcat(zeros(T,s-1),1)
     M=[(c[i]-1/2)^(k-1) for i in 1:s, k in 1:s]'
-    beta2.=M\B
+    alpha.=1000*M\B
 
 
 return

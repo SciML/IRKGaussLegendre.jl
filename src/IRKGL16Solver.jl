@@ -67,8 +67,11 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
     lu0 = convert.(low_prec_type,u0)
 	uLowType=typeof(lu0)
 
-    reltol2s=uiType(sqrt(reltol))
-	abstol2s=uiType(sqrt(abstol))
+#   reltol2s=uiType(sqrt(reltol))
+#	abstol2s=uiType(sqrt(abstol))
+
+    reltol2s=convert(uiType,reltol)
+    abstol2s=convert(uiType,abstol)
 
 	coeffs=tcoeffs{uiType}(zeros(s,s),zeros(s),zeros(s),
 	               zeros(s,s),zeros(s,s))
@@ -355,6 +358,7 @@ function IRKstep_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 		  iter=false
 	      D0=0
 
+
 	      @inbounds begin
 	      for is in 1:s
 	    	Uz[is] .= U[is]
@@ -363,6 +367,7 @@ function IRKstep_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 							   mu[is,5]*L[5] + mu[is,6]*L[6]+
 							   mu[is,7]*L[7] + mu[is,8]*L[8])
 	      end
+
 
 	      Threads.@threads for is in 1:s
 	     	Eval[is]=false
@@ -773,7 +778,7 @@ function IRKstep_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials
 
      		estimate=ErrorEst(U,F,dt,alpha,abstol,reltol)
 			lambda=(estimate)^pow
-			if (estimate < 2)
+			if (estimate < 10)     # (estimate < 2)  2020-06-23
 				accept=true
 			else
 			    rejects[1]+=1
@@ -820,7 +825,7 @@ function IRKstep_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials
 	   		ttj[1]=tj+dt
 		end
 
-
+"""
 		if (j==1)
             dts[1]=min(max(dt/2,min(2*dt,dt/lambda)),tf-(ttj[1]+ttj[2]))
 		else
@@ -831,8 +836,30 @@ function IRKstep_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials
 			barlamb2=(dtprev+dt)/(hath2+hath1)
 			barh=hath1*(hath1/hath2)^(barlamb1/barlamb2)
 			dts[1]= min(max(dt/2,min(2*dt,barh)),tf-(ttj[1]+ttj[2]))
-
 		end
+"""
+
+		if (lambda<1.1) && (lambda>0.9)
+			dts[1]=min(dt,tf-(ttj[1]+ttj[2]))
+		else
+			if (j==1)
+				dts[1]=min(dt*max(0.5,min(2.,1/lambda)),tf-(ttj[1]+ttj[2]))
+			else
+				hath1 = dt/lambda
+                hath2 = dtprev/lambdaprev
+                tildeh = hath1*(hath1/hath2)^(lambda/lambdaprev)
+                barlamb1 = (dt+tildeh)/(hath1+tildeh)
+                barlamb2 = (dtprev+dt)/(hath2+hath1)
+                hrat = (hath1/hath2)^(barlamb1/barlamb2)/lambda
+                if (hrat<1.1) && (hrat>0.9)
+                    dts[1] = min(dt,tf-(ttj[1]+ttj[2]))
+                else
+                    barh = dt*hrat
+                    dts[1]= min(dt*max(0.5,min(2.,hrat)),tf-(ttj[1]+ttj[2]))
+				end
+  			end
+		end
+
 
 		dts[2]=dt
         lambdas[2]=lambda
@@ -1029,7 +1056,7 @@ function IRKstep_adaptive_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtr
 
      		estimate=ErrorEst(U,F,dt,alpha,abstol,reltol)
 			lambda=(estimate)^pow
-			if (estimate < 2)
+			if (estimate < 10)     # (estimate < 2)  2020-06-23
 				accept=true
 			else
 			    rejects[1]+=1
@@ -1073,6 +1100,8 @@ function IRKstep_adaptive_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtr
 				ttj[1]=tj+dt
 		end
 
+
+"""
 		if (j==1)
             dts[1]=min(max(dt/2,min(2*dt,dt/lambda)),tf-(ttj[1]+ttj[2]))
 		else
@@ -1083,8 +1112,31 @@ function IRKstep_adaptive_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtr
 			barlamb2=(dtprev+dt)/(hath2+hath1)
 			barh=hath1*(hath1/hath2)^(barlamb1/barlamb2)
 			dts[1]= min(max(dt/2,min(2*dt,barh)),tf-(ttj[1]+ttj[2]))
-
 		end
+"""
+
+		if (lambda<1.1) && (lambda>0.9)
+			dts[1]=min(dt,tf-(ttj[1]+ttj[2]))
+		else
+			if (j==1)
+				dts[1]=min(dt*max(0.5,min(2.,1/lambda)),tf-(ttj[1]+ttj[2]))
+			else
+				hath1 = dt/lambda
+                hath2 = dtprev/lambdaprev
+                tildeh = hath1*(hath1/hath2)^(lambda/lambdaprev)
+                barlamb1 = (dt+tildeh)/(hath1+tildeh)
+                barlamb2 = (dtprev+dt)/(hath2+hath1)
+                hrat = (hath1/hath2)^(barlamb1/barlamb2)/lambda
+                if (hrat<1.1) && (hrat>0.9)
+                    dts[1] = min(dt,tf-(ttj[1]+ttj[2]))
+                else
+                    barh = dt*hrat
+                    dts[1]= min(dt*max(0.5,min(2.,hrat)),tf-(ttj[1]+ttj[2]))
+				end
+			end
+		end
+
+
 
 		dts[2]=dt
         lambdas[2]=lambda
