@@ -110,19 +110,13 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
         end
     end
 
+
 	U1 = Array{uType}(undef, s)
-    U2 = Array{uType}(undef, s)
-    U3 = Array{uType}(undef, s)
-    U4 = Array{uType}(undef, s)
-    U5 = Array{uType}(undef, s)
+	U2 = Array{uType}(undef, s)
+	U3 = Array{uType}(undef, s)
+	U4 = Array{uType}(undef, s)
+	U5 = Array{uType}(undef, s)
 	U6 = Array{uType}(undef, s)
-	U11 = Array{uLowType}(undef, s)
-	U12 = Array{uLowType}(undef, s)
-	U13 = Array{uLowType}(undef, s)
-	U14 = Array{uLowType}(undef, s)
-	U15 = Array{uLowType}(undef, s)
-	U16 = Array{uLowType}(undef, s)
-	U17 = Array{uLowType}(undef, s)
 	for i in 1:s
 		U1[i] = zero(u0)
 		U2[i] = zero(u0)
@@ -130,24 +124,14 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 		U4[i] = zero(u0)
 		U5[i] = zero(u0)
 		U6[i] = zero(u0)
-		U11[i] = zero(convert.(low_prec_type,u0))
-		U12[i] = zero(convert.(low_prec_type,u0))
-		U13[i] = zero(convert.(low_prec_type,u0))
-		U14[i] = zero(convert.(low_prec_type,u0))
-		U15[i] = zero(convert.(low_prec_type,u0))
-		U16[i] = zero(convert.(low_prec_type,u0))
-		U17[i] = zero(convert.(low_prec_type,u0))
 	end
 
-	lmu=convert.(low_prec_type,mu)
-	lhb=convert.(low_prec_type,hb)
+	cache=tcache{uType,uiType,uLowType,low_prec_type}(U1,U2,U3,U4,U5,U6,
+				 fill(true,s),fill(zero(uiType),s),
+				 [0],[0,0],fill(zero(uiType),2))
 
-    cache=tcache{uType,uiType,uLowType,low_prec_type}(U1,U2,U3,U4,U5,U6,
-	             fill(true,s),[0],[0,0],fill(zero(uiType),2),
-	             U11,U12,U13,U14,U15,U16,U17,
-				 fill(zero(low_prec_type),s),lhb,lmu)
-	@unpack U,Uz,L,Lz,F,Dmin,Eval,rejects,nfcn,lambdas,
-	        Ulow,DU,DF,DL,delta,Fa,Fb,normU,lhb,lmu=cache
+	@unpack U,Uz,L,Lz,F,Dmin,Eval,DY,rejects,nfcn,lambdas=cache
+
 
     ej=zero(u0)
 
@@ -255,7 +239,7 @@ function IRKstepDynODE_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 		f2=prob.f.f2
 #		r0=prob.v0
 #		v0=prob.u0
-		@unpack U,Uz,L,Lz,F,Dmin,Eval,rejects,nfcn,lambdas=cache
+		@unpack U,Uz,L,Lz,F,Dmin,Eval,DY,rejects,nfcn,lambdas=cache
 
 
 #        println("Dinamic Fixed !!!")
@@ -344,12 +328,12 @@ function IRKstepDynODE_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
         	Threads.@threads for is in 1:s
             	Eval[is]=false
             	for k in eachindex(U[is].x[1])
-                    DY=abs(U[is].x[1][k]-Uz[is].x[1][k])
+                    DY[is]=abs(U[is].x[1][k]-Uz[is].x[1][k])
 #					println("k=",k, ",U=",U[is].x[1][k],",Uz=",Uz[is].x[1][k], ",DY=", DY)
-                    if DY>0.
+                    if DY[is]>0.
                        Eval[is]=true
-                       if DY< Dmin[is].x[1][k]
-                          Dmin[is].x[1][k]=DY
+                       if DY[is]< Dmin[is].x[1][k]
+                          Dmin[is].x[1][k]=DY[is]
                           iter=true
                        end
                     else
@@ -386,12 +370,12 @@ function IRKstepDynODE_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
         	Threads.@threads for is in 1:s
             	Eval[is]=false
         		for k in eachindex(U[is].x[2])
-	                  DY=abs(U[is].x[2][k]-Uz[is].x[2][k])
+	                  DY[is]=abs(U[is].x[2][k]-Uz[is].x[2][k])
 #					  println("k=",k, ",U=",U[is].x[2][k],",Uz=",Uz[is].x[2][k], ",DY=",DY)
-	                  if DY>0.
+	                  if DY[is]>0.
 	                       Eval[is]=true
-                       	   if DY< Dmin[is].x[2][k]
-			                  Dmin[is].x[2][k]=DY
+                       	   if DY[is]< Dmin[is].x[2][k]
+			                  Dmin[is].x[2][k]=DY[is]
 	                          iter=true
 	                       end
 	                   else
@@ -470,7 +454,7 @@ function IRKstepDynODE_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,max
 		f2=prob.f.f2
 #		r0=prob.v0
 #		v0=prob.u0
-		@unpack U,Uz,L,Lz,F,Dmin,Eval,rejects,nfcn,lambdas=cache
+		@unpack U,Uz,L,Lz,F,Dmin,Eval,DY,rejects,nfcn,lambdas=cache
 
 		uiType = eltype(uj)
 
@@ -554,11 +538,11 @@ function IRKstepDynODE_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,max
 				Threads.@threads for is in 1:s
 	                Eval[is]=false
 					for k in eachindex(U[is].x[1])
-						DY=abs(U[is].x[1][k]-Uz[is].x[1][k])
-						if DY>0.
+						DY[is]=abs(U[is].x[1][k]-Uz[is].x[1][k])
+						if DY[is]>0.
                             Eval[is]=true
-							if DY< Dmin[is].x[1][k]
-								Dmin[is].x[1][k]=DY
+							if DY[is]< Dmin[is].x[1][k]
+								Dmin[is].x[1][k]=DY[is]
 								iter=true
 							end
 						else
@@ -588,11 +572,11 @@ function IRKstepDynODE_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,max
 				Threads.@threads for is in 1:s
 					Eval[is]=false
 					for k in eachindex(U[is].x[2])
-						DY=abs(U[is].x[2][k]-Uz[is].x[2][k])
-						if DY>0.
+						DY[is]=abs(U[is].x[2][k]-Uz[is].x[2][k])
+						if DY[is]>0.
 							Eval[is]=true
-							if DY< Dmin[is].x[2][k]
-								Dmin[is].x[2][k]=DY
+							if DY[is]< Dmin[is].x[2][k]
+								Dmin[is].x[2][k]=DY[is]
 								iter=true
 							end
 						else

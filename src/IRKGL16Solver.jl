@@ -7,14 +7,31 @@ mutable struct tcoeffs{T}
 	   alpha::Array{T,2}
 end
 
+
 mutable struct tcache{uType,elTypeu,uLowType,low_prec_type}
 	U::Array{uType,1}
 	Uz::Array{uType,1}
-    L::Array{uType,1}
+	L::Array{uType,1}
 	Lz::Array{uType,1}
 	F::Array{uType,1}
 	Dmin::Array{uType,1}
 	Eval::Array{Bool,1}
+	DY::Array{elTypeu,1}
+	rejects::Array{Int64,1}
+	nfcn::Array{Int64, 1}
+	lambdas::Array{elTypeu,1}
+end
+
+
+mutable struct tcacheMix{uType,elTypeu,uLowType,low_prec_type}
+	U::Array{uType,1}
+	Uz::Array{uType,1}
+	L::Array{uType,1}
+	Lz::Array{uType,1}
+	F::Array{uType,1}
+	Dmin::Array{uType,1}
+	Eval::Array{Bool,1}
+	DY::Array{elTypeu,1}
 	rejects::Array{Int64,1}
 	nfcn::Array{Int64, 1}
 	lambdas::Array{elTypeu,1}
@@ -29,6 +46,7 @@ mutable struct tcache{uType,elTypeu,uLowType,low_prec_type}
 	lhb::Array{low_prec_type,1}
 	lmu::Array{low_prec_type,2}
 end
+
 
 
 abstract type IRKAlgorithm  <: OrdinaryDiffEqAlgorithm end
@@ -67,16 +85,18 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
     lu0 = convert.(low_prec_type,u0)
 	uLowType=typeof(lu0)
 
+	coeffs=tcoeffs{uiType}(zeros(s,s),zeros(s),zeros(s),
+	               zeros(s,s),zeros(s,s))
+
+	@unpack mu,hc,hb,nu,alpha = coeffs
+
+
 #   reltol2s=uiType(sqrt(reltol))
 #	abstol2s=uiType(sqrt(abstol))
 
     reltol2s=convert(uiType,reltol)
     abstol2s=convert(uiType,abstol)
 
-	coeffs=tcoeffs{uiType}(zeros(s,s),zeros(s),zeros(s),
-	               zeros(s,s),zeros(s,s))
-
-	@unpack mu,hc,hb,nu,alpha = coeffs
 
     if (dt==0)
 		d0=MyNorm(u0,abstol2s,reltol2s)
@@ -135,19 +155,12 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
         end
     end
 
-    U1 = Array{uType}(undef, s)
-    U2 = Array{uType}(undef, s)
-    U3 = Array{uType}(undef, s)
-    U4 = Array{uType}(undef, s)
-    U5 = Array{uType}(undef, s)
+	U1 = Array{uType}(undef, s)
+	U2 = Array{uType}(undef, s)
+	U3 = Array{uType}(undef, s)
+	U4 = Array{uType}(undef, s)
+	U5 = Array{uType}(undef, s)
 	U6 = Array{uType}(undef, s)
-	U11 = Array{uLowType}(undef, s)
-	U12 = Array{uLowType}(undef, s)
-	U13 = Array{uLowType}(undef, s)
-	U14 = Array{uLowType}(undef, s)
-	U15 = Array{uLowType}(undef, s)
-	U16 = Array{uLowType}(undef, s)
-	U17 = Array{uLowType}(undef, s)
 	for i in 1:s
 		U1[i] = zero(u0)
 		U2[i] = zero(u0)
@@ -155,25 +168,46 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 		U4[i] = zero(u0)
 		U5[i] = zero(u0)
 		U6[i] = zero(u0)
-		U11[i] = zero(lu0)
-		U12[i] = zero(lu0)
-		U13[i] = zero(lu0)
-		U14[i] = zero(lu0)
-		U15[i] = zero(lu0)
-		U16[i] = zero(lu0)
-		U17[i] = zero(lu0)
 	end
 
-	lmu=convert.(low_prec_type,mu)
-	lhb=convert.(low_prec_type,hb)
+    if mixed_precision==true
 
-    cache=tcache{uType,uiType,uLowType,low_prec_type}(U1,U2,U3,U4,U5,U6,
-	             fill(true,s),[0],[0,0],fill(zero(uiType),2),
-	             U11,U12,U13,U14,U15,U16,U17,
-				 fill(zero(low_prec_type),s),lhb,lmu)
+		U11 = Array{uLowType}(undef, s)
+		U12 = Array{uLowType}(undef, s)
+		U13 = Array{uLowType}(undef, s)
+		U14 = Array{uLowType}(undef, s)
+		U15 = Array{uLowType}(undef, s)
+		U16 = Array{uLowType}(undef, s)
+		U17 = Array{uLowType}(undef, s)
+		for i in 1:s
+			U11[i] = zero(lu0)
+			U12[i] = zero(lu0)
+			U13[i] = zero(lu0)
+			U14[i] = zero(lu0)
+			U15[i] = zero(lu0)
+			U16[i] = zero(lu0)
+			U17[i] = zero(lu0)
+		end
 
-	@unpack U,Uz,L,Lz,F,Dmin,Eval,rejects,nfcn,lambdas,
-	        Ulow,DU,DF,DL,delta,Fa,Fb,normU,lhb,lmu=cache
+		lmu=convert.(low_prec_type,mu)
+		lhb=convert.(low_prec_type,hb)
+
+		cache=tcacheMix{uType,uiType,uLowType,low_prec_type}(U1,U2,U3,U4,U5,U6,
+		             fill(true,s),fill(zero(uiType),s),
+					 [0],[0,0],fill(zero(uiType),2),
+		             U11,U12,U13,U14,U15,U16,U17,
+					 fill(zero(low_prec_type),s),lhb,lmu)
+
+		@unpack U,Uz,L,Lz,F,Dmin,Eval,DY,rejects,nfcn,lambdas,
+		        Ulow,DU,DF,DL,delta,Fa,Fb,normU,lhb,lmu=cache
+
+	 else
+		cache=tcache{uType,uiType,uLowType,low_prec_type}(U1,U2,U3,U4,U5,U6,
+	 				 fill(true,s),fill(zero(uiType),s),
+					 [0],[0,0],fill(zero(uiType),2))
+		@unpack U,Uz,L,Lz,F,Dmin,Eval,DY,rejects,nfcn,lambdas=cache
+
+    end
 
 
     ej=zero(u0)
@@ -290,7 +324,7 @@ function IRKstep_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 
         @unpack mu,hc,hb,nu,alpha = coeffs
         @unpack f,u0,p,tspan=prob
-		@unpack U,Uz,L,Lz,F,Dmin,Eval,rejects,nfcn,lambdas=cache
+		@unpack U,Uz,L,Lz,F,Dmin,Eval,DY,rejects,nfcn,lambdas=cache
 
 		uiType = eltype(uj)
 
@@ -372,11 +406,11 @@ function IRKstep_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 	      Threads.@threads for is in 1:s
 	     	Eval[is]=false
 		    for k in eachindex(uj)
-			    DY=abs(U[is][k]-Uz[is][k])
-			    if DY>0.
+			    DY[is]=abs(U[is][k]-Uz[is][k])
+			    if DY[is]>0.
 			       Eval[is]=true
-			       if DY< Dmin[is][k]
-				      Dmin[is][k]=DY
+			       if DY[is]< Dmin[is][k]
+				      Dmin[is][k]=DY[is]
 				      iter=true
 			      end
 		       else
@@ -444,7 +478,7 @@ function IRKstep_fixed_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 		@unpack mu,hc,hb,nu,alpha = coeffs
 		@unpack f,u0,p,tspan,kwargs=prob
 
-		@unpack U,Uz,L,Lz,F,Dmin,Eval,rejects,nfcn,lambdas,
+		@unpack U,Uz,L,Lz,F,Dmin,Eval,DY,rejects,nfcn,lambdas,
 				Ulow,DU,DF,DL,delta,Fa,Fb,
 				normU,lhb,lmu=cache
 
@@ -538,11 +572,11 @@ function IRKstep_fixed_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
   			Eval[is]=false
   			for k in eachindex(uj)
 #	  			DY=abs(U[is][k]-Uz[is][k])
-				DY=abs(Rdigits(U[is][k],10)-Rdigits(Uz[is][k],10))
-	  			if DY>0.
+				DY[is]=abs(Rdigits(U[is][k],10)-Rdigits(Uz[is][k],10))
+	  			if DY[is]>0.
 					Eval[is]=true
-					if DY< Dmin[is][k]
-						Dmin[is][k]=DY
+					if DY[is]< Dmin[is][k]
+						Dmin[is][k]=DY[is]
 						iter=true
 					end
 	 	   	   else
@@ -653,7 +687,7 @@ function IRKstep_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials
 
 		@unpack mu,hc,hb,nu,alpha = coeffs
         @unpack f,u0,p,tspan=prob
-		@unpack U,Uz,L,Lz,F,Dmin,Eval,rejects,nfcn,lambdas=cache
+		@unpack U,Uz,L,Lz,F,Dmin,Eval,DY,rejects,nfcn,lambdas=cache
 
 		uiType = eltype(uj)
 
@@ -743,11 +777,11 @@ function IRKstep_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials
             	Threads.@threads for is in 1:s
 					Eval[is]=false
                 	for k in eachindex(uj)
-                        DY=abs(U[is][k]-Uz[is][k])
-                        if DY>0.
+                        DY[is]=abs(U[is][k]-Uz[is][k])
+                        if DY[is]>0.
 						   Eval[is]=true
-                           if DY< Dmin[is][k]
-                              Dmin[is][k]=DY
+                           if DY[is]< Dmin[is][k]
+                              Dmin[is][k]=DY[is]
                               iter=true
                            end
                        else
@@ -778,7 +812,7 @@ function IRKstep_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials
 
      		estimate=ErrorEst(U,F,dt,alpha,abstol,reltol)
 			lambda=(estimate)^pow
-			if (estimate < 10)     # (estimate < 2)  2020-06-23
+			if (estimate < 2)
 				accept=true
 			else
 			    rejects[1]+=1
@@ -825,7 +859,7 @@ function IRKstep_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials
 	   		ttj[1]=tj+dt
 		end
 
-"""
+
 		if (j==1)
             dts[1]=min(max(dt/2,min(2*dt,dt/lambda)),tf-(ttj[1]+ttj[2]))
 		else
@@ -837,8 +871,8 @@ function IRKstep_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials
 			barh=hath1*(hath1/hath2)^(barlamb1/barlamb2)
 			dts[1]= min(max(dt/2,min(2*dt,barh)),tf-(ttj[1]+ttj[2]))
 		end
-"""
 
+"""
 		if (lambda<1.1) && (lambda>0.9)
 			dts[1]=min(dt,tf-(ttj[1]+ttj[2]))
 		else
@@ -860,6 +894,7 @@ function IRKstep_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials
   			end
 		end
 
+"""
 
 		dts[2]=dt
         lambdas[2]=lambda
@@ -879,7 +914,7 @@ function IRKstep_adaptive_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtr
 		@unpack mu,hc,hb,nu,alpha = coeffs
         @unpack f,u0,p,tspan,kwargs=prob
 
-		@unpack U,Uz,L,Lz,F,Dmin,Eval,rejects,nfcn,lambdas,
+		@unpack U,Uz,L,Lz,F,Dmin,Eval,DY,rejects,nfcn,lambdas,
 	         	Ulow,DU,DF,DL,delta,Fa,Fb,
 	         	normU,lhb,lmu=cache
 
@@ -985,11 +1020,11 @@ function IRKstep_adaptive_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtr
 					Eval[is]=false
                 	for k in eachindex(uj)
 #						DY=abs(U[is][k]-Uz[is][k])
-						DY=abs(Rdigits(U[is][k],10)-Rdigits(Uz[is][k],10))
-                        if DY>0.
+						DY[is]=abs(Rdigits(U[is][k],10)-Rdigits(Uz[is][k],10))
+                        if DY[is]>0.
 						   Eval[is]=true
-                           if DY< Dmin[is][k]
-                              Dmin[is][k]=DY
+                           if DY[is]< Dmin[is][k]
+                              Dmin[is][k]=DY[is]
                               iter=true
                            end
                        else
@@ -1056,7 +1091,7 @@ function IRKstep_adaptive_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtr
 
      		estimate=ErrorEst(U,F,dt,alpha,abstol,reltol)
 			lambda=(estimate)^pow
-			if (estimate < 10)     # (estimate < 2)  2020-06-23
+			if (estimate < 2)
 				accept=true
 			else
 			    rejects[1]+=1
@@ -1101,7 +1136,7 @@ function IRKstep_adaptive_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtr
 		end
 
 
-"""
+
 		if (j==1)
             dts[1]=min(max(dt/2,min(2*dt,dt/lambda)),tf-(ttj[1]+ttj[2]))
 		else
@@ -1113,8 +1148,9 @@ function IRKstep_adaptive_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtr
 			barh=hath1*(hath1/hath2)^(barlamb1/barlamb2)
 			dts[1]= min(max(dt/2,min(2*dt,barh)),tf-(ttj[1]+ttj[2]))
 		end
-"""
 
+
+"""
 		if (lambda<1.1) && (lambda>0.9)
 			dts[1]=min(dt,tf-(ttj[1]+ttj[2]))
 		else
@@ -1135,7 +1171,7 @@ function IRKstep_adaptive_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtr
 				end
 			end
 		end
-
+"""
 
 
 		dts[2]=dt
