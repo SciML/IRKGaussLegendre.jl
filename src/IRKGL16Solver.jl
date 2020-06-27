@@ -66,6 +66,7 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 	 reltol=1e-6,
 	 abstol=1e-6,
 	 myoutputs=false,
+	 threading=false,
      mixed_precision=false,
 	 low_prec_type = Float64,
      kwargs...) where{uType,tType,isinplace}
@@ -261,7 +262,7 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 		  k+=1
    	      (status,it) = IRKStep!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiter,
 	                             maxtrials,initial_interp,abstol2s,reltol2s,adaptive,
-								 mixed_precision,low_prec_type)
+								 threading,mixed_precision,low_prec_type)
 
          if (status=="Failure")
 			 println("Fail")
@@ -306,7 +307,7 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 
 
 function IRKStep!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials,
-  		               initial_interp,abstol,reltol,adaptive,
+  		               initial_interp,abstol,reltol,adaptive,threading,
 					   mixed_precision,low_prec_type)
 
    if (typeof(prob.f)<:ODEFunction)
@@ -316,20 +317,22 @@ function IRKStep!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials,
       		if (mixed_precision==true)
 	    		(status,it)= IRKstep_adaptive_Mix!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiter,
  		     	             maxtrials,initial_interp,abstol,reltol,adaptive,
-						     mixed_precision,low_prec_type)
+						     threading, mixed_precision,low_prec_type)
 	  		else
 	    		(status,it)= IRKstep_adaptive!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiter,
-   		     	             maxtrials,initial_interp,abstol,reltol,adaptive)
+   		     	             maxtrials,initial_interp,abstol,reltol,adaptive,
+							 threading)
       		end
        else
 #		   println("IRKstep_fixed")
       	   if (mixed_precision==true)
 	            (status,it)= IRKstep_fixed_Mix!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiter,
- 			                 initial_interp,abstol,reltol,adaptive,
-				   			  mixed_precision,low_prec_type)
+ 			                 initial_interp,abstol,reltol,adaptive,threading,
+				   			 mixed_precision,low_prec_type)
 	       else
 		        (status,it)= IRKstep_fixed!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiter,
-				     		 initial_interp,abstol,reltol,adaptive)
+				     		 initial_interp,abstol,reltol,adaptive,
+							 threading)
 	      end
       end
 
@@ -338,11 +341,13 @@ function IRKStep!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials,
 	   if (adaptive==true)
 	#	   println("IRKstep_adaptive. maxiter=", maxiter)
 	   (status,it)= IRKstepDynODE_adaptive!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiter,
-							  maxtrials,initial_interp,abstol,reltol,adaptive)
+							  maxtrials,initial_interp,abstol,reltol,adaptive,
+							  threading)
 	   else
 	#	  println("IRKstep_fixed")
 		 (status,it)= IRKstepDynODE_fixed!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiter,
-							  initial_interp,abstol,reltol,adaptive)
+							  initial_interp,abstol,reltol,adaptive,
+							  threading)
 	   end
 
    end
@@ -354,7 +359,7 @@ end
 
 
 function IRKstep_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
-		               initial_interp,abstol,reltol,adaptive)
+		               initial_interp,abstol,reltol,adaptive,threading)
 
         @unpack mu,hc,hb,nu,alpha = coeffs
         @unpack f,u0,p,tspan=prob
@@ -407,14 +412,23 @@ function IRKstep_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 		for is in 1:s Dmin[is] .= Inf end
 	    end
 
-
-	   @inbounds begin
-	   Threads.@threads for is in 1:s
-		   nfcn[1]+=1
-	       f(F[is], U[is], p, tj + hc[is])
-		   @. L[is] = hb[is]*F[is]
+       if threading==true
+	   	@inbounds begin
+	   		Threads.@threads for is in 1:s
+		   		nfcn[1]+=1
+	       		f(F[is], U[is], p, tj + hc[is])
+		   		@. L[is] = hb[is]*F[is]
+	   		end
+       	end
+       else
+	     @inbounds begin
+   	   		for is in 1:s
+   		   		nfcn[1]+=1
+   	       		f(F[is], U[is], p, tj + hc[is])
+   		   		@. L[is] = hb[is]*F[is]
+   	   		end
+         end
 	   end
-       end
 
 #	   println("***************************************************")
 #	   println("urratsa=",j)
@@ -435,30 +449,55 @@ function IRKstep_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 							   mu[is,5]*L[5] + mu[is,6]*L[6]+
 							   mu[is,7]*L[7] + mu[is,8]*L[8])
 	      end
+		  end  #inbounds
 
+          if threading==true
+	         Threads.@threads for is in 1:s
+	     	    Eval[is]=false
+		     	for k in eachindex(uj)
+			    	DY[is]=abs(U[is][k]-Uz[is][k])
+			    	if DY[is]>0.
+			       		Eval[is]=true
+			       		if DY[is]< Dmin[is][k]
+				      		Dmin[is][k]=DY[is]
+				      		iter=true
+			      		end
+		       		else
+			      		D0+=1
+		     		end
+		    	end
 
-	      Threads.@threads for is in 1:s
-	     	Eval[is]=false
-		    for k in eachindex(uj)
-			    DY[is]=abs(U[is][k]-Uz[is][k])
-			    if DY[is]>0.
-			       Eval[is]=true
-			       if DY[is]< Dmin[is][k]
-				      Dmin[is][k]=DY[is]
-				      iter=true
-			      end
-		       else
-			      D0+=1
+		    	if Eval[is]==true
+	    			nfcn[1]+=1
+		    		f(F[is], U[is],p, tj + hc[is])
+			    	@. L[is] = hb[is]*F[is]
+		   		end
+	      	end
+
+		 else  #threading=false
+			for is in 1:s
+			   Eval[is]=false
+			   for k in eachindex(uj)
+			      DY[is]=abs(U[is][k]-Uz[is][k])
+			      if DY[is]>0.
+				     Eval[is]=true
+				     if DY[is]< Dmin[is][k]
+					    Dmin[is][k]=DY[is]
+					    iter=true
+				     end
+			      else
+				     D0+=1
+			     end
 		      end
-		   end
 
-		   if Eval[is]==true
-	    		nfcn[1]+=1
-		    	f(F[is], U[is],p, tj + hc[is])
-			    @. L[is] = hb[is]*F[is]
-		   end
+		      if Eval[is]==true
+			     nfcn[1]+=1
+			     f(F[is], U[is],p, tj + hc[is])
+			     @. L[is] = hb[is]*F[is]
+		     end
+		  end
 	    end
-	    end
+
 
 	    if (iter==false && D0<elems && plusIt)
 		    iter=true
@@ -469,7 +508,7 @@ function IRKstep_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 
 #		println(j,",","high-=",nit-1, ",", D0, ",", norm(U.-Uz))
 
-     end
+    end  # ehile
 
 	if (uiType<:CompiledFloats)
 
@@ -506,7 +545,7 @@ end
 
 
 function IRKstep_fixed_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
-		               initial_interp,abstol,reltol,adaptive,
+		               initial_interp,abstol,reltol,adaptive,threading,
 					   mixed_precision,low_prec_type)
 
 		@unpack mu,hc,hb,nu,alpha = coeffs
@@ -572,13 +611,22 @@ function IRKstep_fixed_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 #        println("***************************************************")
 #        println("urratsa=",j)
 
-
-	   @inbounds begin
-	   Threads.@threads for is in 1:s
-		   nfcn[1]+=1
-	       f(F[is], U[is], p, tj + hc[is])
-		   @. L[is] = hb[is]*F[is]
-	   end
+       if threading==true
+	       @inbounds begin
+	       Threads.@threads for is in 1:s
+		      nfcn[1]+=1
+	          f(F[is], U[is], p, tj + hc[is])
+		      @. L[is] = hb[is]*F[is]
+	       end
+           end
+	   else
+		   @inbounds begin
+		   for is in 1:s
+			  nfcn[1]+=1
+			  f(F[is], U[is], p, tj + hc[is])
+			  @. L[is] = hb[is]*F[is]
+		   end
+		   end
        end
 
 	   lmax=1
@@ -600,33 +648,62 @@ function IRKstep_fixed_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 			Ulow[is].=U[is]
 			normU[is]=copy(norm(Ulow[is]))
 	      end
+      	  end # inbound
 
+          if threading==true
+		  	Threads.@threads for is in 1:s
+  				Eval[is]=false
+  				for k in eachindex(uj)
+					DY[is]=abs(Rdigits(U[is][k],10)-Rdigits(Uz[is][k],10))
+	  				if DY[is]>0.
+						Eval[is]=true
+						if DY[is]< Dmin[is][k]
+							Dmin[is][k]=DY[is]
+							iter=true
+						end
+	 	   	   		else
+				   		D0+=1
+			   		end
+ 		    	end
 
-		  Threads.@threads for is in 1:s
-  			Eval[is]=false
-  			for k in eachindex(uj)
-#	  			DY=abs(U[is][k]-Uz[is][k])
-				DY[is]=abs(Rdigits(U[is][k],10)-Rdigits(Uz[is][k],10))
-	  			if DY[is]>0.
-					Eval[is]=true
-					if DY[is]< Dmin[is][k]
-						Dmin[is][k]=DY[is]
-						iter=true
-					end
-	 	   	   else
-				   D0+=1
-			   end
- 		    end
+ 	        	if Eval[is]==true
+	  				nfcn[1]+=1
+	  				f(F[is], U[is],p, tj + hc[is])
+					@. delta[is] = muladd(F[is],hb[is],-L[is])
+		    	else
+			    	delta[is].=0
+ 		    	end
 
- 	        if Eval[is]==true
-	  			nfcn[1]+=1
-	  			f(F[is], U[is],p, tj + hc[is])
-				@. delta[is] = muladd(F[is],hb[is],-L[is])
-		    else
-			    delta[is].=0
- 		    end
+		    	DL[is].=delta[is]
+	       end
 
-		    DL[is].=delta[is]
+	     else
+
+			for is in 1:s
+   				Eval[is]=false
+   				for k in eachindex(uj)
+ 					DY[is]=abs(Rdigits(U[is][k],10)-Rdigits(Uz[is][k],10))
+ 	  				if DY[is]>0.
+ 						Eval[is]=true
+ 						if DY[is]< Dmin[is][k]
+ 							Dmin[is][k]=DY[is]
+ 							iter=true
+ 						end
+ 	 	   	   		else
+ 				   		D0+=1
+ 			   		end
+  		    	end
+
+  	        	if Eval[is]==true
+ 	  				nfcn[1]+=1
+ 	  				f(F[is], U[is],p, tj + hc[is])
+ 					@. delta[is] = muladd(F[is],hb[is],-L[is])
+ 		    	else
+ 			    	delta[is].=0
+  		    	end
+
+ 		    	DL[is].=delta[is]
+    	     end
 	     end
 
 
@@ -643,7 +720,9 @@ function IRKstep_fixed_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 			  end
            end
 
-           Threads.@threads for is in 1:s
+           if threading==true
+
+	       	Threads.@threads for is in 1:s
 
                 if (Eval[is]==true && norm(DU[is])!=0)
 
@@ -656,16 +735,35 @@ function IRKstep_fixed_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 					@. DL[is] = muladd(DF[is],lhb[is],delta[is])
 
 		    	end
-          	end
+          	 end
+
+		  else
+
+			  for is in 1:s
+
+                  if (Eval[is]==true && norm(DU[is])!=0)
+
+          			beta=1e-6*norm(normU[is])/norm(DU[is])
+  					nfcn[2]+=2
+  					tjci=convert(low_prec_type, tj + hc[is])
+  					f(Fa[is], muladd.(beta,DU[is],Ulow[is]),lpp,tjci)
+  					f(Fb[is], muladd.(-beta,DU[is],Ulow[is]),lpp,tjci)
+          			@. DF[is]=1/(2*beta)*(Fa[is]-Fb[is])
+  					@. DL[is] = muladd(DF[is],lhb[is],delta[is])
+
+  		    	end
+             end
+
+          end
+
+
 		end # end  for l
 
         for is in 1:s
 			if (Eval[is]==true)
 			  @. L[is] +=DL[is]
 		   end
-	   end
-
-       	end # inbound
+	    end
 
 	    if (iter==false && D0<elems && plusIt)
 		    iter=true
@@ -716,7 +814,7 @@ end
 
 
 function IRKstep_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials,
-		                   initial_interp,abstol,reltol,adaptive)
+		                   initial_interp,abstol,reltol,adaptive,threading)
 
 
 		@unpack mu,hc,hb,nu,alpha = coeffs
@@ -779,13 +877,23 @@ function IRKstep_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials
 			    end
         	end
 
-            @inbounds begin
-        	Threads.@threads for is in 1:s
-				nfcn[1]+=1
-            	f(F[is], U[is], p, tj + hc[is])
-            	@. L[is] = hb[is]*F[is]
-        	end
-		    end
+            if threading==true
+            	@inbounds begin
+        		Threads.@threads for is in 1:s
+					nfcn[1]+=1
+            		f(F[is], U[is], p, tj + hc[is])
+            		@. L[is] = hb[is]*F[is]
+        		end
+		    	end
+			else
+				@inbounds begin
+        		for is in 1:s
+					nfcn[1]+=1
+            		f(F[is], U[is], p, tj + hc[is])
+            		@. L[is] = hb[is]*F[is]
+        		end
+		    	end
+			end
 
         	iter = true # Initialize iter outside the for loop
         	plusIt=true
@@ -807,29 +915,57 @@ function IRKstep_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials
                                            mu[is,5]*L[5] + mu[is,6]*L[6]+
 									       mu[is,7]*L[7] + mu[is,8]*L[8])
         		end
-
-            	Threads.@threads for is in 1:s
-					Eval[is]=false
-                	for k in eachindex(uj)
-                        DY[is]=abs(U[is][k]-Uz[is][k])
-                        if DY[is]>0.
-						   Eval[is]=true
-                           if DY[is]< Dmin[is][k]
-                              Dmin[is][k]=DY[is]
-                              iter=true
-                           end
-                       else
-                           D0+=1
-                       end
-                	end
-
-               	  if Eval[is]==true
-				   	 nfcn[1]+=1
-                  	 f(F[is], U[is], p,  tj + hc[is])
-                  	 @. L[is] = hb[is]*F[is]
-                  end
-	       		end
 				end #inbound
+
+
+               if threading==true
+
+            		Threads.@threads for is in 1:s
+						Eval[is]=false
+                		for k in eachindex(uj)
+                        	DY[is]=abs(U[is][k]-Uz[is][k])
+                        	if DY[is]>0.
+						   		Eval[is]=true
+                           		if DY[is]< Dmin[is][k]
+                              		Dmin[is][k]=DY[is]
+                              		iter=true
+                           		end
+                       		else
+                           		D0+=1
+                       		end
+                		end
+
+               	  		if Eval[is]==true
+				   	 		nfcn[1]+=1
+                  	 		f(F[is], U[is], p,  tj + hc[is])
+                  	 		@. L[is] = hb[is]*F[is]
+                  		end
+	       			end
+
+				else
+
+					for is in 1:s
+						Eval[is]=false
+                		for k in eachindex(uj)
+                        	DY[is]=abs(U[is][k]-Uz[is][k])
+                        	if DY[is]>0.
+						   		Eval[is]=true
+                           		if DY[is]< Dmin[is][k]
+                              		Dmin[is][k]=DY[is]
+                              		iter=true
+                           		end
+                       		else
+                           		D0+=1
+                       		end
+                		end
+
+               	  		if Eval[is]==true
+				   	 		nfcn[1]+=1
+                  	 		f(F[is], U[is], p,  tj + hc[is])
+                  	 		@. L[is] = hb[is]*F[is]
+                  		end
+	       			end
+			    end
 
                 if (iter==false && D0<elems && plusIt)
             	    iter=true
@@ -916,7 +1052,7 @@ end
 
 
 function IRKstep_adaptive_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials,
-		                   initial_interp,abstol,reltol,adaptive,
+		                   initial_interp,abstol,reltol,adaptive,threading,
 						   mixed_precision,low_prec_type)
 
 
@@ -992,13 +1128,23 @@ function IRKstep_adaptive_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtr
 			    end
         	end
 
-            @inbounds begin
-        	Threads.@threads for is in 1:s
-				nfcn[1]+=1
-            	f(F[is], U[is], p, tj + hc[is])
-            	@. L[is] = hb[is]*F[is]
-        	end
-		    end
+            if threading==true
+            	@inbounds begin
+        		Threads.@threads for is in 1:s
+					nfcn[1]+=1
+            		f(F[is], U[is], p, tj + hc[is])
+            		@. L[is] = hb[is]*F[is]
+        		end
+		    	end
+			else
+				@inbounds begin
+        		for is in 1:s
+					nfcn[1]+=1
+            		f(F[is], U[is], p, tj + hc[is])
+            		@. L[is] = hb[is]*F[is]
+        		end
+		    	end
+			end
 
             lmax=1
         	iter = true # Initialize iter outside the for loop
@@ -1023,34 +1169,64 @@ function IRKstep_adaptive_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtr
 					Ulow[is].=U[is]
 					normU[is]=copy(norm(Ulow[is]))
         		end
+				end #inbound
 
-            	Threads.@threads for is in 1:s
+				if threading==true
+            		Threads.@threads for is in 1:s
+						Eval[is]=false
+                		for k in eachindex(uj)
+							DY[is]=abs(Rdigits(U[is][k],10)-Rdigits(Uz[is][k],10))
+                        	if DY[is]>0.
+						   		Eval[is]=true
+                           		if DY[is]< Dmin[is][k]
+                              		Dmin[is][k]=DY[is]
+                              	iter=true
+                           		end
+                       		else
+                           		D0+=1
+                       		end
+                		end
 
-					Eval[is]=false
-                	for k in eachindex(uj)
-#						DY=abs(U[is][k]-Uz[is][k])
-						DY[is]=abs(Rdigits(U[is][k],10)-Rdigits(Uz[is][k],10))
-                        if DY[is]>0.
-						   Eval[is]=true
-                           if DY[is]< Dmin[is][k]
-                              Dmin[is][k]=DY[is]
-                              iter=true
-                           end
-                       else
-                           D0+=1
-                       end
-                	end
+               			if Eval[is]==true
+							nfcn[1]+=1
+                  			f(F[is], U[is], p,  tj + hc[is])
+							@. delta[is] = muladd(F[is],hb[is],-L[is])
+						else
+							delta[is].=0
+               			end
 
-               		if Eval[is]==true
-						nfcn[1]+=1
-                  		f(F[is], U[is], p,  tj + hc[is])
-						@. delta[is] = muladd(F[is],hb[is],-L[is])
-					else
-						delta[is].=0
-               		end
+						DL[is].=delta[is]
+           			end
 
-					DL[is].=delta[is]
-           		end
+			    else
+
+					for is in 1:s
+						Eval[is]=false
+                		for k in eachindex(uj)
+							DY[is]=abs(Rdigits(U[is][k],10)-Rdigits(Uz[is][k],10))
+                        	if DY[is]>0.
+						   		Eval[is]=true
+                           		if DY[is]< Dmin[is][k]
+                              		Dmin[is][k]=DY[is]
+                              	iter=true
+                           		end
+                       		else
+                           		D0+=1
+                       		end
+                		end
+
+               			if Eval[is]==true
+							nfcn[1]+=1
+                  			f(F[is], U[is], p,  tj + hc[is])
+							@. delta[is] = muladd(F[is],hb[is],-L[is])
+						else
+							delta[is].=0
+               			end
+
+						DL[is].=delta[is]
+           			end
+
+			    end
 
 				lmax=min(lmax*2,6)
 
@@ -1064,17 +1240,33 @@ function IRKstep_adaptive_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtr
 						end
 					end
 
-					Threads.@threads for is in 1:s
-						if (Eval[is]==true && norm(DU[is])!=0)
-							beta=1e-6*norm(normU[is])/norm(DU[is])
-							nfcn[2]+=2
-							tjci=convert(low_prec_type, tj + hc[is])
-							f(Fa[is], muladd.(beta,DU[is],Ulow[is]),lpp,tjci)
-							f(Fb[is], muladd.(-beta,DU[is],Ulow[is]),lpp,tjci)
-							@. DF[is]=1/(2*beta)*(Fa[is]-Fb[is])
-							@. DL[is] = muladd(DF[is],lhb[is],delta[is])
+					if threading==true
+						Threads.@threads for is in 1:s
+							if (Eval[is]==true && norm(DU[is])!=0)
+								beta=1e-6*norm(normU[is])/norm(DU[is])
+								nfcn[2]+=2
+								tjci=convert(low_prec_type, tj + hc[is])
+								f(Fa[is], muladd.(beta,DU[is],Ulow[is]),lpp,tjci)
+								f(Fb[is], muladd.(-beta,DU[is],Ulow[is]),lpp,tjci)
+								@. DF[is]=1/(2*beta)*(Fa[is]-Fb[is])
+								@. DL[is] = muladd(DF[is],lhb[is],delta[is])
+							end
+						end
+					else
+
+						for is in 1:s
+							if (Eval[is]==true && norm(DU[is])!=0)
+								beta=1e-6*norm(normU[is])/norm(DU[is])
+								nfcn[2]+=2
+								tjci=convert(low_prec_type, tj + hc[is])
+								f(Fa[is], muladd.(beta,DU[is],Ulow[is]),lpp,tjci)
+								f(Fb[is], muladd.(-beta,DU[is],Ulow[is]),lpp,tjci)
+								@. DF[is]=1/(2*beta)*(Fa[is]-Fb[is])
+								@. DL[is] = muladd(DF[is],lhb[is],delta[is])
+							end
 						end
 					end
+
 			     end # end for l
 
 			     for is in 1:s
@@ -1082,8 +1274,6 @@ function IRKstep_adaptive_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtr
 					   @. L[is] +=DL[is]
 				   end
 			     end
-
-     	       end #inbound
 
                if (iter==false && D0<elems && plusIt)
                 	iter=true
@@ -1174,7 +1364,7 @@ end
 #
 
 function IRKstepDynODE_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
-		               initial_interp,abstol,reltol,adaptive)
+		               initial_interp,abstol,reltol,adaptive,threading)
 
 		@unpack mu,hc,hb,nu,alpha = coeffs
 		@unpack tspan,p=prob
@@ -1233,14 +1423,28 @@ function IRKstepDynODE_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
     	nit=1
 		for is in 1:s Dmin[is] .= Inf end
 
-        @inbounds begin
-    	Threads.@threads for is in 1:s
-			nfcn[1]+=1
-        	f1(F[is].x[1], U[is].x[1],U[is].x[2], p, tj + hc[is])
-			f2(F[is].x[2], U[is].x[1],U[is].x[2], p, tj + hc[is])
-        	@. L[is] = hb[is]*F[is]
-    	end
-	    end
+		if threading==true
+        	@inbounds begin
+    		Threads.@threads for is in 1:s
+				nfcn[1]+=1
+        		f1(F[is].x[1], U[is].x[1],U[is].x[2], p, tj + hc[is])
+				f2(F[is].x[2], U[is].x[1],U[is].x[2], p, tj + hc[is])
+        		@. L[is] = hb[is]*F[is]
+    		end
+	    	end
+
+		else
+
+			@inbounds begin
+    		for is in 1:s
+				nfcn[1]+=1
+        		f1(F[is].x[1], U[is].x[1],U[is].x[2], p, tj + hc[is])
+				f2(F[is].x[2], U[is].x[1],U[is].x[2], p, tj + hc[is])
+        		@. L[is] = hb[is]*F[is]
+    		end
+	    	end
+
+		end
 
 #	   println("***************************************************")
 #       println("urratsa=",j)
@@ -1265,32 +1469,59 @@ function IRKstepDynODE_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
                                        mu[is,5]*L[5].x[1] + mu[is,6]*L[6].x[1]+
 								       mu[is,7]*L[7].x[1] + mu[is,8]*L[8].x[1])
     		end
+			end #inbounds
 
 #			println("After U[1].x[1]=", norm(U[1].x[1]))
 
-        	Threads.@threads for is in 1:s
-            	Eval[is]=false
-            	for k in eachindex(U[is].x[1])
-                    DY[is]=abs(U[is].x[1][k]-Uz[is].x[1][k])
-#					println("k=",k, ",U=",U[is].x[1][k],",Uz=",Uz[is].x[1][k], ",DY=", DY)
-                    if DY[is]>0.
-                       Eval[is]=true
-                       if DY[is]< Dmin[is].x[1][k]
-                          Dmin[is].x[1][k]=DY[is]
-                          iter=true
-                       end
-                    else
-                       D0+=1
-                    end
-                end
+            if threading==true
 
-           		if Eval[is]==true
-					nfcn[1]+=1
-              		f2(F[is].x[2], U[is].x[1],U[is].x[2], p,  tj + hc[is])
-              		@. L[is].x[2] = hb[is]*F[is].x[2]
-           		end
+        		Threads.@threads for is in 1:s
+            		Eval[is]=false
+            		for k in eachindex(U[is].x[1])
+                    	DY[is]=abs(U[is].x[1][k]-Uz[is].x[1][k])
+                    	if DY[is]>0.
+                       		Eval[is]=true
+                       		if DY[is]< Dmin[is].x[1][k]
+                          		Dmin[is].x[1][k]=DY[is]
+                          		iter=true
+                       		end
+                    	else
+                       		D0+=1
+                    	end
+                	end
 
-    		end
+           			if Eval[is]==true
+						nfcn[1]+=1
+              			f2(F[is].x[2], U[is].x[1],U[is].x[2], p,  tj + hc[is])
+              			@. L[is].x[2] = hb[is]*F[is].x[2]
+           			end
+    			end
+
+			else
+
+				for is in 1:s
+            		Eval[is]=false
+            		for k in eachindex(U[is].x[1])
+                    	DY[is]=abs(U[is].x[1][k]-Uz[is].x[1][k])
+                    	if DY[is]>0.
+                       		Eval[is]=true
+                       		if DY[is]< Dmin[is].x[1][k]
+                          		Dmin[is].x[1][k]=DY[is]
+                          		iter=true
+                       		end
+                    	else
+                       		D0+=1
+                    	end
+                	end
+
+           			if Eval[is]==true
+						nfcn[1]+=1
+              			f2(F[is].x[2], U[is].x[1],U[is].x[2], p,  tj + hc[is])
+              			@. L[is].x[2] = hb[is]*F[is].x[2]
+           			end
+    			end
+			end
+
 
 
 #           Second part
@@ -1310,12 +1541,12 @@ function IRKstepDynODE_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 
 #			println("After U[1].x[2]=", norm(U[1].x[2]))
 
-        	Threads.@threads for is in 1:s
-            	Eval[is]=false
-        		for k in eachindex(U[is].x[2])
-	                  DY[is]=abs(U[is].x[2][k]-Uz[is].x[2][k])
-#					  println("k=",k, ",U=",U[is].x[2][k],",Uz=",Uz[is].x[2][k], ",DY=",DY)
-	                  if DY[is]>0.
+			if threading==true
+        		Threads.@threads for is in 1:s
+            		Eval[is]=false
+        			for k in eachindex(U[is].x[2])
+	                  	DY[is]=abs(U[is].x[2][k]-Uz[is].x[2][k])
+	                  	if DY[is]>0.
 	                       Eval[is]=true
                        	   if DY[is]< Dmin[is].x[2][k]
 			                  Dmin[is].x[2][k]=DY[is]
@@ -1324,17 +1555,38 @@ function IRKstepDynODE_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 	                   else
      	                    D0+=1
 		               end
-	           	end
+	           		end
 
-           		if Eval[is]==true
-#					nfcn[1]+=1
-              		f1(F[is].x[1], U[is].x[1], U[is].x[2], p,  tj + hc[is])
-              		@. L[is].x[1] = hb[is]*F[is].x[1]
-           		end
+           			if Eval[is]==true
+#						nfcn[1]+=1
+              			f1(F[is].x[1], U[is].x[1], U[is].x[2], p,  tj + hc[is])
+              			@. L[is].x[1] = hb[is]*F[is].x[1]
+           			end
+    			end
 
-    		end
-	    	end #inbounds
+			else
+				for is in 1:s
+            		Eval[is]=false
+        			for k in eachindex(U[is].x[2])
+	                  	DY[is]=abs(U[is].x[2][k]-Uz[is].x[2][k])
+	                  	if DY[is]>0.
+	                       Eval[is]=true
+                       	   if DY[is]< Dmin[is].x[2][k]
+			                  Dmin[is].x[2][k]=DY[is]
+	                          iter=true
+	                       end
+	                   else
+     	                    D0+=1
+		               end
+	           		end
 
+           			if Eval[is]==true
+#						nfcn[1]+=1
+              			f1(F[is].x[1], U[is].x[1], U[is].x[2], p,  tj + hc[is])
+              			@. L[is].x[1] = hb[is]*F[is].x[1]
+           			end
+    			end
+			end
 
         	if (iter==false && D0<elems && plusIt)
             	iter=true
@@ -1381,14 +1633,12 @@ function IRKstepDynODE_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 
         return("Success",nit)
 
-
 end
 
 
 
 function IRKstepDynODE_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials,
-		                      initial_interp,abstol,reltol,adaptive)
-
+		                      initial_interp,abstol,reltol,adaptive,threading)
 
 		@unpack mu,hc,hb,nu,alpha = coeffs
 		@unpack tspan,p=prob
@@ -1447,19 +1697,28 @@ function IRKstepDynODE_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,max
                 	U[is][k]=(uj[k]+ej[k])+aux
             	end
         	end
+		    end
 
 			iter = true # Initialize iter outside the for loop
 			plusIt=true
         	nit=1
 			for is in 1:s Dmin[is] .= Inf end
 
-        	Threads.@threads for is in 1:s
-				nfcn[1]+=1
-				f1(F[is].x[1], U[is].x[1],U[is].x[2], p, tj + hc[is])
-				f2(F[is].x[2], U[is].x[1],U[is].x[2], p, tj + hc[is])
-        		@. L[is] = hb[is]*F[is]
-        	end
-		    end
+			if threading==true
+        		Threads.@threads for is in 1:s
+					nfcn[1]+=1
+					f1(F[is].x[1], U[is].x[1],U[is].x[2], p, tj + hc[is])
+					f2(F[is].x[2], U[is].x[1],U[is].x[2], p, tj + hc[is])
+        			@. L[is] = hb[is]*F[is]
+        		end
+			else
+				for is in 1:s
+					nfcn[1]+=1
+					f1(F[is].x[1], U[is].x[1],U[is].x[2], p, tj + hc[is])
+					f2(F[is].x[2], U[is].x[1],U[is].x[2], p, tj + hc[is])
+	        		@. L[is] = hb[is]*F[is]
+	        	end
+     		end
 
 			while (nit<maxiter && iter)
 
@@ -1476,29 +1735,58 @@ function IRKstepDynODE_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,max
                                            mu[is,5]*L[5].x[1] + mu[is,6]*L[6].x[1]+
 									       mu[is,7]*L[7].x[1] + mu[is,8]*L[8].x[1])
         		end
+			    end #inbound
 
-				Threads.@threads for is in 1:s
-	                Eval[is]=false
-					for k in eachindex(U[is].x[1])
-						DY[is]=abs(U[is].x[1][k]-Uz[is].x[1][k])
-						if DY[is]>0.
-                            Eval[is]=true
-							if DY[is]< Dmin[is].x[1][k]
-								Dmin[is].x[1][k]=DY[is]
-								iter=true
+
+				if threading==true
+
+					Threads.@threads for is in 1:s
+	                	Eval[is]=false
+						for k in eachindex(U[is].x[1])
+							DY[is]=abs(U[is].x[1][k]-Uz[is].x[1][k])
+							if DY[is]>0.
+                            	Eval[is]=true
+								if DY[is]< Dmin[is].x[1][k]
+									Dmin[is].x[1][k]=DY[is]
+									iter=true
+								end
+							else
+								D0+=1
 							end
-						else
-							D0+=1
-						end
-				   end
+				   		end
 
-                   if (Eval[is]==true)
-						nfcn[1]+=1
-	            		f2(F[is].x[2], U[is].x[1],U[is].x[2], p,  tj + hc[is])
-	            		@. L[is].x[2] = hb[is]*F[is].x[2]
-				   end
-	       	    end
-		       end #inbound
+                   		if (Eval[is]==true)
+							nfcn[1]+=1
+	            			f2(F[is].x[2], U[is].x[1],U[is].x[2], p,  tj + hc[is])
+	            			@. L[is].x[2] = hb[is]*F[is].x[2]
+				   		end
+	       	    	end
+
+				else
+
+					for is in 1:s
+	                	Eval[is]=false
+						for k in eachindex(U[is].x[1])
+							DY[is]=abs(U[is].x[1][k]-Uz[is].x[1][k])
+							if DY[is]>0.
+                            	Eval[is]=true
+								if DY[is]< Dmin[is].x[1][k]
+									Dmin[is].x[1][k]=DY[is]
+									iter=true
+								end
+							else
+								D0+=1
+							end
+				   		end
+
+                   		if (Eval[is]==true)
+							nfcn[1]+=1
+	            			f2(F[is].x[2], U[is].x[1],U[is].x[2], p,  tj + hc[is])
+	            			@. L[is].x[2] = hb[is]*F[is].x[2]
+				   		end
+	       	    	end
+				end
+
 
 #               Second part
 
@@ -1510,29 +1798,56 @@ function IRKstepDynODE_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,max
                                            mu[is,5]*L[5].x[2] + mu[is,6]*L[6].x[2]+
 									       mu[is,7]*L[7].x[2] + mu[is,8]*L[8].x[2])
         		end
+    		    end #inbound
 
-				Threads.@threads for is in 1:s
-					Eval[is]=false
-					for k in eachindex(U[is].x[2])
-						DY[is]=abs(U[is].x[2][k]-Uz[is].x[2][k])
-						if DY[is]>0.
-							Eval[is]=true
-							if DY[is]< Dmin[is].x[2][k]
-								Dmin[is].x[2][k]=DY[is]
-								iter=true
+				if threading==true
+
+					Threads.@threads for is in 1:s
+						Eval[is]=false
+						for k in eachindex(U[is].x[2])
+							DY[is]=abs(U[is].x[2][k]-Uz[is].x[2][k])
+							if DY[is]>0.
+								Eval[is]=true
+								if DY[is]< Dmin[is].x[2][k]
+									Dmin[is].x[2][k]=DY[is]
+									iter=true
+								end
+							else
+								D0+=1
 							end
-						else
-							D0+=1
-						end
-				   end
+				   		end
 
-                   if (Eval[is]==true)
-#						nfcn[1]+=1
-	            		f1(F[is].x[1], U[is].x[1],U[is].x[2], p,  tj + hc[is])
-	            		@. L[is].x[1] = hb[is]*F[is].x[1]
-				   end
-	       	   end
-		      end #inbound
+                   		if (Eval[is]==true)
+#							nfcn[1]+=1
+	            			f1(F[is].x[1], U[is].x[1],U[is].x[2], p,  tj + hc[is])
+	            			@. L[is].x[1] = hb[is]*F[is].x[1]
+				   		end
+	       	   		end
+
+		   	   else
+
+				  for is in 1:s
+   					Eval[is]=false
+   					for k in eachindex(U[is].x[2])
+   						DY[is]=abs(U[is].x[2][k]-Uz[is].x[2][k])
+   						if DY[is]>0.
+   							Eval[is]=true
+   							if DY[is]< Dmin[is].x[2][k]
+   								Dmin[is].x[2][k]=DY[is]
+   								iter=true
+   							end
+   						else
+   							D0+=1
+   						end
+   				   end
+
+                      if (Eval[is]==true)
+   #						nfcn[1]+=1
+   	            		f1(F[is].x[1], U[is].x[1],U[is].x[2], p,  tj + hc[is])
+   	            		@. L[is].x[1] = hb[is]*F[is].x[1]
+   				   end
+   	       	    end
+		   	   end
 
 			  if (iter==false && D0<elems && plusIt)
 					iter=true
@@ -1608,6 +1923,5 @@ function IRKstepDynODE_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,max
         lambdas[2]=lambda
 
         return("Success",nit)
-
 
 end
