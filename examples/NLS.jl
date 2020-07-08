@@ -1,5 +1,5 @@
 #
-#  NLS: Non Linear Schodinger
+#  NLS: Non Linear Schrödinger
 #
 
 function NLSHam(u,p)
@@ -37,7 +37,6 @@ function NLSODE!(du,u,p,t)
 
 
     du[1]=p[1]*(q[1]^2+p[1]^2)-(2*p[1]*p[2]^2-2*p[1]*q[2]^2+4*p[2]*q[1]*q[2])
-
     du[N+1]=-q[1]*(q[1]^2+p[1]^2)+(2*q[1]*q[2]^2-2*q[1]*p[2]^2+4*p[1]*p[2]*q[2])
 
 
@@ -50,7 +49,6 @@ function NLSODE!(du,u,p,t)
    end
 
    du[N]=p[N]*(q[N]^2+p[N]^2)-(2*p[N-1]^2*p[N]-2*q[N-1]^2*p[N]+4*p[N-1]*q[N-1]*q[N])
-
    du[2*N]=-q[N]*(q[N]^2+p[N]^2)+(2*q[N-1]^2*q[N]-2*p[N-1]^2*q[N]+4*p[N-1]*p[N]*q[N-1])
 
 

@@ -6,12 +6,8 @@ function NbodyEnergy(u,Gm)
      Nbody problem Hamiltonian (Cartesian Coordinates)
 """
 
-    # Declarations
-
     dim=2
     nbody=length(Gm)
-
-    # Implementation
 
  @inbounds begin
     x = view(u,1:7)   # x
@@ -99,6 +95,7 @@ end
 #
 #  Second Order Problem
 #
+
 function f2nd!(ddu,du,u,p,t)
   @inbounds begin
   x = view(u,1:7)   # x

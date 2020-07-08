@@ -5,24 +5,18 @@ module IRKGaussLegendre
 using Reexport
 @reexport using DiffEqBase
 
-using LinearAlgebra,StaticArrays
+using LinearAlgebra
 using Parameters
 using OrdinaryDiffEq
-using Printf
-using DoubleFloats
 using RecursiveArrayTools
-#using Threads
 
 const CompiledFloats = Union{Float32,Float64}
 
 include("IRKCoefficients.jl")
 include("IRKGL16AuxFunctions.jl")
 include("IRKGL16Solver.jl")
-#include("IRKGL16SolverDynamicalODE.jl")
 
 export IRKGL16,IRKAlgorithm
-export IRKGL162,IRKAlgorithm2
 export tcoeffs, CompiledFloats
-export IRKGL163,IRKAlgorithm3
 
 end # module

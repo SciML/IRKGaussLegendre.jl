@@ -7,7 +7,6 @@ mutable struct tcoeffs{T}
 	   alpha::Array{T,2}
 end
 
-
 mutable struct tcache{uType,elTypeu,uLowType,low_prec_type}
 	U::Array{uType,1}
 	Uz::Array{uType,1}
@@ -58,7 +57,7 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 #     dt::tType=0.,
      dt=0.,
      saveat=1,
-     maxiter=100,
+     maxiters=100,
 	 maxtrials=3,            # maximum of unsuccessful trials
      save_everystep=true,
      initial_interp=true,
@@ -70,9 +69,6 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
      mixed_precision=false,
 	 low_prec_type = Float64,
      kwargs...) where{uType,tType,isinplace}
-
-#     println("IRKGL16....ODEproblem")
-
 
 	 s = 8
      destats = DiffEqBase.DEStats(0)
@@ -89,6 +85,7 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
     else
      println("Error: incorrect ODEFunction")
 	 sol=DiffEqBase.build_solution(prob,alg,[],[],retcode= :Failure)
+     return(sol)
     end
 
     t0=tspan[1]
@@ -104,16 +101,11 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 
 	@unpack mu,hc,hb,nu,alpha = coeffs
 
-
-#   reltol2s=uiType(sqrt(reltol))
-#	abstol2s=uiType(sqrt(abstol))
-
-    reltol2s=convert(uiType,reltol)
-    abstol2s=convert(uiType,abstol)
-
+    Treltol=convert(uiType,reltol)
+    Tabstol=convert(uiType,abstol)
 
     if (dt==0)
-		d0=MyNorm(u0,abstol2s,reltol2s)
+		d0=MyNorm(u0,Tabstol,Treltol)
 		du0=similar(u0)
 		if (typeof(prob.f)<:DynamicalODEFunction)
 			f1(du0.x[1], u0.x[1],u0.x[2], p, t0)
@@ -121,7 +113,7 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
         else # ODEFunction
 		    f(du0, u0, p, t0)
 		end
-    	d1=MyNorm(du0,abstol2s,reltol2s)
+    	d1=MyNorm(du0,Tabstol,Treltol)
 		if (d0<1e-5 || d1<1e-5)
 			dt=convert(tType2,1e-6)
 		else
@@ -149,30 +141,14 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 #   m: output saved at every m steps
 #   n: Number of macro-steps  (Output is saved for n+1 time values)
 
+   if (save_everystep==false)
+		m=1
+	    n=Inf
+   else
+		m=Int64(saveat)
+	    n=Inf
+   end
 
-	if (adaptive==true)
-	   if (save_everystep==false)
-    		m=1
-		    n=Inf
-       else
-			m=Int64(saveat)
-		    n=Inf
-      end
-    end
-
-    if (adaptive==false)
-	    if (save_everystep==false)
-##			m=convert(Int64,ceil((tf-t0)/(dt)))
-            m=1
-##    		n=convert(Int64,ceil((tf-t0)/(m*dt)))
-            n=Inf
-    	else
-##			m=convert(Int64,(round(saveat/dt)))
-            m=Int64(saveat)
-##    		n=convert(Int64,ceil((tf-t0)/(m*dt)))
-			n=Inf
-        end
-    end
 
 	U1 = Array{uType}(undef, s)
 	U2 = Array{uType}(undef, s)
@@ -228,9 +204,7 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 
     end
 
-
-    ej=zero(u0)
-
+#   initialization output variables
 	uu = Array{uType}[]
 	tt = Array{tType2}[]
     iters = Array{Int}[]
@@ -247,6 +221,7 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 	push!(steps,0)
     tj = [t0, zero(t0)]
     uj = copy(u0)
+	ej=zero(u0)
 
     j=0
     cont=true
@@ -260,8 +235,8 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
         for i in 1:m
 		  j+=1
 		  k+=1
-   	      (status,it) = IRKStep!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiter,
-	                             maxtrials,initial_interp,abstol2s,reltol2s,adaptive,
+   	      (status,it) = IRKStep!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiters,
+	                             maxtrials,initial_interp,Tabstol,Treltol,adaptive,
 								 threading,mixed_precision,low_prec_type)
 
          if (status=="Failure")
@@ -281,10 +256,14 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 	   cont = (sdt*(tj[1]+tj[2]) < sdt*tf) && (j<n*m)
 
        if (save_everystep==true) || (cont==false)
-			push!(iters,convert(Int64,round(tit/k)))
+		    push!(tt,tj[1]+tj[2])
 			push!(uu,uj+ej)
-			push!(tt,tj[1]+tj[2])
-			push!(steps,dts[2])
+
+			if (myoutputs==true)
+			    push!(iters,convert(Int64,round(tit/k)))
+			    push!(steps,dts[2])
+			end
+
        end
 
     end
@@ -306,31 +285,29 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
 
 
 
-function IRKStep!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials,
+function IRKStep!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiters,maxtrials,
   		               initial_interp,abstol,reltol,adaptive,threading,
 					   mixed_precision,low_prec_type)
 
    if (typeof(prob.f)<:ODEFunction)
 
    		if (adaptive==true)
-#	 	     println("IRKstep_adaptive. maxiter=", maxiter)
       		if (mixed_precision==true)
-	    		(status,it)= IRKstep_adaptive_Mix!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiter,
+	    		(status,it)= IRKstep_adaptive_Mix!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiters,
  		     	             maxtrials,initial_interp,abstol,reltol,adaptive,
 						     threading, mixed_precision,low_prec_type)
 	  		else
-	    		(status,it)= IRKstep_adaptive!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiter,
+	    		(status,it)= IRKstep_adaptive!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiters,
    		     	             maxtrials,initial_interp,abstol,reltol,adaptive,
 							 threading)
       		end
        else
-#		   println("IRKstep_fixed")
       	   if (mixed_precision==true)
-	            (status,it)= IRKstep_fixed_Mix!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiter,
+	            (status,it)= IRKstep_fixed_Mix!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiters,
  			                 initial_interp,abstol,reltol,adaptive,threading,
 				   			 mixed_precision,low_prec_type)
 	       else
-		        (status,it)= IRKstep_fixed!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiter,
+		        (status,it)= IRKstep_fixed!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiters,
 				     		 initial_interp,abstol,reltol,adaptive,
 							 threading)
 	      end
@@ -339,26 +316,21 @@ function IRKStep!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials,
    else  # (typeof(prob.f<:DynamicalODEFunction))
 
 	   if (adaptive==true)
-	#	   println("IRKstep_adaptive. maxiter=", maxiter)
-	   (status,it)= IRKstepDynODE_adaptive!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiter,
-							  maxtrials,initial_interp,abstol,reltol,adaptive,
-							  threading)
+	       (status,it)= IRKstepDynODE_adaptive!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiters,
+				        maxtrials,initial_interp,abstol,reltol,adaptive,hreading)
 	   else
-	#	  println("IRKstep_fixed")
-		 (status,it)= IRKstepDynODE_fixed!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiter,
-							  initial_interp,abstol,reltol,adaptive,
-							  threading)
+		 (status,it)= IRKstepDynODE_fixed!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiters,
+					   initial_interp,abstol,reltol,adaptive, threading)
 	   end
 
    end
-
 
    return(status,it)
 
 end
 
 
-function IRKstep_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
+function IRKstep_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiters,
 		               initial_interp,abstol,reltol,adaptive,threading)
 
         @unpack mu,hc,hb,nu,alpha = coeffs
@@ -404,7 +376,7 @@ function IRKstep_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
     	end
 
 
-    	iter = true # Initialize iter outside the for loop
+    	iter = true
     	plusIt=true
 
     	nit=1
@@ -430,16 +402,13 @@ function IRKstep_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
          end
 	   end
 
-#	   println("***************************************************")
-#	   println("urratsa=",j)
 
-       while (nit<maxiter && iter)
+       while (nit<maxiters && iter)
 
       	  nit+=1
 
 		  iter=false
 	      D0=0
-
 
 	      @inbounds begin
 	      for is in 1:s
@@ -506,15 +475,14 @@ function IRKstep_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 		    plusIt=true
 	    end
 
-#		println(j,",","high-=",nit-1, ",", D0, ",", norm(U.-Uz))
-
     end  # ehile
 
 	if (uiType<:CompiledFloats)
 
+        #~Compensated summation
     	indices = eachindex(uj)
     	@inbounds begin
-		for k in indices    #Compensated summation
+		for k in indices
 			e0 = ej[k]
 			for is in 1:s
 				e0 += muladd(F[is][k], hb[is], -L[is][k])
@@ -544,7 +512,7 @@ function IRKstep_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 end
 
 
-function IRKstep_fixed_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
+function IRKstep_fixed_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiters,
 		               initial_interp,abstol,reltol,adaptive,threading,
 					   mixed_precision,low_prec_type)
 
@@ -598,8 +566,7 @@ function IRKstep_fixed_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 			end
     	end
 
-
-    	iter = true # Initialize iter outside the for loop
+    	iter = true
     	plusIt=true
 
     	nit=1
@@ -607,9 +574,6 @@ function IRKstep_fixed_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 		for is in 1:s Dmin[is] .= Inf end
 	    end
 
-
-#        println("***************************************************")
-#        println("urratsa=",j)
 
        if threading==true
 	       @inbounds begin
@@ -632,7 +596,7 @@ function IRKstep_fixed_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 	   lmax=1
 
 
-       while (nit<maxiter && iter)
+       while (nit<maxiters && iter)
 
       	  nit+=1
      	  iter=false
@@ -772,15 +736,15 @@ function IRKstep_fixed_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 		    plusIt=true
 	    end
 
-#		println(j,",","high-=",nit-1, ",", D0, ",", norm(U.-Uz))
-
-     end # while iter high-prec
+     end # while
 
     if (uiType<:CompiledFloats)
 
+#     ~ Compensated summation
+
 		indices = eachindex(uj)
     	@inbounds begin
-		for k in indices    #Compensated summation
+		for k in indices
 			e0 = ej[k]
 			for is in 1:s
 				e0 += muladd(F[is][k], hb[is], -L[is][k])
@@ -813,7 +777,7 @@ end
 
 
 
-function IRKstep_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials,
+function IRKstep_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiters,maxtrials,
 		                   initial_interp,abstol,reltol,adaptive,threading)
 
 
@@ -895,13 +859,13 @@ function IRKstep_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials
 		    	end
 			end
 
-        	iter = true # Initialize iter outside the for loop
+        	iter = true
         	plusIt=true
 
         	nit=1
 			for is in 1:s Dmin[is] .= Inf end
 
-        	while (nit<maxiter && iter)
+        	while (nit<maxiters && iter)
 
             	nit+=1
             	iter=false
@@ -974,8 +938,6 @@ function IRKstep_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials
             	    plusIt=true
         	    end
 
-#			println(j,",","high-=",nit-1, ",", D0, ",", norm(U.-Uz))
-
         	end # while iter
 
             ntrials+=1
@@ -1000,11 +962,11 @@ function IRKstep_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials
 
 	    if (uiType<:CompiledFloats)
 
-#            println("Urratsa:", j, " batura konpensatua-BAI")
+#			~Compensated summation
 
 			indices = eachindex(uj)
         	@inbounds begin
-			for k in indices    #Compensated summation
+			for k in indices
 				e0 = ej[k]
 				for is in 1:s
 					e0 += muladd(F[is][k], hb[is], -L[is][k])
@@ -1022,9 +984,6 @@ function IRKstep_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials
 			ttj[1] = res.hi
 			ttj[2] = res.lo
 		else
-
-#			println("Urratsa:", j, " batura konpensatua-EZ", " uitype:",uiType )
-
 	   		@. uj+=L[1]+L[2]+L[3]+L[4]+L[5]+L[6]+L[7]+L[8]
 	   		ttj[1]=tj+dt
 		end
@@ -1051,7 +1010,7 @@ end
 
 
 
-function IRKstep_adaptive_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials,
+function IRKstep_adaptive_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiters,maxtrials,
 		                   initial_interp,abstol,reltol,adaptive,threading,
 						   mixed_precision,low_prec_type)
 
@@ -1095,10 +1054,6 @@ function IRKstep_adaptive_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtr
 		end
 
 		for is in 1:s Lz[is].=L[is] end
-
-
-#			println("***************************************************")
-#			println("urratsa=",j)
 
 		while (!accept && ntrials<maxtrialsj)
 
@@ -1147,13 +1102,13 @@ function IRKstep_adaptive_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtr
 			end
 
             lmax=1
-        	iter = true # Initialize iter outside the for loop
+        	iter = true
         	plusIt=true
 
         	nit=1
 			for is in 1:s Dmin[is] .= Inf end
 
-        	while (nit<maxiter && iter)
+        	while (nit<maxiters && iter)
 
             	nit+=1
             	iter=false
@@ -1282,8 +1237,6 @@ function IRKstep_adaptive_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtr
                 	plusIt=true
                end
 
-#			println(j,",","high-=",nit-1, ",", D0, ",", norm(U.-Uz))
-
         	end # while iter
 
             ntrials+=1
@@ -1308,10 +1261,12 @@ function IRKstep_adaptive_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtr
 
         if (uiType<:CompiledFloats)
 
+#           ~Compensated summation
+
 			indices = eachindex(uj)
 
         	@inbounds begin
-				for k in indices    #Compensated summation
+				for k in indices
 					e0 = ej[k]
 					for is in 1:s
 						e0 += muladd(F[is][k], hb[is], -L[is][k])
@@ -1357,25 +1312,18 @@ function IRKstep_adaptive_Mix!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtr
 end
 
 
-
-
 #
 # DynamicalODEFunction
 #
 
-function IRKstepDynODE_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
+function IRKstepDynODE_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiters,
 		               initial_interp,abstol,reltol,adaptive,threading)
 
 		@unpack mu,hc,hb,nu,alpha = coeffs
 		@unpack tspan,p=prob
 		f1=prob.f.f1
 		f2=prob.f.f2
-#		r0=prob.v0
-#		v0=prob.u0
 		@unpack U,Uz,L,Lz,F,Dmin,Eval,DY,rejects,nfcn,lambdas=cache
-
-
-#        println("Dinamic Fixed !!!")
 
 		uiType = eltype(uj)
 
@@ -1416,9 +1364,8 @@ function IRKstepDynODE_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 		    end
     	end
 
-
-		iter = true # Initialize iter outside the for loop
-    	plusIt=true
+		iter = true
+		plusIt=true
 
     	nit=1
 		for is in 1:s Dmin[is] .= Inf end
@@ -1446,19 +1393,14 @@ function IRKstepDynODE_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 
 		end
 
-#	   println("***************************************************")
-#       println("urratsa=",j)
 
-    	while (nit<maxiter && iter)
+    	while (nit<maxiters && iter)
 
         	nit+=1
         	iter=false
         	D0=0
 
 #           First part
-
-#            println("nit=",nit,",First part L=", norm(L), ",mu=", norm(mu))
-#            println("Before U[1].x[1]=", norm(U[1].x[1]))
 
             @inbounds begin
     		for is in 1:s
@@ -1470,8 +1412,6 @@ function IRKstepDynODE_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
 								       mu[is,7]*L[7].x[1] + mu[is,8]*L[8].x[1])
     		end
 			end #inbounds
-
-#			println("After U[1].x[1]=", norm(U[1].x[1]))
 
             if threading==true
 
@@ -1522,13 +1462,7 @@ function IRKstepDynODE_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
     			end
 			end
 
-
-
 #           Second part
-
-#            println("Second part L=", norm(L))
-
-#			println("Before U[1].x[2]=", norm(U[1].x[2]))
 
 			for is in 1:s
         		Uz[is].x[2] .= U[is].x[2]
@@ -1538,8 +1472,6 @@ function IRKstepDynODE_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
                                        mu[is,5]*L[5].x[2] + mu[is,6]*L[6].x[2]+
     					               mu[is,7]*L[7].x[2] + mu[is,8]*L[8].x[2])
     		end
-
-#			println("After U[1].x[2]=", norm(U[1].x[2]))
 
 			if threading==true
         		Threads.@threads for is in 1:s
@@ -1595,17 +1527,16 @@ function IRKstepDynODE_fixed!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,
             	plusIt=true
         	end
 
-#	  	 println(j,",","high-=",nit-1, ",", D0, ",", norm(U.-Uz))
-#		 println("")
-
     	end # while iter
 
 
 	    if (uiType<:CompiledFloats)
 
+#           ~Compensated summation
+
 			indices = eachindex(uj)
         	@inbounds begin
-			for k in indices    #Compensated summation
+			for k in indices
 				e0 = ej[k]
 				for is in 1:s
 					e0 += muladd(F[is][k], hb[is], -L[is][k])
@@ -1637,15 +1568,13 @@ end
 
 
 
-function IRKstepDynODE_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,maxtrials,
+function IRKstepDynODE_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiters,maxtrials,
 		                      initial_interp,abstol,reltol,adaptive,threading)
 
 		@unpack mu,hc,hb,nu,alpha = coeffs
 		@unpack tspan,p=prob
 		f1=prob.f.f1
 		f2=prob.f.f2
-#		r0=prob.v0
-#		v0=prob.u0
 		@unpack U,Uz,L,Lz,F,Dmin,Eval,DY,rejects,nfcn,lambdas=cache
 
 		uiType = eltype(uj)
@@ -1677,9 +1606,6 @@ function IRKstepDynODE_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,max
 
 		for is in 1:s Lz[is].=L[is] end
 
-#		println("***************************************************")
-#        println("urratsa=",j)
-
 		while (!accept && ntrials<maxtrialsj)
 
 			if (dt != dtprev)
@@ -1699,7 +1625,7 @@ function IRKstepDynODE_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,max
         	end
 		    end
 
-			iter = true # Initialize iter outside the for loop
+			iter = true
 			plusIt=true
         	nit=1
 			for is in 1:s Dmin[is] .= Inf end
@@ -1720,13 +1646,13 @@ function IRKstepDynODE_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,max
 	        	end
      		end
 
-			while (nit<maxiter && iter)
+			while (nit<maxiters && iter)
 
             	nit+=1
                 iter=false
 				D0=0
-#               First part
 
+#               First part
                 @inbounds begin
         		for is in 1:s
             		Uz[is].x[1] .= U[is].x[1]
@@ -1856,9 +1782,6 @@ function IRKstepDynODE_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,max
 					plusIt=true
 			  end
 
-
-#            println(j,",","high-=",nit-1, ",", D0, ",", norm(U.-Uz))
-
         	end # while iter
 
             ntrials+=1
@@ -1883,9 +1806,10 @@ function IRKstepDynODE_adaptive!(s,j,ttj,uj,ej,prob,dts,coeffs,cache,maxiter,max
 
 		if (uiType<:CompiledFloats)
 
+#			~ Compensated summation
 			indices = eachindex(uj)
         	@inbounds begin
-			for k in indices    #Compensated summation
+			for k in indices
 				e0 = ej[k]
 				for is in 1:s
 					e0 += muladd(F[is][k], hb[is], -L[is][k])

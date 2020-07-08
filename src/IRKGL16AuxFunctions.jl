@@ -1,6 +1,5 @@
 #
-#
-#   Auxiliar functions:
+#   Auxiliarfunctions.jl file:
 #       ErrorEst:
 #       MyNorm
 #       Rdigits
@@ -25,7 +24,6 @@ function ErrorEst(U,F,dt,beta,abstol,reltol)
 			maxU=max(maxU,abs(U[is][k]))
         end
 
-#		est+=(abs(dt*sum))^2/(abstol+maxU*reltol)
 		est+=(abs(dt*sum))^2/(abstol+maxU^2*reltol)
 
 	end

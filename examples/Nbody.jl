@@ -18,7 +18,13 @@ function NbodyEnergy(u,Gm)
     1/2*T + U
 end
 
+
 function NbodyEnergy2(u,Gm)
+#
+#   special implementantion: considering:
+#              u[1,:,:]: position
+#              u[2,:,:]: velocity
+#
      N = length(Gm)
      zerouel = zero(eltype(u))
      T = zerouel
@@ -60,9 +66,6 @@ function NbodyODE!(du,u,Gm,t)
      end
     return
 end
-
-
-
 
 
 
