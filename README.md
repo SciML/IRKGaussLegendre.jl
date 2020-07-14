@@ -2,9 +2,12 @@
 Implicit Runge-Kutta Gauss-Legendre 16th order
 (implementation in Julia)
 
-## Add Package
+## Installation
+
+This package can be installed using
 
 ```julia
+using Pkg
 Pkg.add("https://github.com/mikelehu/IRKGaussLegendre.jl")
 using IRKGaussLegendre
 ```

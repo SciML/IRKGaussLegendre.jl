@@ -317,7 +317,7 @@ function IRKStep!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiters,maxtrials,
 
 	   if (adaptive==true)
 	       (status,it)= IRKstepDynODE_adaptive!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiters,
-				        maxtrials,initial_interp,abstol,reltol,adaptive,hreading)
+				        maxtrials,initial_interp,abstol,reltol,adaptive,threading)
 	   else
 		 (status,it)= IRKstepDynODE_fixed!(s,j,tj,uj,ej,prob,dts,coeffs,cache,maxiters,
 					   initial_interp,abstol,reltol,adaptive, threading)
