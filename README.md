@@ -85,7 +85,7 @@ for j = 1:3
 end  
 plot(pl2)
 ```
-![Burrau problem](/examples/Burrau.png)
+![Burrau problem](/ODEProblems/Burrau.png)
 
 ## Implementation details
 
