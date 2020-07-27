@@ -2,6 +2,24 @@
 Implicit Runge-Kutta Gauss-Legendre 16th order
 (implementation in Julia)
 
+## Description
+
+We present a Julia implementation of a 16th order Implicit Runge-Kutta integrator IRKGL16 (a 8-
+stage IRK scheme based on Gauss-Legendre nodes) for high accuracy numerical integration of non-
+stiff ODE systems. Our algorithm supports adaptive timesteping,mixed precision and multithreading to
+solve problems fast and more accuracy
+
+The family of implicit Runge-Kutta schemes based on collocation with Gauss-Legendre nodes are
+known to be symplectic and super-convergent (order 2s for the method with s internal nodes), and
+thus very convenient for the high precision numerical integration of Hamiltonian systems with
+constant time-step size. For non-stiff problems, implementations based on fixed-point iterations are
+recommended
+
+We believe that, for general (non-necessarily Hamiltonian) non-stiff ODE systems, such implicit
+Runge-Kutta methods (implemented with fixed point iteration) can be very competitive for high
+precision computations (for accuracy requirements that exceeds double precision arithmetic)
+
+
 ## Installation
 
 This package can be installed using

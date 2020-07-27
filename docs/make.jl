@@ -1,3 +1,3 @@
-using Documenter, IRKGL16Solver
+using Documenter, IRKGaussLegendre.jl
 
 makedocs()
