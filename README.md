@@ -7,7 +7,7 @@ Implicit Runge-Kutta Gauss-Legendre 16th order
 We present a Julia implementation of a 16th order Implicit Runge-Kutta integrator IRKGL16 (a 8-
 stage IRK scheme based on Gauss-Legendre nodes) for high accuracy numerical integration of non-
 stiff ODE systems. Our algorithm supports adaptive timesteping,mixed precision and multithreading to
-solve problems fast and more accuracy
+solve problems fast and accuracy
 
 The family of implicit Runge-Kutta schemes based on collocation with Gauss-Legendre nodes are
 known to be symplectic and super-convergent (order 2s for the method with s internal nodes), and
@@ -36,12 +36,17 @@ Three point masses attract each other according to the Newtonian law of gravitat
 m1=3, m2=4, and m3=5; they are initially located at the apexes of a right triangle with sides 3, 4, and 5, so that the
 corresponding masses and sides are opposite. The particles are free to move in the plane of the triangle and are at rest initially.
 
+Szebehely, V. 1967, "Burrau's Problem of Three Bodies", Proceedings of the National Academy of Sciences of the United States of America, vol. 58, Issue 1, pp. 60-65 [postscript file](http://www.ucolick.org/~laugh/oxide/projects/szebehely1.ps)
 
 ## Step 1: Defining  the problem
 
 To solve this numerically, we define a problem type by giving it the equation, the initial
 condition, and the timespan to solve over:
 
+```julia
+using IRKGaussLegendre
+using Plots, LinearAlgebra, LaTeXStrings
+```
 
 ```julia
 function NbodyODE!(du,u,Gm,t)
@@ -67,6 +72,7 @@ end
 
 ```julia
 Gm = [5, 4, 3]
+N=length(Gm)
 q=[1,-1,0,-2,-1,0,1,3,0]
 v=zeros(size(q))
 q0 = reshape(q,3,:)
@@ -84,10 +90,14 @@ prob=ODEProblem(NbodyODE!,u0,tspan,Gm);
 After defining a problem, you solve it using solve
 
 ```julia
-sol1=solve(prob,IRKGL16(),reltol=1e-12, abstol=1e-12);
+sol1=solve(prob,IRKGL16(),adaptive=true, reltol=1e-12, abstol=1e-12);
 ```
 
 ## Step 3: Analyzing the solution
+
+
+### Orbits
+
 
 ```julia
 bodylist = ["Body-1", "Body-2", "Body-3"]
@@ -103,7 +113,57 @@ for j = 1:3
 end  
 plot(pl2)
 ```
-![Burrau problem](/ODEProblems/Burrau.png)
+![Burrau problem](/Tutorials/BurrauOrbits.png)
+
+
+### Step Size
+
+```julia
+plot(xlabel="t", ylabel="step size",title="Adaptive step size")
+steps1 =sol1.t[2:end]-sol1.t[1:end-1]
+plot!(sol1.t[2:end],steps1)
+```
+
+![Burrau problem](/Tutorials/BurrauStepSize.png)
+
+
+### Energy-Error
+
+```julia
+function NbodyEnergy(u,Gm)
+     N = length(Gm)
+     zerouel = zero(eltype(u))
+     T = zerouel
+     U = zerouel
+     for i in 1:N
+        qi = u[2,:,i]
+        vi = u[1,:,i]
+        Gmi = Gm[i]
+        T += Gmi*(vi[1]*vi[1]+vi[2]*vi[2]+vi[3]*vi[3])
+        for j in (i+1):N
+           qj = u[2,:,j]  
+           Gmj = Gm[j]
+           qij = qi - qj
+           U -= Gmi*Gmj/norm(qij)
+        end
+     end
+    1/2*T + U
+end
+```
+
+```julia
+setprecision(BigFloat, 256)
+u0Big=BigFloat.(u0)
+GmBig=BigFloat.(Gm)
+
+E0=NbodyEnergy(u0Big,GmBig)
+ΔE1 = map(x->NbodyEnergy(BigFloat.(x),GmBig), sol1.u)./E0.-1
+plot(title="Energy error", xlabel="t", ylabel=L"\Delta E")
+plot!(sol1.t,log10.(abs.(ΔE1)), label="")
+```
+
+![Burrau problem](/Tutorials/BurrauEnergyError.png)
+
 
 ## Implementation details
 
