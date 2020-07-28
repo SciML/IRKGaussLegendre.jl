@@ -1,13 +1,13 @@
 # IRKGL16
 - Implicit Runge-Kutta Gauss-Legendre 16th order
-(implementation in Julia)
+(implementation in **Julia**)
 
 - Fully Integrate as an algorithm on the  **DifferentialEquations.jl ecosystem**
 
 ## Description
 
 We present a Julia implementation of a 16th order Implicit Runge-Kutta integrator IRKGL16 (a 8-
-stage IRK scheme based on Gauss-Legendre nodes) for high accuracy numerical integration of non-
+stage IRK scheme based on Gauss-Legendre nodes) for **high accuracy** numerical integration of non-
 stiff ODE systems. Our algorithm supports **adaptive timesteping, mixed precision and multithreading** to
 solve problems fast and accuracy
 
@@ -40,7 +40,7 @@ corresponding masses and sides are opposite. The particles are free to move in t
 
 Szebehely, V. 1967, "Burrau's Problem of Three Bodies", Proceedings of the National Academy of Sciences of the United States of America, vol. 58, Issue 1, pp. 60-65 [postscript file](http://www.ucolick.org/~laugh/oxide/projects/szebehely1.ps)
 
-## Step 1: Defining  the problem
+### Step 1: Defining  the problem
 
 To solve this numerically, we define a problem type by giving it the equation, the initial
 condition, and the timespan to solve over:
@@ -86,7 +86,7 @@ tspan = (0.0,63.0)
 prob=ODEProblem(NbodyODE!,u0,tspan,Gm);
 ```
 
-## Step 2: Solving the problem
+### Step 2: Solving the problem
 
 
 After defining a problem, you solve it using solve
@@ -95,10 +95,10 @@ After defining a problem, you solve it using solve
 sol1=solve(prob,IRKGL16(),adaptive=true, reltol=1e-12, abstol=1e-12);
 ```
 
-## Step 3: Analyzing the solution
+### Step 3: Analyzing the solution
 
 
-### Orbits
+#### Orbits
 
 
 ```julia
@@ -118,7 +118,7 @@ plot(pl2)
 ![Burrau problem](/Tutorials/BurrauOrbits.png)
 
 
-### Step Size
+#### Step Size
 
 ```julia
 plot(xlabel="t", ylabel="step size",title="Adaptive step size")
@@ -129,7 +129,7 @@ plot!(sol1.t[2:end],steps1)
 ![Burrau problem](/Tutorials/BurrauStepSize.png)
 
 
-### Energy-Error
+#### Energy-Error
 
 ```julia
 function NbodyEnergy(u,Gm)
