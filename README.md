@@ -1,14 +1,16 @@
-# IRKGL16
-- Implicit Runge-Kutta Gauss-Legendre 16th order
-(implementation in **Julia**)
+# IRKGaussLegendre.jl
 
-- Fully Integrate as an algorithm on the  **DifferentialEquations.jl ecosystem**
+[![Build Status](https://travis-ci.com/SciML/IRKGaussLegendre.jl.svg?branch=master)](https://travis-ci.com/SciML/IRKGaussLegendre.jl)
+
+IRKGaussLegendre.jl is am efficient Julia implementation of an implicit Runge-Kutta Gauss-Legendre 16th order method.
+The method is fully integrated into the **DifferentialEquations.jl ecosystem** for high-performance high-precision
+integration.
 
 ## Description
 
-We present a Julia implementation of a 16th order Implicit Runge-Kutta integrator IRKGL16 (a 8-
-stage IRK scheme based on Gauss-Legendre nodes) for **high accuracy** numerical integration of non-
-stiff ODE systems. Our algorithm supports **adaptive timesteping, mixed precision and multithreading** to
+We present a Julia implementation of a 16th order Implicit Runge-Kutta integrator IRKGL16 (a 8-stage 
+IRK scheme based on Gauss-Legendre nodes) for **high accuracy** numerical integration of non-stiff 
+ODE systems. Our algorithm supports **adaptive timesteping, mixed precision and multithreading** to
 solve problems fast and accuracy
 
 The family of implicit Runge-Kutta schemes based on collocation with Gauss-Legendre nodes are
