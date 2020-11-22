@@ -205,15 +205,10 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType,tType,isin
     end
 
 #   initialization output variables
-	uu = Array{uType}[]
-	tt = Array{tType2}[]
-    iters = Array{Int}[]
-	steps = Array{Int}[]
-
-	uu=[]
-	tt=[]
-	iters=[]
-	steps=[]
+	uu = uType[]
+	tt = tType2[]
+    iters = Int[]
+	steps = Int[]
 
 	push!(uu,u0)
 	push!(tt,t0)
