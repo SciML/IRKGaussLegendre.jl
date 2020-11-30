@@ -1,6 +1,6 @@
 # IRKGaussLegendre.jl
 
-[![Build Status](https://travis-ci.com/SciML/IRKGaussLegendre.jl.svg?branch=master)](https://travis-ci.com/SciML/IRKGaussLegendre.jl)
+[![Build Status](https://github.com/SciML/IRKGaussLegendre.jl/workflows/CI/badge.svg)](https://github.com/SciML/IRKGaussLegendre.jl/actions?query=workflow%3ACI)
 
 IRKGaussLegendre.jl is am efficient Julia implementation of an implicit Runge-Kutta Gauss-Legendre 16th order method.
 The method is fully integrated into the **DifferentialEquations.jl ecosystem** for high-performance high-precision
