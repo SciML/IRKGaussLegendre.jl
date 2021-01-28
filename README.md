@@ -30,7 +30,7 @@ This package can be installed using
 
 ```julia
 using Pkg
-Pkg.add("https://github.com/mikelehu/IRKGaussLegendre.jl")
+Pkg.add("IRKGaussLegendre.jl")
 using IRKGaussLegendre
 ```
 
@@ -113,9 +113,9 @@ tlist1 = sol1.t[1:end]
 for j = 1:3
  xlist  = map(u->u[2,1,j], ulist1)
  ylist  = map(u->u[2,2,j], ulist1)
- pl2 = plot!(xlist,ylist, label = bodylist[j])   
+ pl = plot!(xlist,ylist, label = bodylist[j])   
 end  
-plot(pl2)
+plot(pl)
 ```
 ![Burrau problem](/Tutorials/BurrauOrbits.png)
 
