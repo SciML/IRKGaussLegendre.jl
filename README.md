@@ -31,9 +31,9 @@ precision computations (for accuracy requirements that exceeds double precision 
 This package can be installed using
 
 ```julia
-julia>using Pkg
-julia>Pkg.add("IRKGaussLegendre.jl")
-julia>using IRKGaussLegendre
+using Pkg
+Pkg.add("IRKGaussLegendre.jl")
+using IRKGaussLegendre
 ```
 
 ## Example: Burrau's problem of three bodies
