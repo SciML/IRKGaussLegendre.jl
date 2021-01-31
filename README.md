@@ -2,9 +2,11 @@
 
 [![Build Status](https://github.com/SciML/IRKGaussLegendre.jl/workflows/CI/badge.svg)](https://github.com/SciML/IRKGaussLegendre.jl/actions?query=workflow%3ACI)
 
-IRKGaussLegendre.jl is am efficient Julia implementation of an implicit Runge-Kutta Gauss-Legendre 16th order method.
+IRKGaussLegendre.jl is an efficient Julia implementation of an implicit Runge-Kutta Gauss-Legendre 16th order method.
 The method is fully integrated into the **DifferentialEquations.jl ecosystem** for high-performance high-precision
 integration.
+
+Required Julia 1.5 version or higher
 
 ## Description
 
@@ -29,9 +31,9 @@ precision computations (for accuracy requirements that exceeds double precision 
 This package can be installed using
 
 ```julia
-using Pkg
-Pkg.add("IRKGaussLegendre.jl")
-using IRKGaussLegendre
+julia>using Pkg
+julia>Pkg.add("IRKGaussLegendre.jl")
+julia>using IRKGaussLegendre
 ```
 
 ## Example: Burrau's problem of three bodies
@@ -41,6 +43,7 @@ m1=3, m2=4, and m3=5; they are initially located at the apexes of a right triang
 corresponding masses and sides are opposite. The particles are free to move in the plane of the triangle and are at rest initially.
 
 Szebehely, V. 1967, "Burrau's Problem of Three Bodies", Proceedings of the National Academy of Sciences of the United States of America, vol. 58, Issue 1, pp. 60-65 [postscript file](http://www.ucolick.org/~laugh/oxide/projects/szebehely1.ps)
+
 
 ### Step 1: Defining  the problem
 
@@ -168,6 +171,10 @@ plot!(sol1.t,log10.(abs.(ΔE1)), label="")
 
 ![Burrau problem](/Tutorials/BurrauEnergyError.png)
 
+
+## More Examples
+
+[JuliaCon2020](https://github.com/SciML/IRKGaussLegendre.jl/tree/master/Juliacon%202020)
 
 ## Implementation details
 
