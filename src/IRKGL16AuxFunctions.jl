@@ -4,60 +4,45 @@
 #       MyNorm
 #       Rdigits
 
-function ErrorEst(U,F,dt,beta,abstol,reltol)
+function ErrorEst(U, F, dt, beta, abstol, reltol)
+    uiType = eltype(U[1])
 
+    (s,) = size(F)
+    D = length(U[1])
 
-    uiType=eltype(U[1])
+    est = zero(uiType)
 
-    (s,)=size(F)
-	D=length(U[1])
-
-	est=zero(uiType)
-
-    @inbounds begin
-	for k in eachindex(U[1])
-
-		sum=zero(uiType)
-		maxU=zero(uiType)
-		for is in 1:s
-        	sum+=beta[is]*F[is][k]
-			maxU=max(maxU,abs(U[is][k]))
+    @inbounds begin for k in eachindex(U[1])
+        sum = zero(uiType)
+        maxU = zero(uiType)
+        for is in 1:s
+            sum += beta[is] * F[is][k]
+            maxU = max(maxU, abs(U[is][k]))
         end
 
-		est+=(abs(dt*sum))^2/(abstol+maxU^2*reltol)
+        est += (abs(dt * sum))^2 / (abstol + maxU^2 * reltol)
+    end end
 
-	end
-    end
-
-    return(est/D)
-
+    return (est / D)
 end
 
+function MyNorm(u, abstol, reltol)
+    uiType = eltype(u)
+    norm = zero(uiType)
 
-function MyNorm(u,abstol,reltol)
+    @inbounds begin for k in eachindex(u)
+        aux = u[k] / (abstol + abs(u[k]) * reltol)
+        norm += aux * aux
+    end end
 
-    uiType=eltype(u)
-	norm=zero(uiType)
+    norm = sqrt(norm / (length(u)))
 
-    @inbounds begin
-	for k in eachindex(u)
-	    aux=u[k]/(abstol+abs(u[k])*reltol)
-		norm+=aux*aux
-	end
-    end
-
-	norm=sqrt(norm/(length(u)))
-
-    return(norm)
-
+    return (norm)
 end
 
-
-function Rdigits(x::Real,r::Integer)
-
-	aux=copy(x)
-	mx=r*aux
-	mxx=mx+aux
-	return (mxx-mx)
-
+function Rdigits(x::Real, r::Integer)
+    aux = copy(x)
+    mx = r * aux
+    mxx = mx + aux
+    return (mxx - mx)
 end
