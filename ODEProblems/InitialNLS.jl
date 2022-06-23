@@ -5,19 +5,18 @@
 #                 Molei Tao
 #
 
-function InitialNLS(T=Float64)
-#
-# N=5
-#
+function InitialNLS(T = Float64)
+    #
+    # N=5
+    #
 
-    q=[parse(BigFloat,"3.0"), parse(BigFloat,"0.01"), parse(BigFloat,"0.01"),
-       parse(BigFloat,"0.01"), parse(BigFloat,"0.01")]
+    q = [parse(BigFloat, "3.0"), parse(BigFloat, "0.01"), parse(BigFloat, "0.01"),
+        parse(BigFloat, "0.01"), parse(BigFloat, "0.01")]
 
-    p=[parse(BigFloat,"1.0"), parse(BigFloat,"0.0"), parse(BigFloat,"0.0"),
-       parse(BigFloat,"0.0"), parse(BigFloat,"0.0")]
+    p = [parse(BigFloat, "1.0"), parse(BigFloat, "0.0"), parse(BigFloat, "0.0"),
+        parse(BigFloat, "0.0"), parse(BigFloat, "0.0")]
 
-    u0=convert.(T,[q; p])
+    u0 = convert.(T, [q; p])
 
     return u0
-
 end
