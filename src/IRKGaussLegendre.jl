@@ -20,7 +20,7 @@ include("IRKGL16step_fixed_par.jl")
 include("IRKGL16step_adaptive_par.jl")
 include("IRKGL16Solver.jl")
 
-export IRKGL16,IRKAlgorithm
+export IRKGL16, IRKAlgorithm
 export tcoeffs, CompiledFloats
 
 end # module
