@@ -63,7 +63,7 @@ julia>using IRKGaussLegendre
       - =true: combine 'base precision arithmetic' with precision specified
       in low_prec_type variable
 - low_prec_type: (Float64, Float32,...)
-- number of bits to remove when applying the stop criterion
+- nrmbits: number of bits to remove when applying the stop criterion
 
 ## Example: Burrau's problem of three bodies
 
