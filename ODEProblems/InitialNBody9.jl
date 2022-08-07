@@ -5,7 +5,8 @@ function InitialNBody9(T)
            Sun,Mercury,Venus,Earth+Moon,Mars,Jupiter,Saturn,Uranus,Neptune,Pluto
     """
 
-    Gm = [parse(BigFloat, "0.295912208285591100e-3"),
+    Gm = [
+        parse(BigFloat, "0.295912208285591100e-3"),
         parse(BigFloat, "0.491248045036476000e-10"),
         parse(BigFloat, "0.724345233264412000e-9"),
         parse(BigFloat, "0.888769244512563400e-9") + parse(T, "0.109318945074237400e-10"),
@@ -19,7 +20,8 @@ function InitialNBody9(T)
 
     N = length(Gm)
 
-    q = [parse(BigFloat, "0.00450250878464055477"),
+    q = [
+        parse(BigFloat, "0.00450250878464055477"),
         parse(BigFloat, "0.00076707642709100705"),
         parse(BigFloat, "0.00026605791776697764"),
         parse(BigFloat, "0.36176271656028195477"),
@@ -51,15 +53,21 @@ function InitialNBody9(T)
         parse(BigFloat, "8.91157617249954997764"),
     ]
 
-    v = [parse(BigFloat, "-0.00000035174953607552"), parse(T, "0.00000517762640983341"),
+    v = [
+        parse(BigFloat, "-0.00000035174953607552"),
+        parse(T, "0.00000517762640983341"),
         parse(T, "0.00000222910217891203"),
-        parse(BigFloat, "0.00336749397200575848"), parse(T, "0.02489452055768343341"),
+        parse(BigFloat, "0.00336749397200575848"),
+        parse(T, "0.02489452055768343341"),
         parse(T, "0.01294630040970409203"),
-        parse(BigFloat, "0.01095206842352823448"), parse(T, "0.01561768426786768341"),
+        parse(BigFloat, "0.01095206842352823448"),
+        parse(T, "0.01561768426786768341"),
         parse(T, "0.00633110570297786403"),
-        parse(BigFloat, "0.01681126830978379448"), parse(T, "0.00174830923073434441"),
+        parse(BigFloat, "0.01681126830978379448"),
+        parse(T, "0.00174830923073434441"),
         parse(T, "0.00075820289738312913"),
-        parse(BigFloat, "0.01448165305704756448"), parse(T, "0.00024246307683646861"),
+        parse(BigFloat, "0.01448165305704756448"),
+        parse(T, "0.00024246307683646861"),
         parse(T, "-0.00028152072792433877"),
         parse(BigFloat, "0.00109201259423733748"),
         parse(BigFloat, "-0.00651811661280738459"),
@@ -81,8 +89,8 @@ function InitialNBody9(T)
     q0 = reshape(q, 3, :)
     v0 = reshape(v, 3, :)
 
-    q0bar = [sum(Gm .* q0[j, :]) / sum(Gm) for j in 1:3]
-    v0bar = [sum(Gm .* v0[j, :]) / sum(Gm) for j in 1:3]
+    q0bar = [sum(Gm .* q0[j, :]) / sum(Gm) for j = 1:3]
+    v0bar = [sum(Gm .* v0[j, :]) / sum(Gm) for j = 1:3]
 
     q0 = q0 .- q0bar
     v0 = v0 .- v0bar

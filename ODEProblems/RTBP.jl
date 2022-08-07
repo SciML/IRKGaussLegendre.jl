@@ -14,8 +14,8 @@ function RTBPEnergy(u, mu)
         r1 = ((x + mu)^2 + y^2)^(1 / 2)
         r2 = ((x - umu)^2 + y^2)^(1 / 2)
 
-        Energy = (px * px + py * py) / 2 + px * y - py * x - umu / r1 - mu / r2 -
-                 mu * umu / 2
+        Energy =
+            (px * px + py * py) / 2 + px * y - py * x - umu / r1 - mu / r2 - mu * umu / 2
 
         return (Energy)
     end

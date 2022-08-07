@@ -3,12 +3,12 @@ function NbodyEnergy(u, Gm)
     zerouel = zero(eltype(u))
     T = zerouel
     U = zerouel
-    for i in 1:N
+    for i = 1:N
         qi = u[2, :, i]
         vi = u[1, :, i]
         Gmi = Gm[i]
         T += Gmi * (vi[1] * vi[1] + vi[2] * vi[2] + vi[3] * vi[3])
-        for j in (i + 1):N
+        for j = (i+1):N
             qj = u[2, :, j]  # qj = u[2,:,j]
             Gmj = Gm[j]
             qij = qi - qj
@@ -28,12 +28,12 @@ function NbodyEnergy2(u, Gm)
     zerouel = zero(eltype(u))
     T = zerouel
     U = zerouel
-    for i in 1:N
+    for i = 1:N
         qi = u[1, :, i]    # qi = u[2,:,i]
         vi = u[2, :, i]    # vi = u[1,:,i]
         Gmi = Gm[i]
         T += Gmi * (vi[1] * vi[1] + vi[2] * vi[2] + vi[3] * vi[3])
-        for j in (i + 1):N
+        for j = (i+1):N
             qj = u[1, :, j]  # qj = u[2,:,j]
             Gmj = Gm[j]
             qij = qi - qj
@@ -48,11 +48,11 @@ end
 function NbodyODE!(du, u, Gm, t)
     N = length(Gm)
     du[1, :, :] .= zero(eltype(u))
-    for i in 1:N
+    for i = 1:N
         qi = u[2, :, i]
         Gmi = Gm[i]
         du[2, :, i] = u[1, :, i]
-        for j in (i + 1):N
+        for j = (i+1):N
             qj = u[2, :, j]
             Gmj = Gm[j]
             qij = qi - qj
@@ -72,10 +72,10 @@ function NbodyODEv!(dv, q, v, Gm, t)
     #
     N = length(Gm)
     dv[:, :] .= zero(eltype(q))
-    for i in 1:N
+    for i = 1:N
         qi = q[:, i]
         Gmi = Gm[i]
-        for j in (i + 1):N
+        for j = (i+1):N
             qj = q[:, j]
             Gmj = Gm[j]
             qij = qi - qj
@@ -93,7 +93,7 @@ function NbodyODEq!(dq, q, v, Gm, t)
     #    dotq
     #
     N = length(Gm)
-    for i in 1:N
+    for i = 1:N
         dq[:, i] = v[:, i]
     end
 
@@ -105,10 +105,10 @@ end
 function NbodyODE2nd!(ddu, du, u, Gm, t)
     N = length(Gm)
     ddu[:, :] .= zero(eltype(u))
-    for i in 1:N
+    for i = 1:N
         qi = u[:, i]
         Gmi = Gm[i]
-        for j in (i + 1):N
+        for j = (i+1):N
             qj = u[:, j]
             Gmj = Gm[j]
             qij = qi - qj
