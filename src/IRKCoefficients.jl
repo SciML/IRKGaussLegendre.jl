@@ -5,8 +5,11 @@
 #   HCoefficients!
 #   EstimateCoeffs!
 
-function PolInterp(X::AbstractVector{ctype}, Y::AbstractMatrix{ctype},
-                   Z::AbstractVector{ctype}) where {ctype}
+function PolInterp(
+    X::AbstractVector{ctype},
+    Y::AbstractMatrix{ctype},
+    Z::AbstractVector{ctype},
+) where {ctype}
     N = length(X)
     M = length(Z)
     K = size(Y, 1)
@@ -15,26 +18,28 @@ function PolInterp(X::AbstractVector{ctype}, Y::AbstractMatrix{ctype},
     end
     pz = zeros(ctype, K, M)
 
-    @inbounds begin for i in 1:N
-        lag = 1.0
-        for j in 1:N
-            if (j != i)
-                lag *= X[i] - X[j]
-            end
-        end
-        lag = 1 / lag
-        for m in 1:M
-            liz = lag
-            for j in 1:N
+    @inbounds begin
+        for i = 1:N
+            lag = 1.0
+            for j = 1:N
                 if (j != i)
-                    liz *= Z[m] - X[j]
+                    lag *= X[i] - X[j]
                 end
             end
-            for k in 1:K
-                pz[k, m] += Y[k, i] * liz
+            lag = 1 / lag
+            for m = 1:M
+                liz = lag
+                for j = 1:N
+                    if (j != i)
+                        liz *= Z[m] - X[j]
+                    end
+                end
+                for k = 1:K
+                    pz[k, m] += Y[k, i] * liz
+                end
             end
         end
-    end end
+    end
     return pz
 end
 
@@ -84,11 +89,13 @@ function MuCoefficients!(mu, T::Type{<:CompiledFloats})
     mu[8, 8] = convert(T, 0.5)
 
     s = 8
-    @inbounds begin for i in 1:s
-        for j in (i + 1):s
-            mu[i, j] = 1 - mu[j, i]
+    @inbounds begin
+        for i = 1:s
+            for j = (i+1):s
+                mu[i, j] = 1 - mu[j, i]
+            end
         end
-    end end
+    end
 end
 
 function MuCoefficients!(mu, T)
@@ -140,35 +147,45 @@ function MuCoefficients!(mu, T)
     mu[8, 8] = parse(T, "0.5")
 
     s = 8
-    @inbounds begin for i in 1:s
-        for j in (i + 1):s
-            mu[i, j] = 1 - mu[j, i]
+    @inbounds begin
+        for i = 1:s
+            for j = (i+1):s
+                mu[i, j] = 1 - mu[j, i]
+            end
         end
-    end end
+    end
 end
 
 function HCoefficients!(mu, hc, hb, nu, h, hprev, T::Type{<:CompiledFloats})
-    hb .= convert.(T,
-                   [+5.0614268145188129576265677154981094e-02,
-                       +1.1119051722668723527217799721312045e-01,
-                       +1.5685332293894364366898110099330067e-01,
-                       +1.8134189168918099148257522463859781e-01,
-                       +1.8134189168918099148257522463859781e-01,
-                       +1.5685332293894364366898110099330067e-01,
-                       +1.1119051722668723527217799721312045e-01,
-                       +5.0614268145188129576265677154981094e-02,
-                   ])
+    hb .=
+        convert.(
+            T,
+            [
+                +5.0614268145188129576265677154981094e-02,
+                +1.1119051722668723527217799721312045e-01,
+                +1.5685332293894364366898110099330067e-01,
+                +1.8134189168918099148257522463859781e-01,
+                +1.8134189168918099148257522463859781e-01,
+                +1.5685332293894364366898110099330067e-01,
+                +1.1119051722668723527217799721312045e-01,
+                +5.0614268145188129576265677154981094e-02,
+            ],
+        )
 
-    hc .= convert.(T,
-                   [+1.9855071751231884158219565715263505e-02,
-                       +1.0166676129318663020422303176208480e-01,
-                       +2.3723379504183550709113047540537686e-01,
-                       +4.0828267875217509753026192881990801e-01,
-                       +5.9171732124782490246973807118009203e-01,
-                       +7.6276620495816449290886952459462321e-01,
-                       +8.9833323870681336979577696823791522e-01,
-                       +9.8014492824876811584178043428473653e-01,
-                   ])
+    hc .=
+        convert.(
+            T,
+            [
+                +1.9855071751231884158219565715263505e-02,
+                +1.0166676129318663020422303176208480e-01,
+                +2.3723379504183550709113047540537686e-01,
+                +4.0828267875217509753026192881990801e-01,
+                +5.9171732124782490246973807118009203e-01,
+                +7.6276620495816449290886952459462321e-01,
+                +8.9833323870681336979577696823791522e-01,
+                +9.8014492824876811584178043428473653e-01,
+            ],
+        )
 
     s = length(hb)
 
@@ -187,7 +204,7 @@ function HCoefficients!(mu, hc, hb, nu, h, hprev, T::Type{<:CompiledFloats})
     """ hb """
 
     hb .= hb * h
-    hb1 = (h - sum(hb[2:(end - 1)])) / 2
+    hb1 = (h - sum(hb[2:(end-1)])) / 2
     hb[1] = hb1
     hb[end] = hb1
 
@@ -200,7 +217,8 @@ function HCoefficients!(mu, hc, hb, nu, h, hprev, T)
 
     #          println("HCoefficients: NO Compiled")
 
-    hb .= [parse(T, "+5.0614268145188129576265677154981094e-02"),
+    hb .= [
+        parse(T, "+5.0614268145188129576265677154981094e-02"),
         parse(T, "+1.1119051722668723527217799721312045e-01"),
         parse(T, "+1.5685332293894364366898110099330067e-01"),
         parse(T, "+1.8134189168918099148257522463859781e-01"),
@@ -210,7 +228,8 @@ function HCoefficients!(mu, hc, hb, nu, h, hprev, T)
         parse(T, "+5.0614268145188129576265677154981094e-02"),
     ]
 
-    hc .= [parse(T, "+1.9855071751231884158219565715263505e-02"),
+    hc .= [
+        parse(T, "+1.9855071751231884158219565715263505e-02"),
         parse(T, "+1.0166676129318663020422303176208480e-01"),
         parse(T, "+2.3723379504183550709113047540537686e-01"),
         parse(T, "+4.0828267875217509753026192881990801e-01"),
@@ -237,7 +256,7 @@ function HCoefficients!(mu, hc, hb, nu, h, hprev, T)
     """ hb """
 
     hb .= hb * h
-    hb1 = (h - sum(hb[2:(end - 1)])) / 2
+    hb1 = (h - sum(hb[2:(end-1)])) / 2
     hb[1] = hb1
     hb[end] = hb1
 
@@ -247,21 +266,25 @@ function HCoefficients!(mu, hc, hb, nu, h, hprev, T)
 end
 
 function EstimateCoeffs!(alpha, T::Type{<:CompiledFloats})
-    c = convert.(T,
-                 [+1.9855071751231884158219565715263505e-02,
-                     +1.0166676129318663020422303176208480e-01,
-                     +2.3723379504183550709113047540537686e-01,
-                     +4.0828267875217509753026192881990801e-01,
-                     +5.9171732124782490246973807118009203e-01,
-                     +7.6276620495816449290886952459462321e-01,
-                     +8.9833323870681336979577696823791522e-01,
-                     +9.8014492824876811584178043428473653e-01,
-                 ])
+    c =
+        convert.(
+            T,
+            [
+                +1.9855071751231884158219565715263505e-02,
+                +1.0166676129318663020422303176208480e-01,
+                +2.3723379504183550709113047540537686e-01,
+                +4.0828267875217509753026192881990801e-01,
+                +5.9171732124782490246973807118009203e-01,
+                +7.6276620495816449290886952459462321e-01,
+                +8.9833323870681336979577696823791522e-01,
+                +9.8014492824876811584178043428473653e-01,
+            ],
+        )
 
     s = length(c)
 
     B = vcat(zeros(T, s - 1), 1)
-    M = [(c[i] - 1 / 2)^(k - 1) for i in 1:s, k in 1:s]'
+    M = [(c[i] - 1 / 2)^(k - 1) for i = 1:s, k = 1:s]'
     alpha .= 1000 * M \ B
 
     return
@@ -271,7 +294,8 @@ function EstimateCoeffs!(alpha, T)
 
     #    println("Estimate2: NO Compiled")
 
-    c = [parse(T, "+1.9855071751231884158219565715263505e-02"),
+    c = [
+        parse(T, "+1.9855071751231884158219565715263505e-02"),
         parse(T, "+1.0166676129318663020422303176208480e-01"),
         parse(T, "+2.3723379504183550709113047540537686e-01"),
         parse(T, "+4.0828267875217509753026192881990801e-01"),
@@ -284,7 +308,7 @@ function EstimateCoeffs!(alpha, T)
     s = length(c)
 
     B = vcat(zeros(T, s - 1), 1)
-    M = [(c[i] - 1 / 2)^(k - 1) for i in 1:s, k in 1:s]'
+    M = [(c[i] - 1 / 2)^(k - 1) for i = 1:s, k = 1:s]'
     alpha .= 1000 * M \ B
 
     return
