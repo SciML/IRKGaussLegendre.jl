@@ -40,9 +40,10 @@ function MyNorm(u, abstol, reltol)
     return (norm)
 end
 
-function Rdigits(x::Real, r::Integer)
-    aux = copy(x)
-    mx = r * aux
-    mxx = mx + aux
-    return (mxx - mx)
+function Rdigits(x::Real,r::Integer)
+
+	mx=r*x
+	mxx=mx+x
+	return (mxx-mx)
+
 end
