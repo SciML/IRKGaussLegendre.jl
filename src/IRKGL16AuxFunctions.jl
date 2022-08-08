@@ -41,8 +41,7 @@ function MyNorm(u, abstol, reltol)
 end
 
 function Rdigits(x::Real, r::Integer)
-    aux = copy(x)
-    mx = r * aux
-    mxx = mx + aux
+    mx = r * x
+    mxx = mx + x
     return (mxx - mx)
 end

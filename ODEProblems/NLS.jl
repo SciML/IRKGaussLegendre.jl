@@ -18,8 +18,7 @@ function NLSHam(u, p)
 
         for i in 2:N
             H2 += (p[i - 1]^2 * p[i]^2 + q[i - 1]^2 * q[i]^2 - q[i - 1]^2 * p[i]^2 -
-                   p[i - 1]^2 * q[i]^2 +
-                   4 * p[i - 1] * p[i] * q[i - 1] * q[i])
+                   p[i - 1]^2 * q[i]^2 + 4 * p[i - 1] * p[i] * q[i - 1] * q[i])
         end
 
         return (H1 - H2)
@@ -53,6 +52,7 @@ function NLSODE!(du, u, p, t)
 
     du[N] = p[N] * (q[N]^2 + p[N]^2) -
             (2 * p[N - 1]^2 * p[N] - 2 * q[N - 1]^2 * p[N] + 4 * p[N - 1] * q[N - 1] * q[N])
-    du[2 * N] = -q[N] * (q[N]^2 + p[N]^2) + (2 * q[N - 1]^2 * q[N] - 2 * p[N - 1]^2 * q[N] +
+    du[2 * N] = -q[N] * (q[N]^2 + p[N]^2) +
+                (2 * q[N - 1]^2 * q[N] - 2 * p[N - 1]^2 * q[N] +
                  4 * p[N - 1] * p[N] * q[N - 1])
 end

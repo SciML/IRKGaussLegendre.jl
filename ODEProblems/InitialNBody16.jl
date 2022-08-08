@@ -2,7 +2,8 @@ function InitialNBody16(T = Float64)
     GmMoon = parse(BigFloat, "0.109318945074237400e-10")
     GmEarth = parse(BigFloat, "0.888769244512563400e-9")
 
-    Gm = [parse(BigFloat, "0.295912208285591100e-3"),
+    Gm = [
+        parse(BigFloat, "0.295912208285591100e-3"),
         parse(BigFloat, "0.491248045036476000e-10"),
         parse(BigFloat, "0.724345233264412000e-9"),
         GmEarth,

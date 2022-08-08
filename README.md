@@ -10,8 +10,8 @@ Required Julia 1.5 version or higher
 
 ## Description
 
-We present a Julia implementation of a 16th order Implicit Runge-Kutta integrator IRKGL16 (a 8-stage 
-IRK scheme based on Gauss-Legendre nodes) for **high accuracy** numerical integration of non-stiff 
+We present a Julia implementation of a 16th order Implicit Runge-Kutta integrator IRKGL16 (a 8-stage
+IRK scheme based on Gauss-Legendre nodes) for **high accuracy** numerical integration of non-stiff
 ODE systems. Our algorithm supports **adaptive timesteping, mixed precision and multithreading** to
 solve problems fast and accuracy
 
@@ -31,10 +31,39 @@ precision computations (for accuracy requirements that exceeds double precision 
 This package can be installed using
 
 ```julia
-using Pkg
-Pkg.add("IRKGaussLegendre.jl")
-using IRKGaussLegendre
+julia>using Pkg
+julia>Pkg.add("IRKGaussLegendre.jl")
+julia>using IRKGaussLegendre
 ```
+
+## Solver options
+
+### Available common arguments
+
+- dt: stepsize
+- save_everystep: default is true
+- adaptive: =true (adaptive timestepping); =false (fixed timestepping)
+- maxiters: maximum number of iterations before stopping
+
+
+### No-common arguments
+
+
+- initial_interp: initialization method for stages.
+        - =false  simplest initialization
+        - =true (default) interpolating from the stage values of previous step
+- mstep: output saved at every 'mstep' steps. Default 1.
+- myoutputs: default false
+- maxtrials: maximum number of attempts to accept adaptive step size
+- threading
+      - =false (default): sequential execution of the numerical integration
+      - =true: parallel execution (stage-wise parallelization)
+- mixed_precision
+      - =false (default)
+      - =true: combine 'base precision arithmetic' with precision specified
+      in low_prec_type variable
+- low_prec_type: (Float64, Float32,...)
+- nrmbits: number of bits to remove when applying the stop criterion
 
 ## Example: Burrau's problem of three bodies
 
@@ -174,7 +203,7 @@ plot!(sol1.t,log10.(abs.(ΔE1)), label="")
 
 ## More Examples
 
-[JuliaCon2020](https://github.com/SciML/IRKGaussLegendre.jl/tree/master/Juliacon%202020)
+[Benchmark examples](https://github.com/SciML/IRKGaussLegendre.jl/tree/master/Benchmarks)
 
 ## Implementation details
 
