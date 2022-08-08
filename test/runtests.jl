@@ -6,11 +6,11 @@ import DiffEqProblemLibrary.ODEProblemLibrary: prob_ode_2Dlinear, prob_ode_bigfl
 function NbodyODE!(du, u, Gm, t)
     N = length(Gm)
     du[1, :, :] .= 0
-    for i = 1:N
+    for i in 1:N
         qi = u[2, :, i]
         Gmi = Gm[i]
         du[2, :, i] = u[1, :, i]
-        for j = (i+1):N
+        for j in (i + 1):N
             qj = u[2, :, j]
             Gmj = Gm[j]
             qij = qi - qj

@@ -116,68 +116,58 @@ function InitialNBody16(T = Float64)
 
     # Ceres, Pallas, Vesta, Iris, Bamberga
     qsun = qq[1:3]
-    qCeres =
-        qsun + [
-            parse(BigFloat, "1.438681809676469747"),
-            parse(BigFloat, "-2.204373633189407045"),
-            parse(BigFloat, "-1.326397853361325874"),
-        ]
-    qPallas =
-        qsun + [
-            parse(BigFloat, "0.203832272462290465"),
-            parse(BigFloat, "-3.209619436062307152"),
-            parse(BigFloat, "0.623843179079393351"),
-        ]
-    qVesta =
-        qsun + [
-            parse(BigFloat, "0.182371836377417107"),
-            parse(BigFloat, "2.386628211277654010"),
-            parse(BigFloat, "0.924596062836265498"),
-        ]
-    qIris =
-        qsun + [
-            parse(BigFloat, "1.892475267790300286"),
-            parse(BigFloat, "-0.848414748075139946"),
-            parse(BigFloat, "-0.157159319044464590"),
-        ]
-    qBamberga =
-        qsun + [
-            parse(BigFloat, "1.398759064223541682"),
-            parse(BigFloat, "-1.287476729008325105"),
-            parse(BigFloat, "-0.669098428660833799"),
-        ]
+    qCeres = qsun + [
+        parse(BigFloat, "1.438681809676469747"),
+        parse(BigFloat, "-2.204373633189407045"),
+        parse(BigFloat, "-1.326397853361325874"),
+    ]
+    qPallas = qsun + [
+        parse(BigFloat, "0.203832272462290465"),
+        parse(BigFloat, "-3.209619436062307152"),
+        parse(BigFloat, "0.623843179079393351"),
+    ]
+    qVesta = qsun + [
+        parse(BigFloat, "0.182371836377417107"),
+        parse(BigFloat, "2.386628211277654010"),
+        parse(BigFloat, "0.924596062836265498"),
+    ]
+    qIris = qsun + [
+        parse(BigFloat, "1.892475267790300286"),
+        parse(BigFloat, "-0.848414748075139946"),
+        parse(BigFloat, "-0.157159319044464590"),
+    ]
+    qBamberga = qsun + [
+        parse(BigFloat, "1.398759064223541682"),
+        parse(BigFloat, "-1.287476729008325105"),
+        parse(BigFloat, "-0.669098428660833799"),
+    ]
 
     vsun = vv[1:3]
-    vCeres =
-        vsun + [
-            parse(BigFloat, "0.008465406136316316"),
-            parse(BigFloat, "0.004684247977335608"),
-            parse(BigFloat, "0.000466157738595739"),
-        ]
-    vPallas =
-        vsun + [
-            parse(BigFloat, "0.008534313855651248"),
-            parse(BigFloat, "-0.000860659210123161"),
-            parse(BigFloat, "-0.000392901992572746"),
-        ]
-    vVesta =
-        vsun + [
-            parse(BigFloat, "-0.010174496747119257"),
-            parse(BigFloat, "0.000041478190529952"),
-            parse(BigFloat, "0.001344157634155624"),
-        ]
-    vIris =
-        vsun + [
-            parse(BigFloat, "0.002786950314570632"),
-            parse(BigFloat, "0.011314057384917047"),
-            parse(BigFloat, "0.004975132577079665"),
-        ]
-    vBamberga =
-        vsun + [
-            parse(BigFloat, "0.007164363244556328"),
-            parse(BigFloat, "0.009219958777618218"),
-            parse(BigFloat, "0.006857861727407507"),
-        ]
+    vCeres = vsun + [
+        parse(BigFloat, "0.008465406136316316"),
+        parse(BigFloat, "0.004684247977335608"),
+        parse(BigFloat, "0.000466157738595739"),
+    ]
+    vPallas = vsun + [
+        parse(BigFloat, "0.008534313855651248"),
+        parse(BigFloat, "-0.000860659210123161"),
+        parse(BigFloat, "-0.000392901992572746"),
+    ]
+    vVesta = vsun + [
+        parse(BigFloat, "-0.010174496747119257"),
+        parse(BigFloat, "0.000041478190529952"),
+        parse(BigFloat, "0.001344157634155624"),
+    ]
+    vIris = vsun + [
+        parse(BigFloat, "0.002786950314570632"),
+        parse(BigFloat, "0.011314057384917047"),
+        parse(BigFloat, "0.004975132577079665"),
+    ]
+    vBamberga = vsun + [
+        parse(BigFloat, "0.007164363244556328"),
+        parse(BigFloat, "0.009219958777618218"),
+        parse(BigFloat, "0.006857861727407507"),
+    ]
 
     qq = [qq; qMoon; qCeres; qPallas; qVesta; qIris; qBamberga]
     vv = [vv; vMoon; vCeres; vPallas; vVesta; vIris; vBamberga]
@@ -185,8 +175,8 @@ function InitialNBody16(T = Float64)
     q0 = reshape(qq, 3, :)
     v0 = reshape(vv, 3, :)
 
-    q0bar = [sum(Gm .* q0[j, :]) / sum(Gm) for j = 1:3]
-    v0bar = [sum(Gm .* v0[j, :]) / sum(Gm) for j = 1:3]
+    q0bar = [sum(Gm .* q0[j, :]) / sum(Gm) for j in 1:3]
+    v0bar = [sum(Gm .* v0[j, :]) / sum(Gm) for j in 1:3]
 
     q0 = q0 .- q0bar
     v0 = v0 .- v0bar

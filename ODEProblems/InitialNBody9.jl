@@ -89,8 +89,8 @@ function InitialNBody9(T)
     q0 = reshape(q, 3, :)
     v0 = reshape(v, 3, :)
 
-    q0bar = [sum(Gm .* q0[j, :]) / sum(Gm) for j = 1:3]
-    v0bar = [sum(Gm .* v0[j, :]) / sum(Gm) for j = 1:3]
+    q0bar = [sum(Gm .* q0[j, :]) / sum(Gm) for j in 1:3]
+    v0bar = [sum(Gm .* v0[j, :]) / sum(Gm) for j in 1:3]
 
     q0 = q0 .- q0bar
     v0 = v0 .- v0bar
