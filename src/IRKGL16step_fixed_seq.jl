@@ -120,7 +120,12 @@ function IRKstep_fixed!(s,
         else
             plusIt = true
         end
-    end  # ehile
+    end  # while
+
+    if (iter && nit == maxiters)
+        println("Fail: maximum numbers of iterations=", maxiters, " at step=", j)
+        return ("Failure", 0)
+    end
 
     if (uiType <: CompiledFloats)
 
@@ -342,6 +347,11 @@ function IRKstep_fixed_Mix!(s,
         end
     end # while
 
+    if (iter && nit == maxiters)
+        println("Fail: maximum numbers of iterations=", maxiters, " at step=", j)
+        return ("Failure", 0)
+    end
+
     if (uiType <: CompiledFloats)
 
         #     ~ Compensated summation
@@ -538,6 +548,11 @@ function IRKstepDynODE_fixed!(s,
             plusIt = true
         end
     end # while iter
+
+    if (iter && nit == maxiters)
+        println("Fail: maximum numbers of iterations=", maxiters, " at step=", j)
+        return ("Failure", 0)
+    end
 
     if (uiType <: CompiledFloats)
 
