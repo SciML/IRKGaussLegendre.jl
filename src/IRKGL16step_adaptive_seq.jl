@@ -86,7 +86,7 @@ function IRKstep_adaptive!(s,
         iter = true
         plusIt = true
 
-        nit = 1
+        nit = 0
         for is in 1:s
             Dmin[is] .= Inf
         end
@@ -145,7 +145,7 @@ function IRKstep_adaptive!(s,
 
         estimate = ErrorEst(U, F, dt, alpha, abstol, reltol)
         lambda = (estimate)^pow
-        if (estimate < 2)
+        if (estimate < 2 && nit < maxiters)
             accept = true
         else
             rejects[1] += 1
@@ -153,8 +153,8 @@ function IRKstep_adaptive!(s,
         end
     end # while accept
 
-    if (!accept && ntrials == maxtrials)
-        println("Fail adaptive step: maximum number of trials=", maxtrials, "at step=", j,
+    if (!accept && ntrials == maxtrialsj)
+        println("Failure (adaptive step): maximum number of trials=", maxtrialsj, " at step=", j,
                 " dt=", dts[1])
         return ("Failure", 0)
     end
@@ -312,7 +312,7 @@ function IRKstep_adaptive_Mix!(s,
         iter = true
         plusIt = true
 
-        nit = 1
+        nit = 0
         for is in 1:s
             Dmin[is] .= Inf
         end
@@ -416,7 +416,7 @@ function IRKstep_adaptive_Mix!(s,
 
         estimate = ErrorEst(U, F, dt, alpha, abstol, reltol)
         lambda = (estimate)^pow
-        if (estimate < 2)
+        if (estimate < 2 && nit < maxiters)
             accept = true
         else
             rejects[1] += 1
@@ -424,8 +424,8 @@ function IRKstep_adaptive_Mix!(s,
         end
     end # while accept
 
-    if (!accept && ntrials == maxtrials)
-        println("Fail adaptive step: maximum number of trials=", maxtrials, "at step=", j,
+    if (!accept && ntrials == maxtrialsj)
+        println("Failure (adaptive step): maximum number of trials=", maxtrialsj, " at step=", j,
                 " dt=", dts[1])
         return ("Failure", 0)
     end
@@ -547,7 +547,7 @@ function IRKstepDynODE_adaptive!(s,
 
         iter = true
         plusIt = true
-        nit = 1
+        nit = 0
         for is in 1:s
             Dmin[is] .= Inf
         end
@@ -653,7 +653,8 @@ function IRKstepDynODE_adaptive!(s,
 
         estimate = ErrorEst(U, F, dt, alpha, abstol, reltol)
         lambda = (estimate)^pow
-        if (estimate < 2)
+
+        if (estimate < 2 && nit < maxiters)
             accept = true
         else
             rejects[1] += 1
@@ -661,8 +662,8 @@ function IRKstepDynODE_adaptive!(s,
         end
     end # while accept
 
-    if (!accept && ntrials == maxtrials)
-        println("Fail adaptive step: maximum number of trials=", maxtrials, "at step=", j,
+    if (!accept && ntrials == maxtrialsj)
+        println("Failure (adaptive step): maximum number of trials=", maxtrialsj, " at step=", j,
                 " dt=", dts[1])
         return ("Failure", 0)
     end

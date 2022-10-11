@@ -60,7 +60,7 @@ function IRKstep_par_fixed!(s,
     iter = true
     plusIt = true
 
-    nit = 1
+    nit = 0
     @inbounds begin for is in 1:s
         Dmin[is] .= Inf
     end end
@@ -123,7 +123,7 @@ function IRKstep_par_fixed!(s,
     end  # while
 
     if (iter && nit == maxiters)
-        println("Fail: maximum numbers of iterations=", maxiters, " at step=", j)
+        println("Failure: maximum numbers of iterations=", maxiters, " at step=", j)
         return ("Failure", 0)
     end
 
@@ -239,7 +239,7 @@ function IRKstep_par_fixed_Mix!(s,
     iter = true
     plusIt = true
 
-    nit = 1
+    nit = 0
     @inbounds begin for is in 1:s
         Dmin[is] .= Inf
     end end
@@ -348,7 +348,7 @@ function IRKstep_par_fixed_Mix!(s,
     end # while
 
     if (iter && nit == maxiters)
-        println("Fail: maximum numbers of iterations=", maxiters, " at step=", j)
+        println("Failure: maximum numbers of iterations=", maxiters, " at step=", j)
         return ("Failure", 0)
     end
 
@@ -446,7 +446,7 @@ function IRKstepDynODE_par_fixed!(s,
     iter = true
     plusIt = true
 
-    nit = 1
+    nit = 0
     for is in 1:s
         Dmin[is] .= Inf
     end
@@ -550,7 +550,7 @@ function IRKstepDynODE_par_fixed!(s,
     end # while iter
 
     if (iter && nit == maxiters)
-        println("Fail: maximum numbers of iterations=", maxiters, " at step=", j)
+        println("Failure: maximum numbers of iterations=", maxiters, " at step=", j)
         return ("Failure", 0)
     end
 

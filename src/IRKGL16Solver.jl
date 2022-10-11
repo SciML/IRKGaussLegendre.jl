@@ -79,7 +79,7 @@ struct IRKGL16{
                     } end
 function IRKGL16(;
                  mstep = 1,
-                 maxtrials = 3,
+                 maxtrials = 5,
                  initial_interp = true,
                  myoutputs = false,
                  threading = false,
