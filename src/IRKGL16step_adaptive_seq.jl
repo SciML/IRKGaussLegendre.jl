@@ -154,7 +154,8 @@ function IRKstep_adaptive!(s,
     end # while accept
 
     if (!accept && ntrials == maxtrialsj)
-        println("Failure (adaptive step): maximum number of trials=", maxtrialsj, " at step=", j,
+        println("Failure (adaptive step): maximum number of trials=", maxtrialsj,
+                " at step=", j,
                 " dt=", dts[1])
         return ("Failure", 0)
     end
@@ -425,7 +426,8 @@ function IRKstep_adaptive_Mix!(s,
     end # while accept
 
     if (!accept && ntrials == maxtrialsj)
-        println("Failure (adaptive step): maximum number of trials=", maxtrialsj, " at step=", j,
+        println("Failure (adaptive step): maximum number of trials=", maxtrialsj,
+                " at step=", j,
                 " dt=", dts[1])
         return ("Failure", 0)
     end
@@ -663,7 +665,8 @@ function IRKstepDynODE_adaptive!(s,
     end # while accept
 
     if (!accept && ntrials == maxtrialsj)
-        println("Failure (adaptive step): maximum number of trials=", maxtrialsj, " at step=", j,
+        println("Failure (adaptive step): maximum number of trials=", maxtrialsj,
+                " at step=", j,
                 " dt=", dts[1])
         return ("Failure", 0)
     end
