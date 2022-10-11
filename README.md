@@ -65,6 +65,13 @@ julia>using IRKGaussLegendre
 - low_prec_type: (Float64, Float32,...)
 - nrmbits: number of bits to remove when applying the stop criterion
 
+## Return Codes
+
+The solution types have a retcode field which returns a symbol signifying the error state of the solution. The retcodes are as follows:
+
+- :Success: The integration completed without erroring.
+- :Failure: General uncategorized failures or errors.
+
 ## Example: Burrau's problem of three bodies
 
 Three point masses attract each other according to the Newtonian law of gravitation. The masses of the particles are
@@ -149,7 +156,7 @@ for j = 1:3
 end  
 plot(pl)
 ```
-![Burrau problem](/Tutorials/BurrauOrbits.png)
+![Burrau problem](/Examples/BurrauOrbits.png)
 
 
 #### Step Size
@@ -160,7 +167,7 @@ steps1 =sol1.t[2:end]-sol1.t[1:end-1]
 plot!(sol1.t[2:end],steps1)
 ```
 
-![Burrau problem](/Tutorials/BurrauStepSize.png)
+![Burrau problem](/Examples/BurrauStepSize.png)
 
 
 #### Energy-Error
@@ -198,7 +205,7 @@ plot(title="Energy error", xlabel="t", ylabel=L"\Delta E")
 plot!(sol1.t,log10.(abs.(ΔE1)), label="")
 ```
 
-![Burrau problem](/Tutorials/BurrauEnergyError.png)
+![Burrau problem](/Examples/BurrauEnergyError.png)
 
 
 ## More Examples

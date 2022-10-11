@@ -1,7 +1,5 @@
-using IRKGaussLegendre, DiffEqProblemLibrary, DiffEqDevTools, Test
-using DiffEqProblemLibrary.ODEProblemLibrary: importodeproblems;
-importodeproblems();
-import DiffEqProblemLibrary.ODEProblemLibrary: prob_ode_2Dlinear, prob_ode_bigfloat2Dlinear
+using IRKGaussLegendre, ODEProblemLibrary, DiffEqDevTools, Test
+import ODEProblemLibrary: prob_ode_2Dlinear, prob_ode_bigfloat2Dlinear
 
 function NbodyODE!(du, u, Gm, t)
     N = length(Gm)
