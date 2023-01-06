@@ -368,7 +368,8 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType, tType, is
 
                 if (status == "Failure")
                     #                    println("Fail")
-                    sol = DiffEqBase.build_solution(prob, alg, tt, uu, retcode = ReturnCode.Failure)
+                    sol = DiffEqBase.build_solution(prob, alg, tt, uu,
+                                                    retcode = ReturnCode.Failure)
                     return (sol)
                 end
                 tit += it
@@ -421,7 +422,8 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType, tType, is
 
                 if (status == "Failure")
                     #                    println("Fail")
-                    sol = DiffEqBase.build_solution(prob, alg, tt, uu, retcode = ReturnCode.Failure)
+                    sol = DiffEqBase.build_solution(prob, alg, tt, uu,
+                                                    retcode = ReturnCode.Failure)
                     return (sol)
                 end
                 tit += it
