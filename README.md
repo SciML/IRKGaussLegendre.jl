@@ -69,8 +69,8 @@ julia>using IRKGaussLegendre
 
 The solution types have a retcode field which returns a symbol signifying the error state of the solution. The retcodes are as follows:
 
-- :Success: The integration completed without erroring.
-- :Failure: General uncategorized failures or errors.
+- ReturnCode.Success: The integration completed without erroring.
+- ReturnCode.Failure: General uncategorized failures or errors.
 
 ## Example: Burrau's problem of three bodies
 

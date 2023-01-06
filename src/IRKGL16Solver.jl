@@ -143,7 +143,7 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType, tType, is
         @unpack f, u0, tspan, p = prob
     else
         println("Error: incorrect ODEFunction")
-        sol = DiffEqBase.build_solution(prob, alg, [], [], retcode = :Failure)
+        sol = DiffEqBase.build_solution(prob, alg, [], [], retcode = ReturnCode.Failure)
         return (sol)
     end
 
@@ -368,7 +368,8 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType, tType, is
 
                 if (status == "Failure")
                     #                    println("Fail")
-                    sol = DiffEqBase.build_solution(prob, alg, tt, uu, retcode = :Failure)
+                    sol = DiffEqBase.build_solution(prob, alg, tt, uu,
+                                                    retcode = ReturnCode.Failure)
                     return (sol)
                 end
                 tit += it
@@ -421,7 +422,8 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType, tType, is
 
                 if (status == "Failure")
                     #                    println("Fail")
-                    sol = DiffEqBase.build_solution(prob, alg, tt, uu, retcode = :Failure)
+                    sol = DiffEqBase.build_solution(prob, alg, tt, uu,
+                                                    retcode = ReturnCode.Failure)
                     return (sol)
                 end
                 tit += it
@@ -446,7 +448,7 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType, tType, is
     end
 
     sol = DiffEqBase.build_solution(prob, alg, tt, uu, destats = destats,
-                                    retcode = :Success)
+                                    retcode = ReturnCode.Success)
 
     sol.destats.nf = nfcn[1]
     sol.destats.nf2 = nfcn[2]
