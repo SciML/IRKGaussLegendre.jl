@@ -130,7 +130,7 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType, tType, is
                                               nrmbits
                                               }
     s = 8
-    destats = DiffEqBase.DEStats(0)
+    stats = DiffEqBase.Stats(0)
 
     if (typeof(prob.f) <: DynamicalODEFunction)
         @unpack tspan, p = prob
@@ -447,13 +447,13 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType, tType, is
         end
     end
 
-    sol = DiffEqBase.build_solution(prob, alg, tt, uu, destats = destats,
+    sol = DiffEqBase.build_solution(prob, alg, tt, uu, stats = stats,
                                     retcode = ReturnCode.Success)
 
-    sol.destats.nf = nfcn[1]
-    sol.destats.nf2 = nfcn[2]
-    sol.destats.nreject = rejects[1]
-    sol.destats.naccept = j
+    sol.stats.nf = nfcn[1]
+    sol.stats.nf2 = nfcn[2]
+    sol.stats.nreject = rejects[1]
+    sol.stats.naccept = j
 
     if (myoutputs == true)
         return (sol, iters, steps)
