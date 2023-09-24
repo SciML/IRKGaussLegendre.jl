@@ -1,7 +1,7 @@
 name = "IRKGaussLegendre"
 uuid = "58bc7355-f626-4c51-96f2-1f8a038f95a2"
 authors = ["joseba <mikel.antonana@gmail.com>"]
-version = "0.2.3"
+version = "0.2.4"
 
 [deps]
 DiffEqBase = "2b5f629d-d688-5b77-993f-72d75c75574e"
@@ -18,7 +18,7 @@ OrdinaryDiffEq = "5, 6"
 Parameters = "0.12"
 RecursiveArrayTools = "2.7"
 Reexport = "1.0"
-SciMLBase = "1.90"
+SciMLBase = "1.90, 2"
 julia = "1.6"
 
 [extras]
