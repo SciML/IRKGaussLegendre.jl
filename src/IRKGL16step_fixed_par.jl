@@ -5,25 +5,26 @@
 #  IRKstepDynODE_par_fixed!
 
 function IRKstep_par_fixed!(s,
-                            j,
-                            ttj,
-                            uj,
-                            ej,
-                            prob,
-                            dts,
-                            coeffs,
-                            cache,
-                            maxiters,
-                            initial_interp,
-                            abstol,
-                            reltol,
-                            adaptive,
-                            threading)
+    j,
+    ttj,
+    uj,
+    ej,
+    prob,
+    dts,
+    coeffs,
+    cache,
+    maxiters,
+    initial_interp,
+    abstol,
+    reltol,
+    adaptive,
+    threading)
     @unpack mu, hc, hb, nu, alpha = coeffs
     @unpack f, u0, p, tspan = prob
     @unpack U, Uz, L, Lz, F, Dmin, Eval, DY, rejects, nfcn, lambdas, nrmdigits = cache
 
     uiType = eltype(uj)
+    realuiType = real(uiType)
 
     dt = dts[1]
     dtprev = dts[2]
@@ -37,39 +38,47 @@ function IRKstep_par_fixed!(s,
     nit = 0
 
     if (dt != dtprev)
-        HCoefficients!(mu, hc, hb, nu, dt, dtprev, uiType)
+        HCoefficients!(mu, hc, hb, nu, dt, dtprev, realuiType)
         @unpack mu, hc, hb, nu, alpha = coeffs
     end
 
     if initial_interp
-        @inbounds begin for is in 1:s
-            for k in eachindex(uj)
-                aux = zero(eltype(uj))
-                for js in 1:s
-                    aux += nu[is, js] * L[js][k]
+        @inbounds begin
+            for is in 1:s
+                for k in eachindex(uj)
+                    aux = zero(eltype(uj))
+                    for js in 1:s
+                        aux += nu[is, js] * L[js][k]
+                    end
+                    U[is][k] = (uj[k] + ej[k]) + aux
                 end
-                U[is][k] = (uj[k] + ej[k]) + aux
             end
-        end end
+        end
     else
-        @inbounds begin for is in 1:s
-            @. U[is] = uj + ej
-        end end
+        @inbounds begin
+            for is in 1:s
+                @. U[is] = uj + ej
+            end
+        end
     end
 
     iter = true
     plusIt = true
 
     nit = 0
-    @inbounds begin for is in 1:s
-        Dmin[is] .= Inf
-    end end
+    @inbounds begin
+        for is in 1:s
+            Dmin[is] .= Inf
+        end
+    end
 
-    @inbounds begin Threads.@threads for is in 1:s
-        nfcn[1] += 1
-        f(F[is], U[is], p, tj + hc[is])
-        @. L[is] = hb[is] * F[is]
-    end end
+    @inbounds begin
+        Threads.@threads for is in 1:s
+            nfcn[1] += 1
+            f(F[is], U[is], p, tj + hc[is])
+            @. L[is] = hb[is] * F[is]
+        end
+    end
 
     while (nit < maxiters && iter)
         nit += 1
@@ -77,18 +86,20 @@ function IRKstep_par_fixed!(s,
         iter = false
         D0 = 0
 
-        @inbounds begin for is in 1:s
-            Uz[is] .= U[is]
-            DiffEqBase.@.. U[is] = uj + (ej +
-                                    mu[is, 1] * L[1] +
-                                    mu[is, 2] * L[2] +
-                                    mu[is, 3] * L[3] +
-                                    mu[is, 4] * L[4] +
-                                    mu[is, 5] * L[5] +
-                                    mu[is, 6] * L[6] +
-                                    mu[is, 7] * L[7] +
-                                    mu[is, 8] * L[8])
-        end end  #inbounds
+        @inbounds begin
+            for is in 1:s
+                Uz[is] .= U[is]
+                DiffEqBase.@.. U[is] = uj + (ej +
+                                        mu[is, 1] * L[1] +
+                                        mu[is, 2] * L[2] +
+                                        mu[is, 3] * L[3] +
+                                        mu[is, 4] * L[4] +
+                                        mu[is, 5] * L[5] +
+                                        mu[is, 6] * L[6] +
+                                        mu[is, 7] * L[7] +
+                                        mu[is, 8] * L[8])
+            end
+        end  #inbounds
 
         Threads.@threads for is in 1:s
             Eval[is] = false
@@ -131,18 +142,20 @@ function IRKstep_par_fixed!(s,
 
         #~Compensated summation
         indices = eachindex(uj)
-        @inbounds begin for k in indices
-            e0 = ej[k]
-            for is in 1:s
-                e0 += muladd(F[is][k], hb[is], -L[is][k])
+        @inbounds begin
+            for k in indices
+                e0 = ej[k]
+                for is in 1:s
+                    e0 += muladd(F[is][k], hb[is], -L[is][k])
+                end
+                res = Base.TwicePrecision(uj[k], e0)
+                for is in 1:s
+                    res += L[is][k]
+                end
+                uj[k] = res.hi
+                ej[k] = res.lo
             end
-            res = Base.TwicePrecision(uj[k], e0)
-            for is in 1:s
-                res += L[is][k]
-            end
-            uj[k] = res.hi
-            ej[k] = res.lo
-        end end
+        end
         res = Base.TwicePrecision(tj, te) + dt
         ttj[1] = res.hi
         ttj[2] = res.lo
@@ -158,22 +171,22 @@ function IRKstep_par_fixed!(s,
 end
 
 function IRKstep_par_fixed_Mix!(s,
-                                j,
-                                ttj,
-                                uj,
-                                ej,
-                                prob,
-                                dts,
-                                coeffs,
-                                cache,
-                                maxiters,
-                                initial_interp,
-                                abstol,
-                                reltol,
-                                adaptive,
-                                threading,
-                                mixed_precision,
-                                low_prec_type)
+    j,
+    ttj,
+    uj,
+    ej,
+    prob,
+    dts,
+    coeffs,
+    cache,
+    maxiters,
+    initial_interp,
+    abstol,
+    reltol,
+    adaptive,
+    threading,
+    mixed_precision,
+    low_prec_type)
     @unpack mu, hc, hb, nu, alpha = coeffs
     @unpack f, u0, p, tspan, kwargs = prob
 
@@ -202,6 +215,7 @@ function IRKstep_par_fixed_Mix!(s,
     nrmdigits = cache
 
     uiType = eltype(uj)
+    realuiType = real(uiType)
 
     dt = dts[1]
     dtprev = dts[2]
@@ -215,40 +229,48 @@ function IRKstep_par_fixed_Mix!(s,
     nit = 0
 
     if (dt != dtprev)
-        HCoefficients!(mu, hc, hb, nu, dt, dtprev, uiType)
+        HCoefficients!(mu, hc, hb, nu, dt, dtprev, realuiType)
         @unpack mu, hc, hb, nu, alpha = coeffs
         lhb .= hb
     end
 
     if initial_interp
-        @inbounds begin for is in 1:s
-            for k in eachindex(uj)
-                aux = zero(eltype(uj))
-                for js in 1:s
-                    aux += nu[is, js] * L[js][k]
+        @inbounds begin
+            for is in 1:s
+                for k in eachindex(uj)
+                    aux = zero(eltype(uj))
+                    for js in 1:s
+                        aux += nu[is, js] * L[js][k]
+                    end
+                    U[is][k] = (uj[k] + ej[k]) + aux
                 end
-                U[is][k] = (uj[k] + ej[k]) + aux
             end
-        end end
+        end
     else
-        @inbounds begin for is in 1:s
-            @. U[is] = uj + ej
-        end end
+        @inbounds begin
+            for is in 1:s
+                @. U[is] = uj + ej
+            end
+        end
     end
 
     iter = true
     plusIt = true
 
     nit = 0
-    @inbounds begin for is in 1:s
-        Dmin[is] .= Inf
-    end end
+    @inbounds begin
+        for is in 1:s
+            Dmin[is] .= Inf
+        end
+    end
 
-    @inbounds begin Threads.@threads for is in 1:s
-        nfcn[1] += 1
-        f(F[is], U[is], p, tj + hc[is])
-        @. L[is] = hb[is] * F[is]
-    end end
+    @inbounds begin
+        Threads.@threads for is in 1:s
+            nfcn[1] += 1
+            f(F[is], U[is], p, tj + hc[is])
+            @. L[is] = hb[is] * F[is]
+        end
+    end
 
     lmax = 1
 
@@ -257,20 +279,22 @@ function IRKstep_par_fixed_Mix!(s,
         iter = false
         D0 = 0
 
-        @inbounds begin for is in 1:s
-            Uz[is] .= U[is]
-            DiffEqBase.@.. U[is] = uj + (ej +
-                                    mu[is, 1] * L[1] +
-                                    mu[is, 2] * L[2] +
-                                    mu[is, 3] * L[3] +
-                                    mu[is, 4] * L[4] +
-                                    mu[is, 5] * L[5] +
-                                    mu[is, 6] * L[6] +
-                                    mu[is, 7] * L[7] +
-                                    mu[is, 8] * L[8])
-            Ulow[is] .= U[is]
-            normU[is] = copy(norm(Ulow[is]))
-        end end # inbound
+        @inbounds begin
+            for is in 1:s
+                Uz[is] .= U[is]
+                DiffEqBase.@.. U[is] = uj + (ej +
+                                        mu[is, 1] * L[1] +
+                                        mu[is, 2] * L[2] +
+                                        mu[is, 3] * L[3] +
+                                        mu[is, 4] * L[4] +
+                                        mu[is, 5] * L[5] +
+                                        mu[is, 6] * L[6] +
+                                        mu[is, 7] * L[7] +
+                                        mu[is, 8] * L[8])
+                Ulow[is] .= U[is]
+                normU[is] = copy(norm(Ulow[is]))
+            end
+        end # inbound
 
         Threads.@threads for is in 1:s
             Eval[is] = false
@@ -357,18 +381,20 @@ function IRKstep_par_fixed_Mix!(s,
         #     ~ Compensated summation
 
         indices = eachindex(uj)
-        @inbounds begin for k in indices
-            e0 = ej[k]
-            for is in 1:s
-                e0 += muladd(F[is][k], hb[is], -L[is][k])
+        @inbounds begin
+            for k in indices
+                e0 = ej[k]
+                for is in 1:s
+                    e0 += muladd(F[is][k], hb[is], -L[is][k])
+                end
+                res = Base.TwicePrecision(uj[k], e0)
+                for is in 1:s
+                    res += L[is][k]
+                end
+                uj[k] = res.hi
+                ej[k] = res.lo
             end
-            res = Base.TwicePrecision(uj[k], e0)
-            for is in 1:s
-                res += L[is][k]
-            end
-            uj[k] = res.hi
-            ej[k] = res.lo
-        end end
+        end
 
         res = Base.TwicePrecision(tj, te) + dt
         ttj[1] = res.hi
@@ -389,20 +415,20 @@ end
 #
 
 function IRKstepDynODE_par_fixed!(s,
-                                  j,
-                                  ttj,
-                                  uj,
-                                  ej,
-                                  prob,
-                                  dts,
-                                  coeffs,
-                                  cache,
-                                  maxiters,
-                                  initial_interp,
-                                  abstol,
-                                  reltol,
-                                  adaptive,
-                                  threading)
+    j,
+    ttj,
+    uj,
+    ej,
+    prob,
+    dts,
+    coeffs,
+    cache,
+    maxiters,
+    initial_interp,
+    abstol,
+    reltol,
+    adaptive,
+    threading)
     @unpack mu, hc, hb, nu, alpha = coeffs
     @unpack tspan, p = prob
     f1 = prob.f.f1
@@ -410,6 +436,7 @@ function IRKstepDynODE_par_fixed!(s,
     @unpack U, Uz, L, Lz, F, Dmin, Eval, DY, rejects, nfcn, lambdas, nrmdigits = cache
 
     uiType = eltype(uj)
+    realuiType = real(uiType)
 
     dt = dts[1]
     dtprev = dts[2]
@@ -423,24 +450,28 @@ function IRKstepDynODE_par_fixed!(s,
     nit = 0
 
     if (dt != dtprev)
-        HCoefficients!(mu, hc, hb, nu, dt, dtprev, uiType)
+        HCoefficients!(mu, hc, hb, nu, dt, dtprev, realuiType)
         @unpack mu, hc, hb, nu, alpha = coeffs
     end
 
     if initial_interp
-        @inbounds begin for is in 1:s
-            for k in eachindex(uj)
-                aux = zero(eltype(uj))
-                for js in 1:s
-                    aux += nu[is, js] * L[js][k]
+        @inbounds begin
+            for is in 1:s
+                for k in eachindex(uj)
+                    aux = zero(eltype(uj))
+                    for js in 1:s
+                        aux += nu[is, js] * L[js][k]
+                    end
+                    U[is][k] = (uj[k] + ej[k]) + aux
                 end
-                U[is][k] = (uj[k] + ej[k]) + aux
             end
-        end end
+        end
     else
-        @inbounds begin for is in 1:s
-            @. U[is] = uj + ej
-        end end
+        @inbounds begin
+            for is in 1:s
+                @. U[is] = uj + ej
+            end
+        end
     end
 
     iter = true
@@ -451,12 +482,14 @@ function IRKstepDynODE_par_fixed!(s,
         Dmin[is] .= Inf
     end
 
-    @inbounds begin Threads.@threads for is in 1:s
-        nfcn[1] += 1
-        f1(F[is].x[1], U[is].x[1], U[is].x[2], p, tj + hc[is])
-        f2(F[is].x[2], U[is].x[1], U[is].x[2], p, tj + hc[is])
-        @. L[is] = hb[is] * F[is]
-    end end
+    @inbounds begin
+        Threads.@threads for is in 1:s
+            nfcn[1] += 1
+            f1(F[is].x[1], U[is].x[1], U[is].x[2], p, tj + hc[is])
+            f2(F[is].x[2], U[is].x[1], U[is].x[2], p, tj + hc[is])
+            @. L[is] = hb[is] * F[is]
+        end
+    end
 
     while (nit < maxiters && iter)
         nit += 1
@@ -465,18 +498,20 @@ function IRKstepDynODE_par_fixed!(s,
 
         #           First part
 
-        @inbounds begin for is in 1:s
-            Uz[is].x[1] .= U[is].x[1]
-            DiffEqBase.@.. U[is].x[1] = uj.x[1] + (ej.x[1] +
-                                         mu[is, 1] * L[1].x[1] +
-                                         mu[is, 2] * L[2].x[1] +
-                                         mu[is, 3] * L[3].x[1] +
-                                         mu[is, 4] * L[4].x[1] +
-                                         mu[is, 5] * L[5].x[1] +
-                                         mu[is, 6] * L[6].x[1] +
-                                         mu[is, 7] * L[7].x[1] +
-                                         mu[is, 8] * L[8].x[1])
-        end end #inbounds
+        @inbounds begin
+            for is in 1:s
+                Uz[is].x[1] .= U[is].x[1]
+                DiffEqBase.@.. U[is].x[1] = uj.x[1] + (ej.x[1] +
+                                             mu[is, 1] * L[1].x[1] +
+                                             mu[is, 2] * L[2].x[1] +
+                                             mu[is, 3] * L[3].x[1] +
+                                             mu[is, 4] * L[4].x[1] +
+                                             mu[is, 5] * L[5].x[1] +
+                                             mu[is, 6] * L[6].x[1] +
+                                             mu[is, 7] * L[7].x[1] +
+                                             mu[is, 8] * L[8].x[1])
+            end
+        end #inbounds
 
         Threads.@threads for is in 1:s
             Eval[is] = false
@@ -559,18 +594,20 @@ function IRKstepDynODE_par_fixed!(s,
         #           ~Compensated summation
 
         indices = eachindex(uj)
-        @inbounds begin for k in indices
-            e0 = ej[k]
-            for is in 1:s
-                e0 += muladd(F[is][k], hb[is], -L[is][k])
+        @inbounds begin
+            for k in indices
+                e0 = ej[k]
+                for is in 1:s
+                    e0 += muladd(F[is][k], hb[is], -L[is][k])
+                end
+                res = Base.TwicePrecision(uj[k], e0)
+                for is in 1:s
+                    res += L[is][k]
+                end
+                uj[k] = res.hi
+                ej[k] = res.lo
             end
-            res = Base.TwicePrecision(uj[k], e0)
-            for is in 1:s
-                res += L[is][k]
-            end
-            uj[k] = res.hi
-            ej[k] = res.lo
-        end end
+        end
 
         res = Base.TwicePrecision(tj, te) + dt
         ttj[1] = res.hi

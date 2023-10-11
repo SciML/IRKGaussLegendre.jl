@@ -5,26 +5,27 @@
 #  IRKstepDynODE_par_adaptive!
 
 function IRKstep_par_adaptive!(s,
-                               j,
-                               ttj,
-                               uj,
-                               ej,
-                               prob,
-                               dts,
-                               coeffs,
-                               cache,
-                               maxiters,
-                               maxtrials,
-                               initial_interp,
-                               abstol,
-                               reltol,
-                               adaptive,
-                               threading)
+    j,
+    ttj,
+    uj,
+    ej,
+    prob,
+    dts,
+    coeffs,
+    cache,
+    maxiters,
+    maxtrials,
+    initial_interp,
+    abstol,
+    reltol,
+    adaptive,
+    threading)
     @unpack mu, hc, hb, nu, alpha = coeffs
     @unpack f, u0, p, tspan = prob
     @unpack U, Uz, L, Lz, F, Dmin, Eval, DY, rejects, nfcn, lambdas, nrmdigits = cache
 
     uiType = eltype(uj)
+    realuiType = real(uiType)
 
     lambda = lambdas[1]
     lambdaprev = lambdas[2]
@@ -34,7 +35,7 @@ function IRKstep_par_adaptive!(s,
     tf = tspan[2]
 
     elems = s * length(uj)
-    pow = eltype(uj)(1 / (2 * s))
+    pow = realuiType(1 / (2 * s))
 
     tj = ttj[1]
     te = ttj[2]
@@ -57,31 +58,37 @@ function IRKstep_par_adaptive!(s,
 
     while (!accept && ntrials < maxtrialsj)
         if (dt != dtprev)
-            HCoefficients!(mu, hc, hb, nu, dt, dtprev, uiType)
+            HCoefficients!(mu, hc, hb, nu, dt, dtprev, realuiType)
             @unpack mu, hc, hb, nu, alpha = coeffs
         end
 
         if initial_interp
-            @inbounds begin for is in 1:s
-                for k in eachindex(uj)
-                    aux = zero(eltype(uj))
-                    for js in 1:s
-                        aux += nu[is, js] * Lz[js][k]
+            @inbounds begin
+                for is in 1:s
+                    for k in eachindex(uj)
+                        aux = zero(eltype(uj))
+                        for js in 1:s
+                            aux += nu[is, js] * Lz[js][k]
+                        end
+                        U[is][k] = (uj[k] + ej[k]) + aux
                     end
-                    U[is][k] = (uj[k] + ej[k]) + aux
                 end
-            end end
+            end
         else
-            @inbounds begin for is in 1:s
-                @. U[is] = uj + ej
-            end end
+            @inbounds begin
+                for is in 1:s
+                    @. U[is] = uj + ej
+                end
+            end
         end
 
-        @inbounds begin Threads.@threads for is in 1:s
-            nfcn[1] += 1
-            f(F[is], U[is], p, tj + hc[is])
-            @. L[is] = hb[is] * F[is]
-        end end
+        @inbounds begin
+            Threads.@threads for is in 1:s
+                nfcn[1] += 1
+                f(F[is], U[is], p, tj + hc[is])
+                @. L[is] = hb[is] * F[is]
+            end
+        end
 
         iter = true
         plusIt = true
@@ -96,18 +103,20 @@ function IRKstep_par_adaptive!(s,
             iter = false
             D0 = 0
 
-            @inbounds begin for is in 1:s
-                Uz[is] .= U[is]
-                DiffEqBase.@.. U[is] = uj + (ej +
-                                        mu[is, 1] * L[1] +
-                                        mu[is, 2] * L[2] +
-                                        mu[is, 3] * L[3] +
-                                        mu[is, 4] * L[4] +
-                                        mu[is, 5] * L[5] +
-                                        mu[is, 6] * L[6] +
-                                        mu[is, 7] * L[7] +
-                                        mu[is, 8] * L[8])
-            end end #inbound
+            @inbounds begin
+                for is in 1:s
+                    Uz[is] .= U[is]
+                    DiffEqBase.@.. U[is] = uj + (ej +
+                                            mu[is, 1] * L[1] +
+                                            mu[is, 2] * L[2] +
+                                            mu[is, 3] * L[3] +
+                                            mu[is, 4] * L[4] +
+                                            mu[is, 5] * L[5] +
+                                            mu[is, 6] * L[6] +
+                                            mu[is, 7] * L[7] +
+                                            mu[is, 8] * L[8])
+                end
+            end #inbound
 
             Threads.@threads for is in 1:s
                 Eval[is] = false
@@ -155,8 +164,8 @@ function IRKstep_par_adaptive!(s,
 
     if (!accept && ntrials == maxtrialsj)
         println("Failure (adaptive step): maximum number of trials=", maxtrialsj,
-                " at step=", j,
-                " dt=", dts[1])
+            " at step=", j,
+            " dt=", dts[1])
         return ("Failure", 0)
     end
 
@@ -165,18 +174,20 @@ function IRKstep_par_adaptive!(s,
         #			~Compensated summation
 
         indices = eachindex(uj)
-        @inbounds begin for k in indices
-            e0 = ej[k]
-            for is in 1:s
-                e0 += muladd(F[is][k], hb[is], -L[is][k])
+        @inbounds begin
+            for k in indices
+                e0 = ej[k]
+                for is in 1:s
+                    e0 += muladd(F[is][k], hb[is], -L[is][k])
+                end
+                res = Base.TwicePrecision(uj[k], e0)
+                for is in 1:s
+                    res += L[is][k]
+                end
+                uj[k] = res.hi
+                ej[k] = res.lo
             end
-            res = Base.TwicePrecision(uj[k], e0)
-            for is in 1:s
-                res += L[is][k]
-            end
-            uj[k] = res.hi
-            ej[k] = res.lo
-        end end
+        end
 
         res = Base.TwicePrecision(tj, te) + dt
         ttj[1] = res.hi
@@ -205,23 +216,23 @@ function IRKstep_par_adaptive!(s,
 end
 
 function IRKstep_par_adaptive_Mix!(s,
-                                   j,
-                                   ttj,
-                                   uj,
-                                   ej,
-                                   prob,
-                                   dts,
-                                   coeffs,
-                                   cache,
-                                   maxiters,
-                                   maxtrials,
-                                   initial_interp,
-                                   abstol,
-                                   reltol,
-                                   adaptive,
-                                   threading,
-                                   mixed_precision,
-                                   low_prec_type)
+    j,
+    ttj,
+    uj,
+    ej,
+    prob,
+    dts,
+    coeffs,
+    cache,
+    maxiters,
+    maxtrials,
+    initial_interp,
+    abstol,
+    reltol,
+    adaptive,
+    threading,
+    mixed_precision,
+    low_prec_type)
     @unpack mu, hc, hb, nu, alpha = coeffs
     @unpack f, u0, p, tspan, kwargs = prob
 
@@ -250,6 +261,7 @@ function IRKstep_par_adaptive_Mix!(s,
     nrmdigits = cache
 
     uiType = eltype(uj)
+    realuiType = real(uiType)
 
     lambda = lambdas[1]
     lambdaprev = lambdas[2]
@@ -259,7 +271,7 @@ function IRKstep_par_adaptive_Mix!(s,
     tf = tspan[2]
 
     elems = s * length(uj)
-    pow = eltype(uj)(1 / (2 * s))
+    pow = realuiType(1 / (2 * s))
 
     tj = ttj[1]
     te = ttj[2]
@@ -282,32 +294,38 @@ function IRKstep_par_adaptive_Mix!(s,
 
     while (!accept && ntrials < maxtrialsj)
         if (dt != dtprev)
-            HCoefficients!(mu, hc, hb, nu, dt, dtprev, uiType)
+            HCoefficients!(mu, hc, hb, nu, dt, dtprev, realuiType)
             @unpack mu, hc, hb, nu, alpha = coeffs
             lhb .= hb
         end
 
         if initial_interp
-            @inbounds begin for is in 1:s
-                for k in eachindex(uj)
-                    aux = zero(eltype(uj))
-                    for js in 1:s
-                        aux += nu[is, js] * Lz[js][k]
+            @inbounds begin
+                for is in 1:s
+                    for k in eachindex(uj)
+                        aux = zero(eltype(uj))
+                        for js in 1:s
+                            aux += nu[is, js] * Lz[js][k]
+                        end
+                        U[is][k] = (uj[k] + ej[k]) + aux
                     end
-                    U[is][k] = (uj[k] + ej[k]) + aux
                 end
-            end end
+            end
         else
-            @inbounds begin for is in 1:s
-                @. U[is] = uj + ej
-            end end
+            @inbounds begin
+                for is in 1:s
+                    @. U[is] = uj + ej
+                end
+            end
         end
 
-        @inbounds begin Threads.@threads for is in 1:s
-            nfcn[1] += 1
-            f(F[is], U[is], p, tj + hc[is])
-            @. L[is] = hb[is] * F[is]
-        end end
+        @inbounds begin
+            Threads.@threads for is in 1:s
+                nfcn[1] += 1
+                f(F[is], U[is], p, tj + hc[is])
+                @. L[is] = hb[is] * F[is]
+            end
+        end
 
         lmax = 1
         iter = true
@@ -323,20 +341,22 @@ function IRKstep_par_adaptive_Mix!(s,
             iter = false
             D0 = 0
 
-            @inbounds begin for is in 1:s
-                Uz[is] .= U[is]
-                DiffEqBase.@.. U[is] = uj + (ej +
-                                        mu[is, 1] * L[1] +
-                                        mu[is, 2] * L[2] +
-                                        mu[is, 3] * L[3] +
-                                        mu[is, 4] * L[4] +
-                                        mu[is, 5] * L[5] +
-                                        mu[is, 6] * L[6] +
-                                        mu[is, 7] * L[7] +
-                                        mu[is, 8] * L[8])
-                Ulow[is] .= U[is]
-                normU[is] = copy(norm(Ulow[is]))
-            end end #inbound
+            @inbounds begin
+                for is in 1:s
+                    Uz[is] .= U[is]
+                    DiffEqBase.@.. U[is] = uj + (ej +
+                                            mu[is, 1] * L[1] +
+                                            mu[is, 2] * L[2] +
+                                            mu[is, 3] * L[3] +
+                                            mu[is, 4] * L[4] +
+                                            mu[is, 5] * L[5] +
+                                            mu[is, 6] * L[6] +
+                                            mu[is, 7] * L[7] +
+                                            mu[is, 8] * L[8])
+                    Ulow[is] .= U[is]
+                    normU[is] = copy(norm(Ulow[is]))
+                end
+            end #inbound
 
             Threads.@threads for is in 1:s
                 Eval[is] = false
@@ -427,8 +447,8 @@ function IRKstep_par_adaptive_Mix!(s,
 
     if (!accept && ntrials == maxtrialsj)
         println("Failure (adaptive step): maximum number of trials=", maxtrialsj,
-                " at step=", j,
-                " dt=", dts[1])
+            " at step=", j,
+            " dt=", dts[1])
         return ("Failure", 0)
     end
 
@@ -438,18 +458,20 @@ function IRKstep_par_adaptive_Mix!(s,
 
         indices = eachindex(uj)
 
-        @inbounds begin for k in indices
-            e0 = ej[k]
-            for is in 1:s
-                e0 += muladd(F[is][k], hb[is], -L[is][k])
+        @inbounds begin
+            for k in indices
+                e0 = ej[k]
+                for is in 1:s
+                    e0 += muladd(F[is][k], hb[is], -L[is][k])
+                end
+                res = Base.TwicePrecision(uj[k], e0)
+                for is in 1:s
+                    res += L[is][k]
+                end
+                uj[k] = res.hi
+                ej[k] = res.lo
             end
-            res = Base.TwicePrecision(uj[k], e0)
-            for is in 1:s
-                res += L[is][k]
-            end
-            uj[k] = res.hi
-            ej[k] = res.lo
-        end end
+        end
 
         res = Base.TwicePrecision(tj, te) + dt
         ttj[1] = res.hi
@@ -479,21 +501,21 @@ function IRKstep_par_adaptive_Mix!(s,
 end
 
 function IRKstepDynODE_par_adaptive!(s,
-                                     j,
-                                     ttj,
-                                     uj,
-                                     ej,
-                                     prob,
-                                     dts,
-                                     coeffs,
-                                     cache,
-                                     maxiters,
-                                     maxtrials,
-                                     initial_interp,
-                                     abstol,
-                                     reltol,
-                                     adaptive,
-                                     threading)
+    j,
+    ttj,
+    uj,
+    ej,
+    prob,
+    dts,
+    coeffs,
+    cache,
+    maxiters,
+    maxtrials,
+    initial_interp,
+    abstol,
+    reltol,
+    adaptive,
+    threading)
     @unpack mu, hc, hb, nu, alpha = coeffs
     @unpack tspan, p = prob
     f1 = prob.f.f1
@@ -501,6 +523,7 @@ function IRKstepDynODE_par_adaptive!(s,
     @unpack U, Uz, L, Lz, F, Dmin, Eval, DY, rejects, nfcn, lambdas, nrmdigits = cache
 
     uiType = eltype(uj)
+    realuiType = real(uiType)
 
     lambda = lambdas[1]
     lambdaprev = lambdas[2]
@@ -510,7 +533,7 @@ function IRKstepDynODE_par_adaptive!(s,
     tf = tspan[2]
 
     elems = s * length(uj)
-    pow = eltype(uj)(1 / (2 * s))
+    pow = realuiType(1 / (2 * s))
 
     tj = ttj[1]
     te = ttj[2]
@@ -533,19 +556,21 @@ function IRKstepDynODE_par_adaptive!(s,
 
     while (!accept && ntrials < maxtrialsj)
         if (dt != dtprev)
-            HCoefficients!(mu, hc, hb, nu, dt, dtprev, uiType)
+            HCoefficients!(mu, hc, hb, nu, dt, dtprev, realuiType)
             @unpack mu, hc, hb, nu, alpha = coeffs
         end
 
-        @inbounds begin for is in 1:s
-            for k in eachindex(uj)
-                aux = zero(eltype(uj))
-                for js in 1:s
-                    aux += nu[is, js] * Lz[js][k]
+        @inbounds begin
+            for is in 1:s
+                for k in eachindex(uj)
+                    aux = zero(eltype(uj))
+                    for js in 1:s
+                        aux += nu[is, js] * Lz[js][k]
+                    end
+                    U[is][k] = (uj[k] + ej[k]) + aux
                 end
-                U[is][k] = (uj[k] + ej[k]) + aux
             end
-        end end
+        end
 
         iter = true
         plusIt = true
@@ -567,18 +592,20 @@ function IRKstepDynODE_par_adaptive!(s,
             D0 = 0
 
             #               First part
-            @inbounds begin for is in 1:s
-                Uz[is].x[1] .= U[is].x[1]
-                DiffEqBase.@.. U[is].x[1] = uj.x[1] + (ej.x[1] +
-                                             mu[is, 1] * L[1].x[1] +
-                                             mu[is, 2] * L[2].x[1] +
-                                             mu[is, 3] * L[3].x[1] +
-                                             mu[is, 4] * L[4].x[1] +
-                                             mu[is, 5] * L[5].x[1] +
-                                             mu[is, 6] * L[6].x[1] +
-                                             mu[is, 7] * L[7].x[1] +
-                                             mu[is, 8] * L[8].x[1])
-            end end #inbound
+            @inbounds begin
+                for is in 1:s
+                    Uz[is].x[1] .= U[is].x[1]
+                    DiffEqBase.@.. U[is].x[1] = uj.x[1] + (ej.x[1] +
+                                                 mu[is, 1] * L[1].x[1] +
+                                                 mu[is, 2] * L[2].x[1] +
+                                                 mu[is, 3] * L[3].x[1] +
+                                                 mu[is, 4] * L[4].x[1] +
+                                                 mu[is, 5] * L[5].x[1] +
+                                                 mu[is, 6] * L[6].x[1] +
+                                                 mu[is, 7] * L[7].x[1] +
+                                                 mu[is, 8] * L[8].x[1])
+                end
+            end #inbound
 
             Threads.@threads for is in 1:s
                 Eval[is] = false
@@ -606,18 +633,20 @@ function IRKstepDynODE_par_adaptive!(s,
 
             #               Second part
 
-            @inbounds begin for is in 1:s
-                Uz[is].x[2] .= U[is].x[2]
-                DiffEqBase.@.. U[is].x[2] = uj.x[2] + (ej.x[2] +
-                                             mu[is, 1] * L[1].x[2] +
-                                             mu[is, 2] * L[2].x[2] +
-                                             mu[is, 3] * L[3].x[2] +
-                                             mu[is, 4] * L[4].x[2] +
-                                             mu[is, 5] * L[5].x[2] +
-                                             mu[is, 6] * L[6].x[2] +
-                                             mu[is, 7] * L[7].x[2] +
-                                             mu[is, 8] * L[8].x[2])
-            end end #inbound
+            @inbounds begin
+                for is in 1:s
+                    Uz[is].x[2] .= U[is].x[2]
+                    DiffEqBase.@.. U[is].x[2] = uj.x[2] + (ej.x[2] +
+                                                 mu[is, 1] * L[1].x[2] +
+                                                 mu[is, 2] * L[2].x[2] +
+                                                 mu[is, 3] * L[3].x[2] +
+                                                 mu[is, 4] * L[4].x[2] +
+                                                 mu[is, 5] * L[5].x[2] +
+                                                 mu[is, 6] * L[6].x[2] +
+                                                 mu[is, 7] * L[7].x[2] +
+                                                 mu[is, 8] * L[8].x[2])
+                end
+            end #inbound
 
             Threads.@threads for is in 1:s
                 Eval[is] = false
@@ -665,8 +694,8 @@ function IRKstepDynODE_par_adaptive!(s,
 
     if (!accept && ntrials == maxtrialsj)
         println("Failure (adaptive step): maximum number of trials=", maxtrialsj,
-                " at step=", j,
-                " dt=", dts[1])
+            " at step=", j,
+            " dt=", dts[1])
         return ("Failure", 0)
     end
 
@@ -674,18 +703,20 @@ function IRKstepDynODE_par_adaptive!(s,
 
         #			~ Compensated summation
         indices = eachindex(uj)
-        @inbounds begin for k in indices
-            e0 = ej[k]
-            for is in 1:s
-                e0 += muladd(F[is][k], hb[is], -L[is][k])
+        @inbounds begin
+            for k in indices
+                e0 = ej[k]
+                for is in 1:s
+                    e0 += muladd(F[is][k], hb[is], -L[is][k])
+                end
+                res = Base.TwicePrecision(uj[k], e0)
+                for is in 1:s
+                    res += L[is][k]
+                end
+                uj[k] = res.hi
+                ej[k] = res.lo
             end
-            res = Base.TwicePrecision(uj[k], e0)
-            for is in 1:s
-                res += L[is][k]
-            end
-            uj[k] = res.hi
-            ej[k] = res.lo
-        end end
+        end
         res = Base.TwicePrecision(tj, te) + dt
         ttj[1] = res.hi
         ttj[2] = res.lo
