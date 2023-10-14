@@ -7,33 +7,35 @@ struct tcoeffs{T}
     alpha::Array{T, 1}
 end
 
-struct tcache{uType, elTypeu, uLowType, low_prec_type}
+struct tcache{uType, realuType, realuiType, uLowType, low_prec_type}
     U::Array{uType, 1}
     Uz::Array{uType, 1}
     L::Array{uType, 1}
     Lz::Array{uType, 1}
     F::Array{uType, 1}
-    Dmin::Array{uType, 1}
+    #    Dmin::Array{uType, 1}
+    Dmin::Array{realuType, 1}
     Eval::Array{Bool, 1}
-    DY::Array{elTypeu, 1}
+    DY::Array{realuiType, 1}
     rejects::Array{Int64, 1}
     nfcn::Array{Int64, 1}
-    lambdas::Array{elTypeu, 1}
+    lambdas::Array{realuiType, 1}
     nrmdigits::Array{Int64, 0}
 end
 
-struct tcacheMix{uType, elTypeu, uLowType, low_prec_type}
+struct tcacheMix{uType, realuType, realuiType, uLowType, low_prec_type}
     U::Array{uType, 1}
     Uz::Array{uType, 1}
     L::Array{uType, 1}
     Lz::Array{uType, 1}
     F::Array{uType, 1}
-    Dmin::Array{uType, 1}
+    #    Dmin::Array{uType, 1}
+    Dmin::Array{realuType, 1}
     Eval::Array{Bool, 1}
-    DY::Array{elTypeu, 1}
+    DY::Array{realuiType, 1}
     rejects::Array{Int64, 1}
     nfcn::Array{Int64, 1}
-    lambdas::Array{elTypeu, 1}
+    lambdas::Array{realuiType, 1}
     Ulow::Array{uLowType, 1}
     DU::Array{uLowType, 1}
     DF::Array{uLowType, 1}
@@ -49,86 +51,86 @@ struct tcacheMix{uType, elTypeu, uLowType, low_prec_type}
 end
 
 abstract type IRKAlgorithm{
-                           mstep,
-                           maxtrials,
-                           initial_interp,
-                           myoutputs,
-                           threading,
-                           mixed_precision,
-                           low_prec_type,
-                           nrmbits
-                           } <: OrdinaryDiffEqAlgorithm end
+    mstep,
+    maxtrials,
+    initial_interp,
+    myoutputs,
+    threading,
+    mixed_precision,
+    low_prec_type,
+    nrmbits,
+} <: OrdinaryDiffEqAlgorithm end
 struct IRKGL16{
-               mstep,
-               maxtrials,
-               initial_interp,
-               myoutputs,
-               threading,
-               mixed_precision,
-               low_prec_type,
-               nrmbits
-               } <: IRKAlgorithm{
-                    mstep,
-                    maxtrials,
-                    initial_interp,
-                    myoutputs,
-                    threading,
-                    mixed_precision,
-                    low_prec_type,
-                    nrmbits
-                    } end
+    mstep,
+    maxtrials,
+    initial_interp,
+    myoutputs,
+    threading,
+    mixed_precision,
+    low_prec_type,
+    nrmbits,
+} <: IRKAlgorithm{
+    mstep,
+    maxtrials,
+    initial_interp,
+    myoutputs,
+    threading,
+    mixed_precision,
+    low_prec_type,
+    nrmbits,
+} end
 function IRKGL16(;
-                 mstep = 1,
-                 maxtrials = 5,
-                 initial_interp = true,
-                 myoutputs = false,
-                 threading = false,
-                 mixed_precision = false,
-                 low_prec_type = Float64,
-                 nrmbits = 6)
+    mstep = 1,
+    maxtrials = 5,
+    initial_interp = true,
+    myoutputs = false,
+    threading = false,
+    mixed_precision = false,
+    low_prec_type = Float64,
+    nrmbits = 6)
     IRKGL16{
-            mstep,
-            maxtrials,
-            initial_interp,
-            myoutputs,
-            threading,
-            mixed_precision,
-            low_prec_type,
-            nrmbits
-            }()
+        mstep,
+        maxtrials,
+        initial_interp,
+        myoutputs,
+        threading,
+        mixed_precision,
+        low_prec_type,
+        nrmbits,
+    }()
 end
 
 function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType, tType, isinplace},
-                            alg::IRKGL16{
-                                         mstep,
-                                         maxtrials,
-                                         initial_interp,
-                                         myoutputs,
-                                         threading,
-                                         mixed_precision,
-                                         low_prec_type,
-                                         nrmbits
-                                         },
-                            args...;
-                            dt = 0.0,
-                            maxiters = 100,
-                            save_everystep = true,
-                            adaptive = true,
-                            reltol = 1e-6,
-                            abstol = 1e-6,
-                            kwargs...) where {
-                                              uType,
-                                              tType,
-                                              isinplace,
-                                              mstep,
-                                              maxtrials,
-                                              initial_interp,
-                                              myoutputs,
-                                              threading,
-                                              mixed_precision,
-                                              low_prec_type,
-                                              nrmbits
-                                              }
+    alg::IRKGL16{
+        mstep,
+        maxtrials,
+        initial_interp,
+        myoutputs,
+        threading,
+        mixed_precision,
+        low_prec_type,
+        nrmbits,
+    },
+    args...;
+    dt = 0.0,
+    maxiters = 100,
+    save_everystep = true,
+    adaptive = true,
+    reltol = 1e-6,
+    abstol = 1e-6,
+    kwargs...) where {
+    uType,
+    tType,
+    isinplace,
+    mstep,
+    maxtrials,
+    initial_interp,
+    myoutputs,
+    threading,
+    mixed_precision,
+    low_prec_type,
+    nrmbits,
+}
     s = 8
     stats = DiffEqBase.Stats(0)
 
@@ -151,6 +153,8 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType, tType, is
     tf = tspan[2]
     tType2 = eltype(tspan)
     uiType = eltype(u0)
+    realuType = typeof(real(u0))
+    realuiType = real(uiType)
 
     nrmdig = Array{Int64, 0}(undef)
     if (nrmbits > 0)
@@ -159,15 +163,20 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType, tType, is
         nrmdig[] = 0
     end
 
-    lu0 = convert.(low_prec_type, u0)
-    uLowType = typeof(lu0)
+    if uiType <: Complex
+        lu0 = convert.(Complex{low_prec_type}, u0)
+        uLowType = typeof(lu0)
+    else
+        lu0 = convert.(low_prec_type, u0)
+        uLowType = typeof(lu0)
+    end
 
-    coeffs = tcoeffs{uiType}(zeros(s, s), zeros(s), zeros(s), zeros(s, s), zeros(s))
+    coeffs = tcoeffs{realuiType}(zeros(s, s), zeros(s), zeros(s), zeros(s, s), zeros(s))
 
     @unpack mu, hc, hb, nu, alpha = coeffs
 
-    Treltol = convert(uiType, reltol)
-    Tabstol = convert(uiType, abstol)
+    Treltol = convert(realuiType, reltol)
+    Tabstol = convert(realuiType, abstol)
 
     if (dt == 0)
         d0 = MyNorm(u0, Tabstol, Treltol)
@@ -188,8 +197,8 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType, tType, is
 
     dt = min(dt, tf - t0)
 
-    EstimateCoeffs!(alpha, uiType)
-    MuCoefficients!(mu, uiType)
+    EstimateCoeffs!(alpha, realuiType)
+    MuCoefficients!(mu, realuiType)
 
     dts = Array{tType2}(undef, 1)
 
@@ -201,7 +210,7 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType, tType, is
 
     dts = [dt, dtprev]
     sdt = sign(dt)
-    HCoefficients!(mu, hc, hb, nu, dt, dtprev, uiType)
+    HCoefficients!(mu, hc, hb, nu, dt, dtprev, realuiType)
 
     #   m: output saved at every m steps
     #   n: Number of macro-steps  (Output is saved for n+1 time values)
@@ -219,14 +228,16 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType, tType, is
     U3 = Array{uType}(undef, s)
     U4 = Array{uType}(undef, s)
     U5 = Array{uType}(undef, s)
-    U6 = Array{uType}(undef, s)
+    #    U6 = Array{uType}(undef, s)
+    U6 = Array{realuType}(undef, s)
     for i in 1:s
         U1[i] = zero(u0)
         U2[i] = zero(u0)
         U3[i] = zero(u0)
         U4[i] = zero(u0)
         U5[i] = zero(u0)
-        U6[i] = zero(u0)
+        #        U6[i] = zero(u0)
+        U6[i] = zero(real(u0))
     end
 
     if (mixed_precision == true && typeof(prob.f) <: ODEFunction)
@@ -250,36 +261,36 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType, tType, is
         lmu = convert.(low_prec_type, mu)
         lhb = convert.(low_prec_type, hb)
 
-        if typeof(p) != SciMLBase.NullParameters
+        if (typeof(p) != SciMLBase.NullParameters && p != nothing)
             Plow = convert.(low_prec_type, p)
         else
             Plow = []
         end
 
-        cache = tcacheMix{uType, uiType, uLowType, low_prec_type}(U1,
-                                                                  U2,
-                                                                  U3,
-                                                                  U4,
-                                                                  U5,
-                                                                  U6,
-                                                                  fill(true, s),
-                                                                  fill(zero(uiType), s),
-                                                                  [0],
-                                                                  [0, 0],
-                                                                  fill(zero(uiType), 2),
-                                                                  U11,
-                                                                  U12,
-                                                                  U13,
-                                                                  U14,
-                                                                  U15,
-                                                                  U16,
-                                                                  U17,
-                                                                  Plow,
-                                                                  fill(zero(low_prec_type),
-                                                                       s),
-                                                                  lhb,
-                                                                  lmu,
-                                                                  nrmdig)
+        cache = tcacheMix{uType, realuType, realuiType, uLowType, low_prec_type}(U1,
+            U2,
+            U3,
+            U4,
+            U5,
+            U6,
+            fill(true, s),
+            fill(zero(realuiType), s),
+            [0],
+            [0, 0],
+            fill(zero(realuiType), 2),
+            U11,
+            U12,
+            U13,
+            U14,
+            U15,
+            U16,
+            U17,
+            Plow,
+            fill(zero(low_prec_type),
+                s),
+            lhb,
+            lmu,
+            nrmdig)
 
         @unpack U,
         Uz,
@@ -306,18 +317,18 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType, tType, is
         nrmdigits = cache
 
     else
-        cache = tcache{uType, uiType, uLowType, low_prec_type}(U1,
-                                                               U2,
-                                                               U3,
-                                                               U4,
-                                                               U5,
-                                                               U6,
-                                                               fill(true, s),
-                                                               fill(zero(uiType), s),
-                                                               [0],
-                                                               [0, 0],
-                                                               fill(zero(uiType), 2),
-                                                               nrmdig)
+        cache = tcache{uType, realuType, realuiType, uLowType, low_prec_type}(U1,
+            U2,
+            U3,
+            U4,
+            U5,
+            U6,
+            fill(true, s),
+            fill(zero(realuiType), s),
+            [0],
+            [0, 0],
+            fill(zero(realuiType), 2),
+            nrmdig)
         @unpack U, Uz, L, Lz, F, Dmin, Eval, DY, rejects, nfcn, lambdas, nrmdigits = cache
     end
 
@@ -344,40 +355,42 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType, tType, is
             it = 0
             k = 0
 
-            @inbounds begin for i in 1:m
-                j += 1
-                k += 1
-                (status, it) = IRKStep_par!(s,
-                                            j,
-                                            tj,
-                                            uj,
-                                            ej,
-                                            prob,
-                                            dts,
-                                            coeffs,
-                                            cache,
-                                            maxiters,
-                                            maxtrials,
-                                            initial_interp,
-                                            Tabstol,
-                                            Treltol,
-                                            adaptive,
-                                            threading,
-                                            mixed_precision,
-                                            low_prec_type)
+            @inbounds begin
+                for i in 1:m
+                    j += 1
+                    k += 1
+                    (status, it) = IRKStep_par!(s,
+                        j,
+                        tj,
+                        uj,
+                        ej,
+                        prob,
+                        dts,
+                        coeffs,
+                        cache,
+                        maxiters,
+                        maxtrials,
+                        initial_interp,
+                        Tabstol,
+                        Treltol,
+                        adaptive,
+                        threading,
+                        mixed_precision,
+                        low_prec_type)
 
-                if (status == "Failure")
-                    #                    println("Fail")
-                    sol = DiffEqBase.build_solution(prob, alg, tt, uu,
-                                                    retcode = ReturnCode.Failure)
-                    return (sol)
-                end
-                tit += it
+                    if (status == "Failure")
+                        #                    println("Fail")
+                        sol = DiffEqBase.build_solution(prob, alg, tt, uu,
+                            retcode = ReturnCode.Failure)
+                        return (sol)
+                    end
+                    tit += it
 
-                if (dts[1] == 0)
-                    break
+                    if (dts[1] == 0)
+                        break
+                    end
                 end
-            end end
+            end
 
             cont = (sdt * (tj[1] + tj[2]) < sdt * tf) && (j < n * m)
 
@@ -398,40 +411,42 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType, tType, is
             it = 0
             k = 0
 
-            @inbounds begin for i in 1:m
-                j += 1
-                k += 1
-                (status, it) = IRKStep_seq!(s,
-                                            j,
-                                            tj,
-                                            uj,
-                                            ej,
-                                            prob,
-                                            dts,
-                                            coeffs,
-                                            cache,
-                                            maxiters,
-                                            maxtrials,
-                                            initial_interp,
-                                            Tabstol,
-                                            Treltol,
-                                            adaptive,
-                                            threading,
-                                            mixed_precision,
-                                            low_prec_type)
+            @inbounds begin
+                for i in 1:m
+                    j += 1
+                    k += 1
+                    (status, it) = IRKStep_seq!(s,
+                        j,
+                        tj,
+                        uj,
+                        ej,
+                        prob,
+                        dts,
+                        coeffs,
+                        cache,
+                        maxiters,
+                        maxtrials,
+                        initial_interp,
+                        Tabstol,
+                        Treltol,
+                        adaptive,
+                        threading,
+                        mixed_precision,
+                        low_prec_type)
 
-                if (status == "Failure")
-                    #                    println("Fail")
-                    sol = DiffEqBase.build_solution(prob, alg, tt, uu,
-                                                    retcode = ReturnCode.Failure)
-                    return (sol)
-                end
-                tit += it
+                    if (status == "Failure")
+                        #                    println("Fail")
+                        sol = DiffEqBase.build_solution(prob, alg, tt, uu,
+                            retcode = ReturnCode.Failure)
+                        return (sol)
+                    end
+                    tit += it
 
-                if (dts[1] == 0)
-                    break
+                    if (dts[1] == 0)
+                        break
+                    end
                 end
-            end end
+            end
 
             cont = (sdt * (tj[1] + tj[2]) < sdt * tf) && (j < n * m)
 
@@ -448,7 +463,7 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType, tType, is
     end
 
     sol = DiffEqBase.build_solution(prob, alg, tt, uu, stats = stats,
-                                    retcode = ReturnCode.Success)
+        retcode = ReturnCode.Success)
 
     sol.stats.nf = nfcn[1]
     sol.stats.nf2 = nfcn[2]
@@ -463,134 +478,134 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType, tType, is
 end
 
 function IRKStep_seq!(s,
-                      j,
-                      tj,
-                      uj,
-                      ej,
-                      prob,
-                      dts,
-                      coeffs,
-                      cache,
-                      maxiters,
-                      maxtrials,
-                      initial_interp,
-                      abstol,
-                      reltol,
-                      adaptive,
-                      threading,
-                      mixed_precision,
-                      low_prec_type)
+    j,
+    tj,
+    uj,
+    ej,
+    prob,
+    dts,
+    coeffs,
+    cache,
+    maxiters,
+    maxtrials,
+    initial_interp,
+    abstol,
+    reltol,
+    adaptive,
+    threading,
+    mixed_precision,
+    low_prec_type)
     if (typeof(prob.f) <: ODEFunction)
         if (adaptive == true)
             if (mixed_precision == true)
                 (status, it) = IRKstep_adaptive_Mix!(s,
-                                                     j,
-                                                     tj,
-                                                     uj,
-                                                     ej,
-                                                     prob,
-                                                     dts,
-                                                     coeffs,
-                                                     cache,
-                                                     maxiters,
-                                                     maxtrials,
-                                                     initial_interp,
-                                                     abstol,
-                                                     reltol,
-                                                     adaptive,
-                                                     threading,
-                                                     mixed_precision,
-                                                     low_prec_type)
+                    j,
+                    tj,
+                    uj,
+                    ej,
+                    prob,
+                    dts,
+                    coeffs,
+                    cache,
+                    maxiters,
+                    maxtrials,
+                    initial_interp,
+                    abstol,
+                    reltol,
+                    adaptive,
+                    threading,
+                    mixed_precision,
+                    low_prec_type)
             else
                 (status, it) = IRKstep_adaptive!(s,
-                                                 j,
-                                                 tj,
-                                                 uj,
-                                                 ej,
-                                                 prob,
-                                                 dts,
-                                                 coeffs,
-                                                 cache,
-                                                 maxiters,
-                                                 maxtrials,
-                                                 initial_interp,
-                                                 abstol,
-                                                 reltol,
-                                                 adaptive,
-                                                 threading)
+                    j,
+                    tj,
+                    uj,
+                    ej,
+                    prob,
+                    dts,
+                    coeffs,
+                    cache,
+                    maxiters,
+                    maxtrials,
+                    initial_interp,
+                    abstol,
+                    reltol,
+                    adaptive,
+                    threading)
             end
         else
             if (mixed_precision == true)
                 (status, it) = IRKstep_fixed_Mix!(s,
-                                                  j,
-                                                  tj,
-                                                  uj,
-                                                  ej,
-                                                  prob,
-                                                  dts,
-                                                  coeffs,
-                                                  cache,
-                                                  maxiters,
-                                                  initial_interp,
-                                                  abstol,
-                                                  reltol,
-                                                  adaptive,
-                                                  threading,
-                                                  mixed_precision,
-                                                  low_prec_type)
+                    j,
+                    tj,
+                    uj,
+                    ej,
+                    prob,
+                    dts,
+                    coeffs,
+                    cache,
+                    maxiters,
+                    initial_interp,
+                    abstol,
+                    reltol,
+                    adaptive,
+                    threading,
+                    mixed_precision,
+                    low_prec_type)
             else
                 (status, it) = IRKstep_fixed!(s,
-                                              j,
-                                              tj,
-                                              uj,
-                                              ej,
-                                              prob,
-                                              dts,
-                                              coeffs,
-                                              cache,
-                                              maxiters,
-                                              initial_interp,
-                                              abstol,
-                                              reltol,
-                                              adaptive,
-                                              threading)
+                    j,
+                    tj,
+                    uj,
+                    ej,
+                    prob,
+                    dts,
+                    coeffs,
+                    cache,
+                    maxiters,
+                    initial_interp,
+                    abstol,
+                    reltol,
+                    adaptive,
+                    threading)
             end
         end
 
     else  # (typeof(prob.f<:DynamicalODEFunction))
         if (adaptive == true)
             (status, it) = IRKstepDynODE_adaptive!(s,
-                                                   j,
-                                                   tj,
-                                                   uj,
-                                                   ej,
-                                                   prob,
-                                                   dts,
-                                                   coeffs,
-                                                   cache,
-                                                   maxiters,
-                                                   maxtrials,
-                                                   initial_interp,
-                                                   abstol,
-                                                   reltol,
-                                                   adaptive,
-                                                   threading)
+                j,
+                tj,
+                uj,
+                ej,
+                prob,
+                dts,
+                coeffs,
+                cache,
+                maxiters,
+                maxtrials,
+                initial_interp,
+                abstol,
+                reltol,
+                adaptive,
+                threading)
         else
             (status, it) = IRKstepDynODE_fixed!(s,
-                                                j,
-                                                tj,
-                                                uj,
-                                                ej,
-                                                prob,
-                                                dts,
-                                                coeffs,
-                                                cache,
-                                                maxiters,
-                                                initial_interp,
-                                                abstol,
-                                                reltol,
-                                                adaptive,
-                                                threading)
+                j,
+                tj,
+                uj,
+                ej,
+                prob,
+                dts,
+                coeffs,
+                cache,
+                maxiters,
+                initial_interp,
+                abstol,
+                reltol,
+                adaptive,
+                threading)
         end
     end
 
@@ -598,134 +613,134 @@ function IRKStep_seq!(s,
 end
 
 function IRKStep_par!(s,
-                      j,
-                      tj,
-                      uj,
-                      ej,
-                      prob,
-                      dts,
-                      coeffs,
-                      cache,
-                      maxiters,
-                      maxtrials,
-                      initial_interp,
-                      abstol,
-                      reltol,
-                      adaptive,
-                      threading,
-                      mixed_precision,
-                      low_prec_type)
+    j,
+    tj,
+    uj,
+    ej,
+    prob,
+    dts,
+    coeffs,
+    cache,
+    maxiters,
+    maxtrials,
+    initial_interp,
+    abstol,
+    reltol,
+    adaptive,
+    threading,
+    mixed_precision,
+    low_prec_type)
     if (typeof(prob.f) <: ODEFunction)
         if (adaptive == true)
             if (mixed_precision == true)
                 (status, it) = IRKstep_par_adaptive_Mix!(s,
-                                                         j,
-                                                         tj,
-                                                         uj,
-                                                         ej,
-                                                         prob,
-                                                         dts,
-                                                         coeffs,
-                                                         cache,
-                                                         maxiters,
-                                                         maxtrials,
-                                                         initial_interp,
-                                                         abstol,
-                                                         reltol,
-                                                         adaptive,
-                                                         threading,
-                                                         mixed_precision,
-                                                         low_prec_type)
+                    j,
+                    tj,
+                    uj,
+                    ej,
+                    prob,
+                    dts,
+                    coeffs,
+                    cache,
+                    maxiters,
+                    maxtrials,
+                    initial_interp,
+                    abstol,
+                    reltol,
+                    adaptive,
+                    threading,
+                    mixed_precision,
+                    low_prec_type)
             else
                 (status, it) = IRKstep_par_adaptive!(s,
-                                                     j,
-                                                     tj,
-                                                     uj,
-                                                     ej,
-                                                     prob,
-                                                     dts,
-                                                     coeffs,
-                                                     cache,
-                                                     maxiters,
-                                                     maxtrials,
-                                                     initial_interp,
-                                                     abstol,
-                                                     reltol,
-                                                     adaptive,
-                                                     threading)
+                    j,
+                    tj,
+                    uj,
+                    ej,
+                    prob,
+                    dts,
+                    coeffs,
+                    cache,
+                    maxiters,
+                    maxtrials,
+                    initial_interp,
+                    abstol,
+                    reltol,
+                    adaptive,
+                    threading)
             end
         else
             if (mixed_precision == true)
                 (status, it) = IRKstep_par_fixed_Mix!(s,
-                                                      j,
-                                                      tj,
-                                                      uj,
-                                                      ej,
-                                                      prob,
-                                                      dts,
-                                                      coeffs,
-                                                      cache,
-                                                      maxiters,
-                                                      initial_interp,
-                                                      abstol,
-                                                      reltol,
-                                                      adaptive,
-                                                      threading,
-                                                      mixed_precision,
-                                                      low_prec_type)
+                    j,
+                    tj,
+                    uj,
+                    ej,
+                    prob,
+                    dts,
+                    coeffs,
+                    cache,
+                    maxiters,
+                    initial_interp,
+                    abstol,
+                    reltol,
+                    adaptive,
+                    threading,
+                    mixed_precision,
+                    low_prec_type)
             else
                 (status, it) = IRKstep_par_fixed!(s,
-                                                  j,
-                                                  tj,
-                                                  uj,
-                                                  ej,
-                                                  prob,
-                                                  dts,
-                                                  coeffs,
-                                                  cache,
-                                                  maxiters,
-                                                  initial_interp,
-                                                  abstol,
-                                                  reltol,
-                                                  adaptive,
-                                                  threading)
+                    j,
+                    tj,
+                    uj,
+                    ej,
+                    prob,
+                    dts,
+                    coeffs,
+                    cache,
+                    maxiters,
+                    initial_interp,
+                    abstol,
+                    reltol,
+                    adaptive,
+                    threading)
             end
         end
 
     else  # (typeof(prob.f<:DynamicalODEFunction))
         if (adaptive == true)
             (status, it) = IRKstepDynODE_par_adaptive!(s,
-                                                       j,
-                                                       tj,
-                                                       uj,
-                                                       ej,
-                                                       prob,
-                                                       dts,
-                                                       coeffs,
-                                                       cache,
-                                                       maxiters,
-                                                       maxtrials,
-                                                       initial_interp,
-                                                       abstol,
-                                                       reltol,
-                                                       adaptive,
-                                                       threading)
+                j,
+                tj,
+                uj,
+                ej,
+                prob,
+                dts,
+                coeffs,
+                cache,
+                maxiters,
+                maxtrials,
+                initial_interp,
+                abstol,
+                reltol,
+                adaptive,
+                threading)
         else
             (status, it) = IRKstepDynODE_par_fixed!(s,
-                                                    j,
-                                                    tj,
-                                                    uj,
-                                                    ej,
-                                                    prob,
-                                                    dts,
-                                                    coeffs,
-                                                    cache,
-                                                    maxiters,
-                                                    initial_interp,
-                                                    abstol,
-                                                    reltol,
-                                                    adaptive,
-                                                    threading)
+                j,
+                tj,
+                uj,
+                ej,
+                prob,
+                dts,
+                coeffs,
+                cache,
+                maxiters,
+                initial_interp,
+                abstol,
+                reltol,
+                adaptive,
+                threading)
         end
     end
 
