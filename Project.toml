@@ -1,7 +1,7 @@
 name = "IRKGaussLegendre"
 uuid = "58bc7355-f626-4c51-96f2-1f8a038f95a2"
 authors = ["joseba <mikel.antonana@gmail.com>"]
-version = "0.2.4"
+version = "0.2.5"
 
 [deps]
 DiffEqBase = "2b5f629d-d688-5b77-993f-72d75c75574e"
