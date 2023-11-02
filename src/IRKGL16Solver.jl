@@ -134,14 +134,14 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType, tType, is
     s = 8
     stats = DiffEqBase.Stats(0)
 
-    if (typeof(prob.f) <: DynamicalODEFunction)
+    if (prob.f isa DynamicalODEFunction)
         @unpack tspan, p = prob
         f1 = prob.f.f1
         f2 = prob.f.f2
         r0 = prob.u0.x[1]
         v0 = prob.u0.x[2]
         u0 = ArrayPartition(r0, v0)
-    elseif (typeof(prob.f) <: ODEFunction)
+    elseif (prob.f isa ODEFunction)
         @unpack f, u0, tspan, p = prob
     else
         println("Error: incorrect ODEFunction")
@@ -181,7 +181,7 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType, tType, is
     if (dt == 0)
         d0 = MyNorm(u0, Tabstol, Treltol)
         du0 = similar(u0)
-        if (typeof(prob.f) <: DynamicalODEFunction)
+        if (prob.f isa DynamicalODEFunction)
             f1(du0.x[1], u0.x[1], u0.x[2], p, t0)
             f2(du0.x[2], u0.x[1], u0.x[2], p, t0)
         else # ODEFunction
@@ -240,7 +240,7 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType, tType, is
         U6[i] = zero(real(u0))
     end
 
-    if (mixed_precision == true && typeof(prob.f) <: ODEFunction)
+    if (mixed_precision == true && prob.f isa ODEFunction)
         U11 = Array{uLowType}(undef, s)
         U12 = Array{uLowType}(undef, s)
         U13 = Array{uLowType}(undef, s)
@@ -495,7 +495,7 @@ function IRKStep_seq!(s,
     threading,
     mixed_precision,
     low_prec_type)
-    if (typeof(prob.f) <: ODEFunction)
+    if (prob.f isa ODEFunction)
         if (adaptive == true)
             if (mixed_precision == true)
                 (status, it) = IRKstep_adaptive_Mix!(s,
@@ -630,7 +630,7 @@ function IRKStep_par!(s,
     threading,
     mixed_precision,
     low_prec_type)
-    if (typeof(prob.f) <: ODEFunction)
+    if (prob.f isa ODEFunction)
         if (adaptive == true)
             if (mixed_precision == true)
                 (status, it) = IRKstep_par_adaptive_Mix!(s,
