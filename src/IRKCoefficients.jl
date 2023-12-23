@@ -6,8 +6,8 @@
 #   EstimateCoeffs!
 
 function PolInterp(X::AbstractVector{ctype},
-    Y::AbstractMatrix{ctype},
-    Z::AbstractVector{ctype}) where {ctype}
+        Y::AbstractMatrix{ctype},
+        Z::AbstractVector{ctype}) where {ctype}
     N = length(X)
     M = length(Z)
     K = size(Y, 1)
