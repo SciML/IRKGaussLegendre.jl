@@ -45,9 +45,6 @@ sim = test_convergence(dts, prob_ode_bigfloat2Dlinear, IRKGL16())
 
 # Backward integrations tests
 
-#using IRKGaussLegendre
-include("../../IRKGaussLegendre.jl/src/IRKGaussLegendre.jl")
-using .IRKGaussLegendre  ## bertsio lokala exekutatzeko 
 
 #Define the problem
 const g = 9.81
