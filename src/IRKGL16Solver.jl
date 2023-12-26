@@ -13,6 +13,7 @@ struct tcache{uType, realuType, realuiType, uLowType, low_prec_type}
     L::Array{uType, 1}
     Lz::Array{uType, 1}
     F::Array{uType, 1}
+    #    Dmin::Array{uType, 1}
     Dmin::Array{realuType, 1}
     Eval::Array{Bool, 1}
     DY::Array{realuiType, 1}
@@ -28,6 +29,7 @@ struct tcacheMix{uType, realuType, realuiType, uLowType, low_prec_type}
     L::Array{uType, 1}
     Lz::Array{uType, 1}
     F::Array{uType, 1}
+    #    Dmin::Array{uType, 1}
     Dmin::Array{realuType, 1}
     Eval::Array{Bool, 1}
     DY::Array{realuiType, 1}
@@ -98,7 +100,11 @@ function IRKGL16(;
     }()
 end
 
-function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType, tType, isinplace},
+function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{
+            uType,
+            tspanType,
+            isinplace,
+        },
         alg::IRKGL16{
             mstep,
             maxtrials,
@@ -118,7 +124,7 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType, tType, is
         abstol = 1e-6,
         kwargs...) where {
         uType,
-        tType,
+        tspanType,
         isinplace,
         mstep,
         maxtrials,
@@ -152,7 +158,7 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType, tType, is
     t0 = prob.tspan[1]
     tf = prob.tspan[2]
 
-    tType2 = eltype(tspan)
+    tType = eltype(tspanType)
     uiType = eltype(u0)
     realuType = typeof(real(u0))
     realuiType = real(uiType)
@@ -190,26 +196,28 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType, tType, is
         end
         d1 = MyNorm(du0, Tabstol, Treltol)
         if (d0 < 1e-5 || d1 < 1e-5)
-            dt = convert(tType2, 1e-6)
+            dt = convert(tType, 1e-6)
         else
-            dt = convert(tType2, 0.01 * (d0 / d1))
+            dt = convert(tType, 0.01 * (d0 / d1))
         end
     end
 
+    #    dt = min(dt, tf - t0)
     dt = min(abs(dt), abs(tf - t0))
 
     EstimateCoeffs!(alpha, realuiType)
     MuCoefficients!(mu, realuiType)
 
-    dts = Array{tType2}(undef, 1)
+    dts = Array{tType}(undef, 1)
 
     if (adaptive == false)
         dtprev = dt
     else
-        dtprev = zero(tType2)
+        dtprev = zero(tType)
     end
 
     dts = [dt, dtprev, signdt]
+    #    signdt = sign(dt)
     HCoefficients!(mu, hc, hb, nu, signdt * dt, signdt * dtprev, realuiType)
 
     #   m: output saved at every m steps
@@ -228,6 +236,7 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType, tType, is
     U3 = Array{uType}(undef, s)
     U4 = Array{uType}(undef, s)
     U5 = Array{uType}(undef, s)
+    #    U6 = Array{uType}(undef, s)
     U6 = Array{realuType}(undef, s)
     for i in 1:s
         U1[i] = zero(u0)
@@ -235,6 +244,7 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType, tType, is
         U3[i] = zero(u0)
         U4[i] = zero(u0)
         U5[i] = zero(u0)
+        #        U6[i] = zero(u0)
         U6[i] = zero(real(u0))
     end
 
@@ -332,7 +342,7 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType, tType, is
 
     #   initialization output variables
     uu = uType[]
-    tt = tType2[]
+    tt = tType[]
     iters = Int[]
     steps = Int[]
 
@@ -391,6 +401,8 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType, tType, is
                 end
             end
 
+            #            cont = (signdt * (tj[1] + tj[2]) < signdt * tf) && (j < n * m)
+
             if signdt == 1
                 cont = ((tj[1] + tj[2]) < tf) && (j < n * m)
             else
@@ -403,6 +415,7 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType, tType, is
 
                 if (myoutputs == true)
                     push!(iters, convert(Int64, round(tit / k)))
+                    #                    push!(steps, dts[2])
                     push!(steps, signdt * dts[2])
                 end
             end
@@ -451,6 +464,8 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{uType, tType, is
                     end
                 end
             end
+
+            #            cont = (signdt * (tj[1] + tj[2]) < signdt * tf) && (j < n * m)
 
             if signdt == 1
                 cont = ((tj[1] + tj[2]) < tf) && (j < n * m)

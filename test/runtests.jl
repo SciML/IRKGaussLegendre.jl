@@ -42,3 +42,37 @@ sol = solve(prob_ode_2Dlinear, IRKGL16())
 dts = (1 // 2) .^ (4:-1:2)
 sim = test_convergence(dts, prob_ode_bigfloat2Dlinear, IRKGL16())
 @test abs(sim.𝒪est[:final] - 16) < 0.5
+
+# Backward integrations tests
+
+#using IRKGaussLegendre
+include("../../IRKGaussLegendre.jl/src/IRKGaussLegendre.jl")
+using .IRKGaussLegendre  ## bertsio lokala exekutatzeko 
+
+#Define the problem
+const g = 9.81
+L = 1.0
+u0 = [0, pi / 2]
+function simplependulum(du, u, p, t)
+    θ = u[1]
+    dθ = u[2]
+    du[1] = dθ
+    du[2] = -(g / L) * sin(θ)
+end
+
+# adaptive=true
+
+tspan = (6.3, 2.0)
+prob = ODEProblem(simplependulum, u0, tspan)
+sol = solve(prob, IRKGL16(), reltol = 1e-14, abstol = 1e-14)
+
+@test sol.t[end] == tspan[2]
+
+# adaptive=false
+
+tspan = (6.3, 2.0)
+dt0 = -0.1
+prob = ODEProblem(simplependulum, u0, tspan)
+sol = solve(prob, IRKGL16(), dt = dt0, adaptive = false)
+
+@test sol.t[end] == tspan[2]
