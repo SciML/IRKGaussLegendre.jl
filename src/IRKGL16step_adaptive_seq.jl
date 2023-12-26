@@ -5,21 +5,22 @@
 #  IRKstepDynODE_adaptive!
 
 function IRKstep_adaptive!(s,
-    j,
-    ttj,
-    uj,
-    ej,
-    prob,
-    dts,
-    coeffs,
-    cache,
-    maxiters,
-    maxtrials,
-    initial_interp,
-    abstol,
-    reltol,
-    adaptive,
-    threading)
+        j,
+        ttj,
+        tf,
+        uj,
+        ej,
+        prob,
+        dts,
+        coeffs,
+        cache,
+        maxiters,
+        maxtrials,
+        initial_interp,
+        abstol,
+        reltol,
+        adaptive,
+        threading)
     @unpack mu, hc, hb, nu, alpha = coeffs
     @unpack f, u0, p, tspan = prob
     @unpack U, Uz, L, Lz, F, Dmin, Eval, DY, rejects, nfcn, lambdas, nrmdigits = cache
@@ -32,7 +33,10 @@ function IRKstep_adaptive!(s,
 
     dt = dts[1]
     dtprev = dts[2]
-    tf = tspan[2]
+    signdt = dts[3]
+    sdt = signdt * dt
+
+    #    tf = tspan[2]
 
     elems = s * length(uj)
     pow = realuiType(1 / (2 * s))
@@ -58,7 +62,7 @@ function IRKstep_adaptive!(s,
 
     while (!accept && ntrials < maxtrialsj)
         if (dt != dtprev)
-            HCoefficients!(mu, hc, hb, nu, dt, dtprev, realuiType)
+            HCoefficients!(mu, hc, hb, nu, sdt, signdt * dtprev, realuiType)
             @unpack mu, hc, hb, nu, alpha = coeffs
         end
 
@@ -160,6 +164,7 @@ function IRKstep_adaptive!(s,
         else
             rejects[1] += 1
             dt = dt / lambda
+            sdt = signdt * dt
         end
     end # while accept
 
@@ -190,16 +195,16 @@ function IRKstep_adaptive!(s,
             end
         end
 
-        res = Base.TwicePrecision(tj, te) + dt
+        res = Base.TwicePrecision(tj, te) + sdt
         ttj[1] = res.hi
         ttj[2] = res.lo
     else
         @. uj += L[1] + L[2] + L[3] + L[4] + L[5] + L[6] + L[7] + L[8]
-        ttj[1] = tj + dt
+        ttj[1] = tj + sdt
     end
 
     if (j == 1)
-        dts[1] = min(max(dt / 2, min(2 * dt, dt / lambda)), tf - (ttj[1] + ttj[2]))
+        dts[1] = min(max(dt / 2, min(2 * dt, dt / lambda)), abs(tf - (ttj[1] + ttj[2])))
     else
         hath1 = dt / lambda
         hath2 = dtprev / lambdaprev
@@ -207,7 +212,7 @@ function IRKstep_adaptive!(s,
         barlamb1 = (dt + tildeh) / (hath1 + tildeh)
         barlamb2 = (dtprev + dt) / (hath2 + hath1)
         barh = hath1 * (hath1 / hath2)^(barlamb1 / barlamb2)
-        dts[1] = min(max(dt / 2, min(2 * dt, barh)), tf - (ttj[1] + ttj[2]))
+        dts[1] = min(max(dt / 2, min(2 * dt, barh)), abs(tf - (ttj[1] + ttj[2])))
     end
 
     dts[2] = dt
@@ -217,23 +222,24 @@ function IRKstep_adaptive!(s,
 end
 
 function IRKstep_adaptive_Mix!(s,
-    j,
-    ttj,
-    uj,
-    ej,
-    prob,
-    dts,
-    coeffs,
-    cache,
-    maxiters,
-    maxtrials,
-    initial_interp,
-    abstol,
-    reltol,
-    adaptive,
-    threading,
-    mixed_precision,
-    low_prec_type)
+        j,
+        ttj,
+        tf,
+        uj,
+        ej,
+        prob,
+        dts,
+        coeffs,
+        cache,
+        maxiters,
+        maxtrials,
+        initial_interp,
+        abstol,
+        reltol,
+        adaptive,
+        threading,
+        mixed_precision,
+        low_prec_type)
     @unpack mu, hc, hb, nu, alpha = coeffs
     @unpack f, u0, p, tspan, kwargs = prob
 
@@ -269,7 +275,9 @@ function IRKstep_adaptive_Mix!(s,
 
     dt = dts[1]
     dtprev = dts[2]
-    tf = tspan[2]
+    signdt = dts[3]
+    sdt = signdt * dt
+    #    tf = tspan[2]
 
     elems = s * length(uj)
     pow = realuiType(1 / (2 * s))
@@ -295,7 +303,7 @@ function IRKstep_adaptive_Mix!(s,
 
     while (!accept && ntrials < maxtrialsj)
         if (dt != dtprev)
-            HCoefficients!(mu, hc, hb, nu, dt, dtprev, realuiType)
+            HCoefficients!(mu, hc, hb, nu, sdt, signdt * dtprev, realuiType)
             @unpack mu, hc, hb, nu, alpha = coeffs
             lhb .= hb
         end
@@ -443,6 +451,7 @@ function IRKstep_adaptive_Mix!(s,
         else
             rejects[1] += 1
             dt = dt / lambda
+            sdt = signdt * dt
         end
     end # while accept
 
@@ -474,17 +483,17 @@ function IRKstep_adaptive_Mix!(s,
             end
         end
 
-        res = Base.TwicePrecision(tj, te) + dt
+        res = Base.TwicePrecision(tj, te) + sdt
         ttj[1] = res.hi
         ttj[2] = res.lo
 
     else
         @. uj += L[1] + L[2] + L[3] + L[4] + L[5] + L[6] + L[7] + L[8]
-        ttj[1] = tj + dt
+        ttj[1] = tj + sdt
     end
 
     if (j == 1)
-        dts[1] = min(max(dt / 2, min(2 * dt, dt / lambda)), tf - (ttj[1] + ttj[2]))
+        dts[1] = min(max(dt / 2, min(2 * dt, dt / lambda)), abs(tf - (ttj[1] + ttj[2])))
     else
         hath1 = dt / lambda
         hath2 = dtprev / lambdaprev
@@ -492,7 +501,7 @@ function IRKstep_adaptive_Mix!(s,
         barlamb1 = (dt + tildeh) / (hath1 + tildeh)
         barlamb2 = (dtprev + dt) / (hath2 + hath1)
         barh = hath1 * (hath1 / hath2)^(barlamb1 / barlamb2)
-        dts[1] = min(max(dt / 2, min(2 * dt, barh)), tf - (ttj[1] + ttj[2]))
+        dts[1] = min(max(dt / 2, min(2 * dt, barh)), abs(tf - (ttj[1] + ttj[2])))
     end
 
     dts[2] = dt
@@ -502,21 +511,22 @@ function IRKstep_adaptive_Mix!(s,
 end
 
 function IRKstepDynODE_adaptive!(s,
-    j,
-    ttj,
-    uj,
-    ej,
-    prob,
-    dts,
-    coeffs,
-    cache,
-    maxiters,
-    maxtrials,
-    initial_interp,
-    abstol,
-    reltol,
-    adaptive,
-    threading)
+        j,
+        ttj,
+        tf,
+        uj,
+        ej,
+        prob,
+        dts,
+        coeffs,
+        cache,
+        maxiters,
+        maxtrials,
+        initial_interp,
+        abstol,
+        reltol,
+        adaptive,
+        threading)
     @unpack mu, hc, hb, nu, alpha = coeffs
     @unpack tspan, p = prob
     f1 = prob.f.f1
@@ -531,7 +541,9 @@ function IRKstepDynODE_adaptive!(s,
 
     dt = dts[1]
     dtprev = dts[2]
-    tf = tspan[2]
+    signdt = dts[3]
+    sdt = signdt * dt
+    #    tf = tspan[2]
 
     elems = s * length(uj)
     pow = realuiType(1 / (2 * s))
@@ -557,7 +569,7 @@ function IRKstepDynODE_adaptive!(s,
 
     while (!accept && ntrials < maxtrialsj)
         if (dt != dtprev)
-            HCoefficients!(mu, hc, hb, nu, dt, dtprev, realuiType)
+            HCoefficients!(mu, hc, hb, nu, sdt, signdt * dtprev, realuiType)
             @unpack mu, hc, hb, nu, alpha = coeffs
         end
 
@@ -691,6 +703,7 @@ function IRKstepDynODE_adaptive!(s,
         else
             rejects[1] += 1
             dt = dt / lambda
+            sdt = signdt * dt
         end
     end # while accept
 
@@ -719,17 +732,17 @@ function IRKstepDynODE_adaptive!(s,
                 ej[k] = res.lo
             end
         end
-        res = Base.TwicePrecision(tj, te) + dt
+        res = Base.TwicePrecision(tj, te) + sdt
         ttj[1] = res.hi
         ttj[2] = res.lo
 
     else
         @. uj += L[1] + L[2] + L[3] + L[4] + L[5] + L[6] + L[7] + L[8]
-        ttj[1] = tj + dt
+        ttj[1] = tj + sdt
     end
 
     if (j == 1)
-        dts[1] = min(max(dt / 2, min(2 * dt, dt / lambda)), tf - (ttj[1] + ttj[2]))
+        dts[1] = min(max(dt / 2, min(2 * dt, dt / lambda)), abs(tf - (ttj[1] + ttj[2])))
     else
         hath1 = dt / lambda
         hath2 = dtprev / lambdaprev
@@ -737,7 +750,7 @@ function IRKstepDynODE_adaptive!(s,
         barlamb1 = (dt + tildeh) / (hath1 + tildeh)
         barlamb2 = (dtprev + dt) / (hath2 + hath1)
         barh = hath1 * (hath1 / hath2)^(barlamb1 / barlamb2)
-        dts[1] = min(max(dt / 2, min(2 * dt, barh)), tf - (ttj[1] + ttj[2]))
+        dts[1] = min(max(dt / 2, min(2 * dt, barh)), abs(tf - (ttj[1] + ttj[2])))
     end
     dts[2] = dt
     lambdas[2] = lambda
