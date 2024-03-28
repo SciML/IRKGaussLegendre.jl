@@ -26,6 +26,10 @@ function ErrorEst(U, F, dt, beta, abstol, reltol)
         end
     end
 
+    if est == 0
+        est = eps(realuiType)
+    end
+
     return (est / D)
 end
 

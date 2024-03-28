@@ -58,7 +58,7 @@ abstract type IRKAlgorithm{
     threading,
     mixed_precision,
     low_prec_type,
-    nrmbits,
+    nrmbits
 } <: OrdinaryDiffEqAlgorithm end
 struct IRKGL16{
     mstep,
@@ -68,7 +68,7 @@ struct IRKGL16{
     threading,
     mixed_precision,
     low_prec_type,
-    nrmbits,
+    nrmbits
 } <: IRKAlgorithm{
     mstep,
     maxtrials,
@@ -77,7 +77,7 @@ struct IRKGL16{
     threading,
     mixed_precision,
     low_prec_type,
-    nrmbits,
+    nrmbits
 } end
 function IRKGL16(;
         mstep = 1,
@@ -96,14 +96,15 @@ function IRKGL16(;
         threading,
         mixed_precision,
         low_prec_type,
-        nrmbits,
+        nrmbits
     }()
 end
 
-function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{
+function DiffEqBase.__solve(
+        prob::DiffEqBase.AbstractODEProblem{
             uType,
             tspanType,
-            isinplace,
+            isinplace
         },
         alg::IRKGL16{
             mstep,
@@ -113,7 +114,7 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{
             threading,
             mixed_precision,
             low_prec_type,
-            nrmbits,
+            nrmbits
         },
         args...;
         dt = 0.0,
@@ -133,8 +134,8 @@ function DiffEqBase.__solve(prob::DiffEqBase.AbstractODEProblem{
         threading,
         mixed_precision,
         low_prec_type,
-        nrmbits,
-    }
+        nrmbits
+}
     s = 8
     stats = DiffEqBase.Stats(0)
 
