@@ -45,7 +45,6 @@ sim = test_convergence(dts, prob_ode_bigfloat2Dlinear, IRKGL16())
 
 # Backward integrations tests
 
-
 #Define the problem
 const g = 9.81
 L = 1.0

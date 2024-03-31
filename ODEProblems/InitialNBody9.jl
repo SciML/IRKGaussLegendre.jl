@@ -15,7 +15,7 @@ function InitialNBody9(T)
         parse(BigFloat, "0.845970607324503000e-7"),
         parse(BigFloat, "0.129202482578296000e-7"),
         parse(BigFloat, "0.152435734788511000e-7"),
-        parse(BigFloat, "0.217844105197418000e-11"),
+        parse(BigFloat, "0.217844105197418000e-11")
     ]
 
     N = length(Gm)
@@ -50,7 +50,7 @@ function InitialNBody9(T)
         parse(BigFloat, "-9.40015796880239402236"),
         parse(BigFloat, "-30.48331376718383944523"),
         parse(BigFloat, "-0.87240555684104999295"),
-        parse(BigFloat, "8.91157617249954997764"),
+        parse(BigFloat, "8.91157617249954997764")
     ]
 
     v = [
@@ -83,7 +83,7 @@ function InitialNBody9(T)
         parse(BigFloat, "-0.00067904196080291327"),
         parse(BigFloat, "0.00032220737349778078"),
         parse(BigFloat, "-0.00314357639364532859"),
-        parse(BigFloat, "-0.00107794975959731297"),
+        parse(BigFloat, "-0.00107794975959731297")
     ]
 
     q0 = reshape(q, 3, :)

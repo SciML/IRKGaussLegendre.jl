@@ -14,7 +14,7 @@ function InitialPleiades(T)
         parse(BigFloat, "0.0"),
         parse(BigFloat, "0.0"),
         parse(BigFloat, "-4.0"),
-        parse(BigFloat, "4.0"),
+        parse(BigFloat, "4.0")
     ]
 
     v = [
@@ -31,7 +31,7 @@ function InitialPleiades(T)
         parse(BigFloat, "-1.25"),
         parse(BigFloat, "1.0"),
         parse(BigFloat, "0.0"),
-        parse(BigFloat, "0.0"),
+        parse(BigFloat, "0.0")
     ]
 
     u0 = Array{T}(undef, 1)
