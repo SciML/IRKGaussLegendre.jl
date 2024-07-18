@@ -110,15 +110,15 @@ function IRKstep_adaptive!(s,
             @inbounds begin
                 for is in 1:s
                     Uz[is] .= U[is]
-                    DiffEqBase.@.. U[is] = uj + (ej +
-                                            mu[is, 1] * L[1] +
-                                            mu[is, 2] * L[2] +
-                                            mu[is, 3] * L[3] +
-                                            mu[is, 4] * L[4] +
-                                            mu[is, 5] * L[5] +
-                                            mu[is, 6] * L[6] +
-                                            mu[is, 7] * L[7] +
-                                            mu[is, 8] * L[8])
+                    FastBroadcast.@.. U[is] = uj + (ej +
+                                               mu[is, 1] * L[1] +
+                                               mu[is, 2] * L[2] +
+                                               mu[is, 3] * L[3] +
+                                               mu[is, 4] * L[4] +
+                                               mu[is, 5] * L[5] +
+                                               mu[is, 6] * L[6] +
+                                               mu[is, 7] * L[7] +
+                                               mu[is, 8] * L[8])
                 end
             end #inbound
 
@@ -353,15 +353,15 @@ function IRKstep_adaptive_Mix!(s,
             @inbounds begin
                 for is in 1:s
                     Uz[is] .= U[is]
-                    DiffEqBase.@.. U[is] = uj + (ej +
-                                            mu[is, 1] * L[1] +
-                                            mu[is, 2] * L[2] +
-                                            mu[is, 3] * L[3] +
-                                            mu[is, 4] * L[4] +
-                                            mu[is, 5] * L[5] +
-                                            mu[is, 6] * L[6] +
-                                            mu[is, 7] * L[7] +
-                                            mu[is, 8] * L[8])
+                    FastBroadcast.@.. U[is] = uj + (ej +
+                                               mu[is, 1] * L[1] +
+                                               mu[is, 2] * L[2] +
+                                               mu[is, 3] * L[3] +
+                                               mu[is, 4] * L[4] +
+                                               mu[is, 5] * L[5] +
+                                               mu[is, 6] * L[6] +
+                                               mu[is, 7] * L[7] +
+                                               mu[is, 8] * L[8])
                     Ulow[is] .= U[is]
                     normU[is] = copy(norm(Ulow[is]))
                 end
@@ -404,14 +404,14 @@ function IRKstep_adaptive_Mix!(s,
             for l in 1:lmax
                 for is in 1:s
                     if (Eval[is] == true)
-                        DiffEqBase.@.. DU[is] = lmu[is, 1] * DL[1] +
-                                                lmu[is, 2] * DL[2] +
-                                                lmu[is, 3] * DL[3] +
-                                                lmu[is, 4] * DL[4] +
-                                                lmu[is, 5] * DL[5] +
-                                                lmu[is, 6] * DL[6] +
-                                                lmu[is, 7] * DL[7] +
-                                                lmu[is, 8] * DL[8]
+                        FastBroadcast.@.. DU[is] = lmu[is, 1] * DL[1] +
+                                                   lmu[is, 2] * DL[2] +
+                                                   lmu[is, 3] * DL[3] +
+                                                   lmu[is, 4] * DL[4] +
+                                                   lmu[is, 5] * DL[5] +
+                                                   lmu[is, 6] * DL[6] +
+                                                   lmu[is, 7] * DL[7] +
+                                                   lmu[is, 8] * DL[8]
                     end
                 end
 
@@ -608,15 +608,15 @@ function IRKstepDynODE_adaptive!(s,
             @inbounds begin
                 for is in 1:s
                     Uz[is].x[1] .= U[is].x[1]
-                    DiffEqBase.@.. U[is].x[1] = uj.x[1] + (ej.x[1] +
-                                                 mu[is, 1] * L[1].x[1] +
-                                                 mu[is, 2] * L[2].x[1] +
-                                                 mu[is, 3] * L[3].x[1] +
-                                                 mu[is, 4] * L[4].x[1] +
-                                                 mu[is, 5] * L[5].x[1] +
-                                                 mu[is, 6] * L[6].x[1] +
-                                                 mu[is, 7] * L[7].x[1] +
-                                                 mu[is, 8] * L[8].x[1])
+                    FastBroadcast.@.. U[is].x[1] = uj.x[1] + (ej.x[1] +
+                                                    mu[is, 1] * L[1].x[1] +
+                                                    mu[is, 2] * L[2].x[1] +
+                                                    mu[is, 3] * L[3].x[1] +
+                                                    mu[is, 4] * L[4].x[1] +
+                                                    mu[is, 5] * L[5].x[1] +
+                                                    mu[is, 6] * L[6].x[1] +
+                                                    mu[is, 7] * L[7].x[1] +
+                                                    mu[is, 8] * L[8].x[1])
                 end
             end #inbound
 
@@ -649,15 +649,15 @@ function IRKstepDynODE_adaptive!(s,
             @inbounds begin
                 for is in 1:s
                     Uz[is].x[2] .= U[is].x[2]
-                    DiffEqBase.@.. U[is].x[2] = uj.x[2] + (ej.x[2] +
-                                                 mu[is, 1] * L[1].x[2] +
-                                                 mu[is, 2] * L[2].x[2] +
-                                                 mu[is, 3] * L[3].x[2] +
-                                                 mu[is, 4] * L[4].x[2] +
-                                                 mu[is, 5] * L[5].x[2] +
-                                                 mu[is, 6] * L[6].x[2] +
-                                                 mu[is, 7] * L[7].x[2] +
-                                                 mu[is, 8] * L[8].x[2])
+                    FastBroadcast.@.. U[is].x[2] = uj.x[2] + (ej.x[2] +
+                                                    mu[is, 1] * L[1].x[2] +
+                                                    mu[is, 2] * L[2].x[2] +
+                                                    mu[is, 3] * L[3].x[2] +
+                                                    mu[is, 4] * L[4].x[2] +
+                                                    mu[is, 5] * L[5].x[2] +
+                                                    mu[is, 6] * L[6].x[2] +
+                                                    mu[is, 7] * L[7].x[2] +
+                                                    mu[is, 8] * L[8].x[2])
                 end
             end #inbound
 
