@@ -110,7 +110,7 @@ function IRKstep_adaptive!(s,
             @inbounds begin
                 for is in 1:s
                     Uz[is] .= U[is]
-                    DiffEqBase.@.. U[is] = uj + (ej +
+                    FastBroadcast.@.. U[is] = uj + (ej +
                                             mu[is, 1] * L[1] +
                                             mu[is, 2] * L[2] +
                                             mu[is, 3] * L[3] +
@@ -353,7 +353,7 @@ function IRKstep_adaptive_Mix!(s,
             @inbounds begin
                 for is in 1:s
                     Uz[is] .= U[is]
-                    DiffEqBase.@.. U[is] = uj + (ej +
+                    FastBroadcast.@.. U[is] = uj + (ej +
                                             mu[is, 1] * L[1] +
                                             mu[is, 2] * L[2] +
                                             mu[is, 3] * L[3] +
@@ -404,7 +404,7 @@ function IRKstep_adaptive_Mix!(s,
             for l in 1:lmax
                 for is in 1:s
                     if (Eval[is] == true)
-                        DiffEqBase.@.. DU[is] = lmu[is, 1] * DL[1] +
+                        FastBroadcast.@.. DU[is] = lmu[is, 1] * DL[1] +
                                                 lmu[is, 2] * DL[2] +
                                                 lmu[is, 3] * DL[3] +
                                                 lmu[is, 4] * DL[4] +
@@ -608,7 +608,7 @@ function IRKstepDynODE_adaptive!(s,
             @inbounds begin
                 for is in 1:s
                     Uz[is].x[1] .= U[is].x[1]
-                    DiffEqBase.@.. U[is].x[1] = uj.x[1] + (ej.x[1] +
+                    FastBroadcast.@.. U[is].x[1] = uj.x[1] + (ej.x[1] +
                                                  mu[is, 1] * L[1].x[1] +
                                                  mu[is, 2] * L[2].x[1] +
                                                  mu[is, 3] * L[3].x[1] +
@@ -649,7 +649,7 @@ function IRKstepDynODE_adaptive!(s,
             @inbounds begin
                 for is in 1:s
                     Uz[is].x[2] .= U[is].x[2]
-                    DiffEqBase.@.. U[is].x[2] = uj.x[2] + (ej.x[2] +
+                    FastBroadcast.@.. U[is].x[2] = uj.x[2] + (ej.x[2] +
                                                  mu[is, 1] * L[1].x[2] +
                                                  mu[is, 2] * L[2].x[2] +
                                                  mu[is, 3] * L[3].x[2] +

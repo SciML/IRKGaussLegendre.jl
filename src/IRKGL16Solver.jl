@@ -59,7 +59,7 @@ abstract type IRKAlgorithm{
     mixed_precision,
     low_prec_type,
     nrmbits
-} <: OrdinaryDiffEqAlgorithm end
+} <: SciMLBase.AbstractODEAlgorithm end
 struct IRKGL16{
     mstep,
     maxtrials,
@@ -100,8 +100,8 @@ function IRKGL16(;
     }()
 end
 
-function DiffEqBase.__solve(
-        prob::DiffEqBase.AbstractODEProblem{
+function SciMLBase.__solve(
+        prob::SciMLBase.AbstractODEProblem{
             uType,
             tspanType,
             isinplace
@@ -137,7 +137,7 @@ function DiffEqBase.__solve(
         nrmbits
 }
     s = 8
-    stats = DiffEqBase.Stats(0)
+    stats = SciMLBase.DEStats(0)
 
     if (prob.f isa DynamicalODEFunction)
         @unpack tspan, p = prob
@@ -150,7 +150,7 @@ function DiffEqBase.__solve(
         @unpack f, u0, tspan, p = prob
     else
         println("Error: incorrect ODEFunction")
-        sol = DiffEqBase.build_solution(prob, alg, [], [], retcode = ReturnCode.Failure)
+        sol = SciMLBase.build_solution(prob, alg, [], [], retcode = ReturnCode.Failure)
         return (sol)
     end
 
@@ -390,7 +390,7 @@ function DiffEqBase.__solve(
 
                     if (status == "Failure")
                         #                    println("Fail")
-                        sol = DiffEqBase.build_solution(prob, alg, tt, uu,
+                        sol = SciMLBase.build_solution(prob, alg, tt, uu,
                             retcode = ReturnCode.Failure)
                         return (sol)
                     end
@@ -454,7 +454,7 @@ function DiffEqBase.__solve(
 
                     if (status == "Failure")
                         #                    println("Fail")
-                        sol = DiffEqBase.build_solution(prob, alg, tt, uu,
+                        sol = SciMLBase.build_solution(prob, alg, tt, uu,
                             retcode = ReturnCode.Failure)
                         return (sol)
                     end
@@ -486,7 +486,7 @@ function DiffEqBase.__solve(
         end
     end
 
-    sol = DiffEqBase.build_solution(prob, alg, tt, uu, stats = stats,
+    sol = SciMLBase.build_solution(prob, alg, tt, uu, stats = stats,
         retcode = ReturnCode.Success)
 
     sol.stats.nf = nfcn[1]
