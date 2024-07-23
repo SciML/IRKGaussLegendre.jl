@@ -13,6 +13,8 @@ Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
 SciMLBase = "0bca4576-84f4-4d90-8ffe-ffa030f20462"
 
 [compat]
+DiffEqBase = "6.100.0"
+FastBroadcast = "0.3"
 Parameters = "0.12"
 RecursiveArrayTools = "3"
 Reexport = "1.0"
