@@ -4,12 +4,13 @@
 #       MyNorm
 #       Rdigits
 
-function ErrorEst(U, F, dt, beta, abstol, reltol)
+function ErrorEst(U, F, dt, alpha, abstol, reltol)
     uiType = eltype(U[1])
     realuiType = real(uiType)
 
     (s,) = size(F)
     D = length(U[1])
+    indices = eachindex(U[1])
 
     est = zero(realuiType)
 
@@ -18,7 +19,7 @@ function ErrorEst(U, F, dt, beta, abstol, reltol)
             sum = zero(realuiType)
             maxU = zero(realuiType)
             for is in 1:s
-                sum += beta[is] * F[is][k]
+                sum += alpha[is] * F[is][k]
                 maxU = max(maxU, abs(U[is][k]))
             end
 
@@ -31,6 +32,30 @@ function ErrorEst(U, F, dt, beta, abstol, reltol)
     end
 
     return (est / D)
+end
+
+function ErrorEst_SIMD(U, F, len, indices, dt, alpha, abstol, reltol)
+    uiType = eltype(U[1])
+    realuiType = real(uiType)
+
+    est = zero(realuiType)
+
+    @inbounds begin
+        for k in indices
+            Fk = getindex_(F, k)
+            sum_ = sum(Fk * alpha)
+            Uk = getindex_(U, k)
+            maxUk = maximum(abs(Uk))
+
+            est += (abs(dt * sum_))^2 / (abstol + maxUk^2 * reltol)
+        end
+    end
+
+    if est == 0
+        est = eps(realuiType)
+    end
+
+    return (est / len)
 end
 
 function MyNorm(u, abstol, reltol)

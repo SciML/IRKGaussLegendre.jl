@@ -4,12 +4,12 @@ function NbodyEnergy(u, Gm)
     T = zerouel
     U = zerouel
     for i in 1:N
-        qi = u[2, :, i]
-        vi = u[1, :, i]
+        qi = u[:, i, 1]
+        vi = u[:, i, 2]
         Gmi = Gm[i]
         T += Gmi * (vi[1] * vi[1] + vi[2] * vi[2] + vi[3] * vi[3])
         for j in (i + 1):N
-            qj = u[2, :, j]  # qj = u[2,:,j]
+            qj = u[:, j, 1]
             Gmj = Gm[j]
             qij = qi - qj
             U -= Gmi * Gmj / norm(qij)
@@ -18,23 +18,25 @@ function NbodyEnergy(u, Gm)
     1 / 2 * T + U
 end
 
-function NbodyEnergy2(u, Gm)
+function NbodyEnergy3(u, Gm)
     #
-    #   special implementantion: considering:
-    #              u[1,:,:]: position
-    #              u[2,:,:]: velocity
+    #   berria 2024-07-19
+    #          Recursive arrays !!!    
+    #              
     #
     N = length(Gm)
     zerouel = zero(eltype(u))
     T = zerouel
     U = zerouel
+    q = u.x[1]
+    v = u.x[2]
     for i in 1:N
-        qi = u[1, :, i]    # qi = u[2,:,i]
-        vi = u[2, :, i]    # vi = u[1,:,i]
+        qi = q[:, i]
+        vi = v[:, i]
         Gmi = Gm[i]
         T += Gmi * (vi[1] * vi[1] + vi[2] * vi[2] + vi[3] * vi[3])
         for j in (i + 1):N
-            qj = u[1, :, j]  # qj = u[2,:,j]
+            qj = q[:, j]  # qj = u[2,:,j]
             Gmj = Gm[j]
             qij = qi - qj
             U -= Gmi * Gmj / norm(qij)
@@ -43,80 +45,81 @@ function NbodyEnergy2(u, Gm)
     1 / 2 * T + U
 end
 
-# OdeProblem
-
-function NbodyODE!(du, u, Gm, t)
-    N = length(Gm)
-    du[1, :, :] .= zero(eltype(u))
-    for i in 1:N
-        qi = u[2, :, i]
-        Gmi = Gm[i]
-        du[2, :, i] = u[1, :, i]
-        for j in (i + 1):N
-            qj = u[2, :, j]
-            Gmj = Gm[j]
-            qij = qi - qj
-            auxij = (qij[1] * qij[1] + qij[2] * qij[2] + qij[3] * qij[3])^(-3 / 2)
-            du[1, :, i] -= Gmj * auxij * qij
-            du[1, :, j] += Gmi * auxij * qij
-        end
-    end
-    return
-end
-
-# DynamicalODEProblem
-
-function NbodyODEv!(dv, q, v, Gm, t)
+function NbodyEnergy4(u, Gm)
     #
-    #    dotv
+    #   berria 2024-07-19
+    #          Array partition !!!    
+    #              
     #
     N = length(Gm)
-    dv[:, :] .= zero(eltype(q))
+    zerouel = zero(eltype(u))
+    T = zerouel
+    U = zerouel
+    q = u.x[2]
+    v = u.x[1]
     for i in 1:N
         qi = q[:, i]
+        vi = v[:, i]
         Gmi = Gm[i]
+        T += Gmi * (vi[1] * vi[1] + vi[2] * vi[2] + vi[3] * vi[3])
         for j in (i + 1):N
-            qj = q[:, j]
+            qj = q[:, j]  # qj = u[2,:,j]
             Gmj = Gm[j]
             qij = qi - qj
-            auxij = (qij[1] * qij[1] + qij[2] * qij[2] + qij[3] * qij[3])^(-3 / 2)
-            dv[:, i] -= Gmj * auxij * qij
-            dv[:, j] += Gmi * auxij * qij
+            U -= Gmi * Gmj / norm(qij)
         end
     end
-
-    return
+    1 / 2 * T + U
 end
 
-function NbodyODEq!(dq, q, v, Gm, t)
-    #
-    #    dotq
-    #
+###
+
+function NbodyBarycenter(u, Gm)
     N = length(Gm)
+    dim = size(u, 1)
+    A = zeros(dim)
+    B = zeros(dim)
     for i in 1:N
-        dq[:, i] = v[:, i]
+        qi = u[:, i, 1]
+        vi = u[:, i, 2]
+        Gmi = Gm[i]
+        A += Gmi * qi
+        B += Gmi * vi
     end
-
-    return
+    return A, B
 end
 
-## 2ndOrderProblem
-
-function NbodyODE2nd!(ddu, du, u, Gm, t)
+function NbodyODE!(F, u, Gm, t)
     N = length(Gm)
-    ddu[:, :] .= zero(eltype(u))
     for i in 1:N
-        qi = u[:, i]
+        for k in 1:3
+            F[k, i, 2] = 0
+        end
+    end
+    for i in 1:N
+        xi = u[1, i, 1]
+        yi = u[2, i, 1]
+        zi = u[3, i, 1]
         Gmi = Gm[i]
         for j in (i + 1):N
-            qj = u[:, j]
+            xij = xi - u[1, j, 1]
+            yij = yi - u[2, j, 1]
+            zij = zi - u[3, j, 1]
             Gmj = Gm[j]
-            qij = qi - qj
-            auxij = (qij[1] * qij[1] + qij[2] * qij[2] + qij[3] * qij[3])^(-3 / 2)
-            ddu[:, i] -= Gmj * auxij * qij
-            ddu[:, j] += Gmi * auxij * qij
+            dotij = (xij * xij + yij * yij + zij * zij)
+            auxij = 1 / (sqrt(dotij) * dotij)
+            Gmjauxij = Gmj * auxij
+            F[1, i, 2] -= Gmjauxij * xij
+            F[2, i, 2] -= Gmjauxij * yij
+            F[3, i, 2] -= Gmjauxij * zij
+            Gmiauxij = Gmi * auxij
+            F[1, j, 2] += Gmiauxij * xij
+            F[2, j, 2] += Gmiauxij * yij
+            F[3, j, 2] += Gmiauxij * zij
         end
     end
-
-    return
+    for i in 1:3, j in 1:N
+        F[i, j, 1] = u[i, j, 2]
+    end
+    return nothing
 end
