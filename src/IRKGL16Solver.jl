@@ -1,102 +1,106 @@
 
-struct tcoeffs{T}
-    mu::Array{T, 2}
-    hc::Array{T, 1}
-    hb::Array{T, 1}
-    nu::Array{T, 2}
-    alpha::Array{T, 1}
+struct tcoeffs{tType}
+    mu::Array{tType, 2}
+    c::Array{tType, 1}
+    b::Array{tType, 1}
+    nu::Array{tType, 2}
+    alpha::Array{tType, 1}
+    X::Array{tType, 1}
+    Y::Array{tType, 2}
+    Z::Array{tType, 1}
 end
 
-struct tcache{uType, realuType, realuiType, uLowType, low_prec_type}
+struct tcache{uType, realuType, tType, fT, pT}
+    odef::fT # function defining the ODE system
+    p::pT # parameters and so
+    abstol::tType
+    reltol::tType
     U::Array{uType, 1}
-    Uz::Array{uType, 1}
+    U_::Array{uType, 1}
     L::Array{uType, 1}
-    Lz::Array{uType, 1}
+    L_::Array{uType, 1}
     F::Array{uType, 1}
-    #    Dmin::Array{uType, 1}
-    Dmin::Array{realuType, 1}
-    Eval::Array{Bool, 1}
-    DY::Array{realuiType, 1}
-    rejects::Array{Int64, 1}
-    nfcn::Array{Int64, 1}
-    lambdas::Array{realuiType, 1}
-    nrmdigits::Array{Int64, 0}
+    Dmin::realuType
+    maxiters::Int64
+    maxtrials::Int64
+    step_number::Array{Int64, 0}
+    initial_extrap::Bool
+    length_u::Int64
+    length_q::Int64
+    tf::tType
+    lambdas::Array{tType, 1}
 end
 
-struct tcacheMix{uType, realuType, realuiType, uLowType, low_prec_type}
-    U::Array{uType, 1}
-    Uz::Array{uType, 1}
-    L::Array{uType, 1}
-    Lz::Array{uType, 1}
-    F::Array{uType, 1}
-    #    Dmin::Array{uType, 1}
-    Dmin::Array{realuType, 1}
-    Eval::Array{Bool, 1}
-    DY::Array{realuiType, 1}
-    rejects::Array{Int64, 1}
-    nfcn::Array{Int64, 1}
-    lambdas::Array{realuiType, 1}
-    Ulow::Array{uLowType, 1}
-    DU::Array{uLowType, 1}
-    DF::Array{uLowType, 1}
-    DL::Array{uLowType, 1}
-    delta::Array{uLowType, 1}
-    Fa::Array{uLowType, 1}
-    Fb::Array{uLowType, 1}
-    Plow::Array{low_prec_type, 1}
-    normU::Array{low_prec_type, 1}
-    lhb::Array{low_prec_type, 1}
-    lmu::Array{low_prec_type, 2}
-    nrmdigits::Array{Int64, 0}
+struct tcoeffs_SIMD{floatT, s_}
+    b::Vec{s_, floatT}
+    c::Vec{s_, floatT}
+    mu::VecArray{s_, floatT, 2}
+    nu::VecArray{s_, floatT, 2}
+    alpha::Vec{s_, floatT}
+    X::Array{floatT, 1}
+    Y::Array{floatT, 2}
+    Z::Array{floatT, 1}
+    nu_::Array{floatT, 2}
+end
+
+struct IRKGL_SIMD_Cache{realuType, floatT, fType, pType, s_, dim_}
+    odef::fType # function defining the ODE system
+    p::pType # parameters and so
+    abstol::floatT
+    reltol::floatT
+    U::VecArray{s_, floatT, dim_}
+    U_::VecArray{s_, floatT, dim_}
+    L::VecArray{s_, floatT, dim_}
+    L_::VecArray{s_, floatT, dim_}
+    F::VecArray{s_, floatT, dim_}
+    Dmin::realuType
+    maxiters::Int64
+    maxtrials::Int64
+    step_number::Array{Int64, 0}
+    initial_extrap::Bool
+    length_u::Int64
+    length_q::Int64
+    tf::floatT
+    lambdas::Array{floatT, 1}
 end
 
 abstract type IRKAlgorithm{
+    second_order_ode,
     mstep,
+    simd,
     maxtrials,
-    initial_interp,
-    myoutputs,
-    threading,
-    mixed_precision,
-    low_prec_type,
-    nrmbits
+    initial_extrapolation,
+    threading
 } <: SciMLBase.AbstractODEAlgorithm end
 struct IRKGL16{
+    second_order_ode,
     mstep,
+    simd,
     maxtrials,
-    initial_interp,
-    myoutputs,
-    threading,
-    mixed_precision,
-    low_prec_type,
-    nrmbits
+    initial_extrapolation,
+    threading
 } <: IRKAlgorithm{
+    second_order_ode,
     mstep,
+    simd,
     maxtrials,
-    initial_interp,
-    myoutputs,
-    threading,
-    mixed_precision,
-    low_prec_type,
-    nrmbits
+    initial_extrapolation,
+    threading
 } end
 function IRKGL16(;
+        second_order_ode = false,
         mstep = 1,
+        simd = false,
         maxtrials = 5,
-        initial_interp = true,
-        myoutputs = false,
-        threading = false,
-        mixed_precision = false,
-        low_prec_type = Float64,
-        nrmbits = 6)
+        initial_extrapolation = true,
+        threading = false)
     IRKGL16{
+        second_order_ode,
         mstep,
+        simd,
         maxtrials,
-        initial_interp,
-        myoutputs,
-        threading,
-        mixed_precision,
-        low_prec_type,
-        nrmbits
+        initial_extrapolation,
+        threading
     }()
 end
 
@@ -107,87 +111,140 @@ function SciMLBase.__solve(
             isinplace
         },
         alg::IRKGL16{
+            second_order_ode,
             mstep,
+            simd,
             maxtrials,
-            initial_interp,
-            myoutputs,
-            threading,
-            mixed_precision,
-            low_prec_type,
-            nrmbits
+            initial_extrapolation,
+            threading
         },
         args...;
-        dt = 0.0,
+        dt = zero(eltype(tspanType)),
         maxiters = 100,
         save_everystep = true,
         adaptive = true,
-        reltol = 1e-6,
-        abstol = 1e-6,
+        reltol = eltype(tspanType)(1e-6),
+        abstol = eltype(tspanType)(1e-6),
         kwargs...) where {
         uType,
         tspanType,
         isinplace,
+        second_order_ode,
         mstep,
+        simd,
         maxtrials,
-        initial_interp,
-        myoutputs,
-        threading,
-        mixed_precision,
-        low_prec_type,
-        nrmbits
+        initial_extrapolation,
+        threading
 }
+    checks = true
+
     s = 8
     stats = SciMLBase.DEStats(0)
+    #stats = DiffEqBase.DEStats(0)
+    stats.nf = 0
+    stats.nf2 = 0
+    stats.nfpiter = 0
+    stats.naccept = 0
+    stats.nreject = 0
 
     if (prob.f isa DynamicalODEFunction)
         @unpack tspan, p = prob
+        #        f = prob.f
+        f = SciMLBase.unwrapped_f(prob.f)
         f1 = prob.f.f1
         f2 = prob.f.f2
         r0 = prob.u0.x[1]
         v0 = prob.u0.x[2]
         u0 = ArrayPartition(r0, v0)
     elseif (prob.f isa ODEFunction)
-        @unpack f, u0, tspan, p = prob
+        @unpack u0, tspan, p = prob
+        f = SciMLBase.unwrapped_f(prob.f)
     else
-        println("Error: incorrect ODEFunction")
+        @warn("Error: incorrect ODEFunction")
         sol = SciMLBase.build_solution(prob, alg, [], [], retcode = ReturnCode.Failure)
         return (sol)
     end
-
-    signdt = sign(tspan[2] - tspan[1])
 
     t0 = prob.tspan[1]
     tf = prob.tspan[2]
 
     tType = eltype(tspanType)
-    uiType = eltype(u0)
     realuType = typeof(real(u0))
-    realuiType = real(uiType)
 
-    nrmdig = Array{Int64, 0}(undef)
-    if (nrmbits > 0)
-        nrmdig[] = 2^nrmbits
+    step_fun::Function = empty
+
+    if simd && eltype(u0) <: Union{Float32, Float64}
+        floatType = eltype(u0)
+        if !adaptive
+            if !second_order_ode
+                step_fun = IRKGLstep_SIMD_fixed!
+            else
+                step_fun = IRKNGLstep_SIMD_fixed_simpl!
+            end
+        else
+            if !second_order_ode
+                step_fun = IRKstep_SIMD_adaptive!
+            else
+                step_fun = IRKNGLstep_SIMD_adaptive_simpl!
+            end
+        end
+
     else
-        nrmdig[] = 0
+        if (threading == true && Threads.nthreads() > 1)
+            #    step_fun=IRKStep_par!
+            if (prob.f isa ODEFunction)
+                if adaptive
+                    step_fun = IRKstep_par_adaptive!
+                else
+                    step_fun = IRKstep_par_fixed!
+                end
+            else # (prob.f<:DynamicalODEFunction)
+                #
+                # @warn("The DynamicalODEProblem problem type will be removed in a future version. Please, code it as ODEProblem with the second_order_ode=true keyword argument instead.")
+                #
+                if adaptive
+                    step_fun = IRKstepDynODE_par_adaptive!
+                else
+                    step_fun = IRKstepDynODE_par_fixed!
+                end
+            end
+            #
+            #
+        else
+            #    step_fun=IRKStep_seq!
+            if (prob.f isa ODEFunction)
+                if adaptive
+                    #
+                    if !second_order_ode
+                        step_fun = IRKstep_adaptive!
+                    else
+                        step_fun = IRKNGLstep_adaptive_simpl!
+                    end
+                else
+                    if !second_order_ode
+                        step_fun = IRKstep_fixed!
+                    else
+                        step_fun = IRKNGLstep_fixed_simpl!
+                    end
+                end
+            else # (prob.f<:DynamicalODEFunction)
+                #
+                #@warn("The DynamicalODEProblem problem type will be removed in a future version. Please, code it as ODEProblem with the second_order_ode=true keyword argument instead.")
+                #
+                if adaptive
+                    step_fun = IRKstepDynODE_adaptive!
+                else
+                    step_fun = IRKstepDynODE_fixed!
+                end
+            end
+        end
     end
 
-    if uiType <: Complex
-        lu0 = convert.(Complex{low_prec_type}, u0)
-        uLowType = typeof(lu0)
-    else
-        lu0 = convert.(low_prec_type, u0)
-        uLowType = typeof(lu0)
-    end
-
-    coeffs = tcoeffs{realuiType}(zeros(s, s), zeros(s), zeros(s), zeros(s, s), zeros(s))
-
-    @unpack mu, hc, hb, nu, alpha = coeffs
-
-    Treltol = convert(realuiType, reltol)
-    Tabstol = convert(realuiType, abstol)
+    abstol = convert(tType, abstol)
+    reltol = convert(tType, reltol)
 
     if (dt == 0)
-        d0 = MyNorm(u0, Tabstol, Treltol)
+        d0 = MyNorm(u0, abstol, reltol)
         du0 = similar(u0)
         if (prob.f isa DynamicalODEFunction)
             f1(du0.x[1], u0.x[1], u0.x[2], p, t0)
@@ -195,7 +252,7 @@ function SciMLBase.__solve(
         else # ODEFunction
             f(du0, u0, p, t0)
         end
-        d1 = MyNorm(du0, Tabstol, Treltol)
+        d1 = MyNorm(du0, abstol, reltol)
         if (d0 < 1e-5 || d1 < 1e-5)
             dt = convert(tType, 1e-6)
         else
@@ -203,584 +260,188 @@ function SciMLBase.__solve(
         end
     end
 
-    #    dt = min(dt, tf - t0)
     dt = min(abs(dt), abs(tf - t0))
-
-    EstimateCoeffs!(alpha, realuiType)
-    MuCoefficients!(mu, realuiType)
-
+    signdt = sign(tspan[2] - tspan[1])
     dts = Array{tType}(undef, 1)
 
-    if (adaptive == false)
+    if !adaptive
         dtprev = dt
     else
         dtprev = zero(tType)
     end
 
     dts = [dt, dtprev, signdt]
-    #    signdt = sign(dt)
-    HCoefficients!(mu, hc, hb, nu, signdt * dt, signdt * dtprev, realuiType)
+    sdt = signdt * dt
 
-    #   m: output saved at every m steps
-    #   n: Number of macro-steps  (Output is saved for n+1 time values)
+    #   Memory preallocation (IRKL_Cache) 
 
-    if (save_everystep == false)
-        m = 1
-        n = Inf
-    else
-        m = Int64(mstep)
-        n = Inf
-    end
+    Dmin = similar(real(u0))
+    step_number = Array{Int64, 0}(undef)
+    step_number[] = 0
+    length_u = length(u0)
+    length_q = div(length_u, 2)
 
-    U1 = Array{uType}(undef, s)
-    U2 = Array{uType}(undef, s)
-    U3 = Array{uType}(undef, s)
-    U4 = Array{uType}(undef, s)
-    U5 = Array{uType}(undef, s)
-    #    U6 = Array{uType}(undef, s)
-    U6 = Array{realuType}(undef, s)
-    for i in 1:s
-        U1[i] = zero(u0)
-        U2[i] = zero(u0)
-        U3[i] = zero(u0)
-        U4[i] = zero(u0)
-        U5[i] = zero(u0)
-        #        U6[i] = zero(u0)
-        U6[i] = zero(real(u0))
-    end
+    if simd
+        coeffs = tcoeffs{tType}(zeros(s, s), zeros(s), zeros(s), zeros(s, s),
+            zeros(s), zeros(s + 1), zeros(s, s + 1), zeros(s))
+        mu_ = coeffs.mu
+        c_ = coeffs.c
+        b_ = coeffs.b
+        nu_ = coeffs.nu
+        alpha_ = coeffs.alpha
+        X = coeffs.X
+        Y = coeffs.Y
+        Z = coeffs.Z
 
-    if (mixed_precision == true && prob.f isa ODEFunction)
-        U11 = Array{uLowType}(undef, s)
-        U12 = Array{uLowType}(undef, s)
-        U13 = Array{uLowType}(undef, s)
-        U14 = Array{uLowType}(undef, s)
-        U15 = Array{uLowType}(undef, s)
-        U16 = Array{uLowType}(undef, s)
-        U17 = Array{uLowType}(undef, s)
-        for i in 1:s
-            U11[i] = zero(lu0)
-            U12[i] = zero(lu0)
-            U13[i] = zero(lu0)
-            U14[i] = zero(lu0)
-            U15[i] = zero(lu0)
-            U16[i] = zero(lu0)
-            U17[i] = zero(lu0)
-        end
+        EstimateCoeffs!(alpha_, tType)
 
-        lmu = convert.(low_prec_type, mu)
-        lhb = convert.(low_prec_type, hb)
-
-        if (typeof(p) != SciMLBase.NullParameters && p != nothing)
-            Plow = convert.(low_prec_type, p)
+        GaussLegendreCoefficients!(mu_, c_, b_, tType)
+        #ExtrapolationCoefficients!(nu_, mu_, c_,  signdt*dt, signdt*dtprev, tType)
+        X .= vcat(-c_[end:-1:1], [0])
+        Y .= hcat(mu_, zeros(tType, s))
+        Z .= c_
+        if dtprev == 0
+            nu_ .= zeros(tType, s, s)
         else
-            Plow = []
+            nu_ .= -(PolInterp(sdt * X, Y, sdt * Z))'
         end
 
-        cache = tcacheMix{uType, realuType, realuiType, uLowType, low_prec_type}(U1,
-            U2,
-            U3,
-            U4,
-            U5,
-            U6,
-            fill(true, s),
-            fill(zero(realuiType), s),
-            [0],
-            [0, 0],
-            fill(zero(realuiType), 2),
-            U11,
-            U12,
-            U13,
-            U14,
-            U15,
-            U16,
-            U17,
-            Plow,
-            fill(zero(low_prec_type),
-                s),
-            lhb,
-            lmu,
-            nrmdig)
+        dims = size(u0)
 
-        @unpack U,
-        Uz,
-        L,
-        Lz,
-        F,
-        Dmin,
-        Eval,
-        DY,
-        rejects,
-        nfcn,
-        lambdas,
-        Ulow,
-        DU,
-        DF,
-        DL,
-        delta,
-        Fa,
-        Fb,
-        Plow,
-        normU,
-        lhb,
-        lmu,
-        nrmdigits = cache
+        c = vload(Vec{s, floatType}, c_, 1)
+        b = vload(Vec{s, floatType}, b_, 1)
+        nu = VecArray{s, floatType, 2}(nu_)
+        mu = VecArray{s, floatType, 2}(mu_)
+        alpha = vload(Vec{s, floatType}, alpha_, 1)
+
+        zz = zeros(Float64, s, dims...)
+        U = VecArray{s, Float64, length(dims) + 1}(zz)
+        U_ = deepcopy(U)
+        L = deepcopy(U)
+        L_ = deepcopy(U)
+        F = deepcopy(U)
+
+        coeffs = tcoeffs_SIMD(b, c, mu, nu, alpha, X, Y, Z, nu_)
+
+        cache = IRKGL_SIMD_Cache(f, p, abstol, reltol,
+            U, U_, L, L_, F,
+            Dmin, maxiters, maxtrials, step_number,
+            initial_extrapolation, length_u, length_q, tf,
+            fill(zero(tType), 2))
 
     else
-        cache = tcache{uType, realuType, realuiType, uLowType, low_prec_type}(U1,
-            U2,
-            U3,
-            U4,
-            U5,
-            U6,
-            fill(true, s),
-            fill(zero(realuiType), s),
-            [0],
-            [0, 0],
-            fill(zero(realuiType), 2),
-            nrmdig)
-        @unpack U, Uz, L, Lz, F, Dmin, Eval, DY, rejects, nfcn, lambdas, nrmdigits = cache
+        coeffs = tcoeffs{tType}(zeros(s, s), zeros(s), zeros(s), zeros(s, s),
+            zeros(s), zeros(s + 1), zeros(s, s + 1), zeros(s))
+        @unpack mu, c, b, nu, alpha, X, Y, Z = coeffs
+        EstimateCoeffs!(alpha, tType)
+
+        GaussLegendreCoefficients!(mu, c, b, tType)
+        #ExtrapolationCoefficients!(nu, mu, c,  signdt*dt, signdt*dtprev, tType)
+        X .= vcat(-c[end:-1:1], [0])
+        Y .= hcat(mu, zeros(tType, s))
+        Z .= c
+        if dtprev == 0
+            nu .= zeros(tType, s, s)
+        else
+            nu .= -(PolInterp(sdt * X, Y, sdt * Z))'
+        end
+
+        U = Array{uType}(undef, s)
+        U_ = Array{uType}(undef, s)
+        L = Array{uType}(undef, s)
+        L_ = Array{uType}(undef, s)
+        F = Array{uType}(undef, s)
+        for i in 1:s
+            U[i] = zero(u0)
+            U_[i] = zero(u0)
+            L[i] = zero(u0)
+            L_[i] = zero(u0)
+            F[i] = zero(u0)
+        end
+
+        cache = tcache(f,
+            p,
+            abstol,
+            reltol,
+            U,
+            U_,
+            L,
+            L_,
+            F,
+            Dmin,
+            maxiters,
+            maxtrials,
+            step_number,
+            initial_extrapolation,
+            length_u,
+            length_q,
+            tf,
+            fill(zero(tType), 2))
     end
 
     #   initialization output variables
     uu = uType[]
     tt = tType[]
-    iters = Int[]
-    steps = Int[]
 
-    push!(uu, u0)
+    push!(uu, copy(u0))
     push!(tt, t0)
-    push!(iters, 0)
-    push!(steps, 0)
+
     tj = [t0, zero(t0)]
     uj = copy(u0)
     ej = zero(u0)
 
-    j = 0
     cont = true
+    error_warn = 0
 
-    if (threading == true && Threads.nthreads() > 1)
-        while cont
-            tit = 0
-            it = 0
-            k = 0
+    step_retcode = true
 
-            @inbounds begin
-                for i in 1:m
-                    j += 1
-                    k += 1
-                    (status, it) = IRKStep_par!(s,
-                        j,
-                        tj,
-                        tf,
-                        uj,
-                        ej,
-                        prob,
-                        dts,
-                        coeffs,
-                        cache,
-                        maxiters,
-                        maxtrials,
-                        initial_interp,
-                        Tabstol,
-                        Treltol,
-                        adaptive,
-                        threading,
-                        mixed_precision,
-                        low_prec_type)
+    while cont
+        @inbounds begin
+            for i in 1:mstep
+                step_number[] += 1
+                step_retcode = step_fun(tj,
+                    uj,
+                    ej,
+                    dts,
+                    stats,
+                    coeffs,
+                    cache)
 
-                    if (status == "Failure")
-                        #                    println("Fail")
-                        sol = SciMLBase.build_solution(prob, alg, tt, uu,
-                            retcode = ReturnCode.Failure)
-                        return (sol)
-                    end
-                    tit += it
-
-                    if (dts[1] == 0)
-                        break
-                    end
+                if !step_retcode
+                    error_warn = 1
+                    cont = false
+                    break
                 end
-            end
 
-            #            cont = (signdt * (tj[1] + tj[2]) < signdt * tf) && (j < n * m)
-
-            if signdt == 1
-                cont = ((tj[1] + tj[2]) < tf) && (j < n * m)
-            else
-                cont = ((tj[1] + tj[2]) > tf) && (j < n * m)
-            end
-
-            if (save_everystep == true) || (cont == false)
-                push!(tt, tj[1] + tj[2])
-                push!(uu, uj + ej)
-
-                if (myoutputs == true)
-                    push!(iters, convert(Int64, round(tit / k)))
-                    #                    push!(steps, dts[2])
-                    push!(steps, signdt * dts[2])
+                if tj[1] == tf
+                    cont = false
+                    break
                 end
             end
         end
 
-    else # threading==false
-        while cont
-            tit = 0
-            it = 0
-            k = 0
-
-            @inbounds begin
-                for i in 1:m
-                    j += 1
-                    k += 1
-                    (status, it) = IRKStep_seq!(s,
-                        j,
-                        tj,
-                        tf,
-                        uj,
-                        ej,
-                        prob,
-                        dts,
-                        coeffs,
-                        cache,
-                        maxiters,
-                        maxtrials,
-                        initial_interp,
-                        Tabstol,
-                        Treltol,
-                        adaptive,
-                        threading,
-                        mixed_precision,
-                        low_prec_type)
-
-                    if (status == "Failure")
-                        #                    println("Fail")
-                        sol = SciMLBase.build_solution(prob, alg, tt, uu,
-                            retcode = ReturnCode.Failure)
-                        return (sol)
-                    end
-                    tit += it
-
-                    if (dts[1] == 0)
-                        break
-                    end
-                end
-            end
-
-            #            cont = (signdt * (tj[1] + tj[2]) < signdt * tf) && (j < n * m)
-
-            if signdt == 1
-                cont = ((tj[1] + tj[2]) < tf) && (j < n * m)
-            else
-                cont = ((tj[1] + tj[2]) > tf) && (j < n * m)
-            end
-
-            if (save_everystep == true) || (cont == false)
-                push!(tt, tj[1] + tj[2])
-                push!(uu, uj + ej)
-
-                if (myoutputs == true)
-                    push!(iters, convert(Int64, round(tit / k)))
-                    push!(steps, signdt * dts[2])
-                end
-            end
+        if save_everystep
+            push!(tt, tj[1])
+            push!(uu, copy(uj))
         end
     end
 
-    sol = SciMLBase.build_solution(prob, alg, tt, uu, stats = stats,
-        retcode = ReturnCode.Success)
+    stats.naccept = step_number[]
 
-    sol.stats.nf = nfcn[1]
-    sol.stats.nf2 = nfcn[2]
-    sol.stats.nreject = rejects[1]
-    sol.stats.naccept = j
+    if error_warn != 0
+        @warn("Error during the integration warn=$error_warn")
+        sol = SciMLBase.build_solution(
+            prob, alg, tt, uu, stats = stats, retcode = ReturnCode.Failure)
 
-    if (myoutputs == true)
-        return (sol, iters, steps)
     else
-        return (sol)
-    end
-end
-
-function IRKStep_seq!(s,
-        j,
-        tj,
-        tf,
-        uj,
-        ej,
-        prob,
-        dts,
-        coeffs,
-        cache,
-        maxiters,
-        maxtrials,
-        initial_interp,
-        abstol,
-        reltol,
-        adaptive,
-        threading,
-        mixed_precision,
-        low_prec_type)
-    if (prob.f isa ODEFunction)
-        if (adaptive == true)
-            if (mixed_precision == true)
-                (status, it) = IRKstep_adaptive_Mix!(s,
-                    j,
-                    tj,
-                    tf,
-                    uj,
-                    ej,
-                    prob,
-                    dts,
-                    coeffs,
-                    cache,
-                    maxiters,
-                    maxtrials,
-                    initial_interp,
-                    abstol,
-                    reltol,
-                    adaptive,
-                    threading,
-                    mixed_precision,
-                    low_prec_type)
-            else
-                (status, it) = IRKstep_adaptive!(s,
-                    j,
-                    tj,
-                    tf,
-                    uj,
-                    ej,
-                    prob,
-                    dts,
-                    coeffs,
-                    cache,
-                    maxiters,
-                    maxtrials,
-                    initial_interp,
-                    abstol,
-                    reltol,
-                    adaptive,
-                    threading)
-            end
-        else
-            if (mixed_precision == true)
-                (status, it) = IRKstep_fixed_Mix!(s,
-                    j,
-                    tj,
-                    tf,
-                    uj,
-                    ej,
-                    prob,
-                    dts,
-                    coeffs,
-                    cache,
-                    maxiters,
-                    initial_interp,
-                    abstol,
-                    reltol,
-                    adaptive,
-                    threading,
-                    mixed_precision,
-                    low_prec_type)
-            else
-                (status, it) = IRKstep_fixed!(s,
-                    j,
-                    tj,
-                    tf,
-                    uj,
-                    ej,
-                    prob,
-                    dts,
-                    coeffs,
-                    cache,
-                    maxiters,
-                    initial_interp,
-                    abstol,
-                    reltol,
-                    adaptive,
-                    threading)
-            end
+        if !save_everystep
+            push!(uu, copy(uj))
+            push!(tt, tj[1])
         end
 
-    else  # (typeof(prob.f<:DynamicalODEFunction))
-        if (adaptive == true)
-            (status, it) = IRKstepDynODE_adaptive!(s,
-                j,
-                tj,
-                tf,
-                uj,
-                ej,
-                prob,
-                dts,
-                coeffs,
-                cache,
-                maxiters,
-                maxtrials,
-                initial_interp,
-                abstol,
-                reltol,
-                adaptive,
-                threading)
-        else
-            (status, it) = IRKstepDynODE_fixed!(s,
-                j,
-                tj,
-                tf,
-                uj,
-                ej,
-                prob,
-                dts,
-                coeffs,
-                cache,
-                maxiters,
-                initial_interp,
-                abstol,
-                reltol,
-                adaptive,
-                threading)
-        end
+        sol = SciMLBase.build_solution(
+            prob, alg, tt, uu, stats = stats, retcode = ReturnCode.Success)
     end
 
-    return (status, it)
-end
-
-function IRKStep_par!(s,
-        j,
-        tj,
-        tf,
-        uj,
-        ej,
-        prob,
-        dts,
-        coeffs,
-        cache,
-        maxiters,
-        maxtrials,
-        initial_interp,
-        abstol,
-        reltol,
-        adaptive,
-        threading,
-        mixed_precision,
-        low_prec_type)
-    if (prob.f isa ODEFunction)
-        if (adaptive == true)
-            if (mixed_precision == true)
-                (status, it) = IRKstep_par_adaptive_Mix!(s,
-                    j,
-                    tj,
-                    tf,
-                    uj,
-                    ej,
-                    prob,
-                    dts,
-                    coeffs,
-                    cache,
-                    maxiters,
-                    maxtrials,
-                    initial_interp,
-                    abstol,
-                    reltol,
-                    adaptive,
-                    threading,
-                    mixed_precision,
-                    low_prec_type)
-            else
-                (status, it) = IRKstep_par_adaptive!(s,
-                    j,
-                    tj,
-                    tf,
-                    uj,
-                    ej,
-                    prob,
-                    dts,
-                    coeffs,
-                    cache,
-                    maxiters,
-                    maxtrials,
-                    initial_interp,
-                    abstol,
-                    reltol,
-                    adaptive,
-                    threading)
-            end
-        else
-            if (mixed_precision == true)
-                (status, it) = IRKstep_par_fixed_Mix!(s,
-                    j,
-                    tj,
-                    tf,
-                    uj,
-                    ej,
-                    prob,
-                    dts,
-                    coeffs,
-                    cache,
-                    maxiters,
-                    initial_interp,
-                    abstol,
-                    reltol,
-                    adaptive,
-                    threading,
-                    mixed_precision,
-                    low_prec_type)
-            else
-                (status, it) = IRKstep_par_fixed!(s,
-                    j,
-                    tj,
-                    tf,
-                    uj,
-                    ej,
-                    prob,
-                    dts,
-                    coeffs,
-                    cache,
-                    maxiters,
-                    initial_interp,
-                    abstol,
-                    reltol,
-                    adaptive,
-                    threading)
-            end
-        end
-
-    else  # (typeof(prob.f<:DynamicalODEFunction))
-        if (adaptive == true)
-            (status, it) = IRKstepDynODE_par_adaptive!(s,
-                j,
-                tj,
-                tf,
-                uj,
-                ej,
-                prob,
-                dts,
-                coeffs,
-                cache,
-                maxiters,
-                maxtrials,
-                initial_interp,
-                abstol,
-                reltol,
-                adaptive,
-                threading)
-        else
-            (status, it) = IRKstepDynODE_par_fixed!(s,
-                j,
-                tj,
-                tf,
-                uj,
-                ej,
-                prob,
-                dts,
-                coeffs,
-                cache,
-                maxiters,
-                initial_interp,
-                abstol,
-                reltol,
-                adaptive,
-                threading)
-        end
-    end
-
-    return (status, it)
+    return (sol)
 end

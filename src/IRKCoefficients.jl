@@ -1,8 +1,8 @@
 #
 # IRKCoefficients.jl file:
 #   PolInterp
-#   MuCoefficients!
-#   HCoefficients!
+#   GaussLegendreCoefficients!
+#   ExtrapolationCoefficients!
 #   EstimateCoeffs!
 
 function PolInterp(X::AbstractVector{ctype},
@@ -41,7 +41,7 @@ function PolInterp(X::AbstractVector{ctype},
     return pz
 end
 
-function MuCoefficients!(mu, T::Type{<:CompiledFloats})
+function GaussLegendreCoefficients!(mu, c, b, T::Type{<:CompiledFloats})
     mu[1, 1] = convert(T, 0.5)
 
     mu[2, 1] = convert(T, +1.0818949631055814971365081647359309e+00)
@@ -94,12 +94,35 @@ function MuCoefficients!(mu, T::Type{<:CompiledFloats})
             end
         end
     end
+
+    b .= convert.(T,
+        [
+            +5.0614268145188129576265677154981094e-02,
+            +1.1119051722668723527217799721312045e-01,
+            +1.5685332293894364366898110099330067e-01,
+            +1.8134189168918099148257522463859781e-01,
+            +1.8134189168918099148257522463859781e-01,
+            +1.5685332293894364366898110099330067e-01,
+            +1.1119051722668723527217799721312045e-01,
+            +5.0614268145188129576265677154981094e-02
+        ])
+
+    c .= convert.(T,
+        [
+            +1.9855071751231884158219565715263505e-02,
+            +1.0166676129318663020422303176208480e-01,
+            +2.3723379504183550709113047540537686e-01,
+            +4.0828267875217509753026192881990801e-01,
+            +5.9171732124782490246973807118009203e-01,
+            +7.6276620495816449290886952459462321e-01,
+            +8.9833323870681336979577696823791522e-01,
+            +9.8014492824876811584178043428473653e-01
+        ])
+
+    return nothing
 end
 
-function MuCoefficients!(mu, T)
-
-    #          println("Mu: NO CompiledFloats !!!")
-
+function GaussLegendreCoefficients!(mu, c, b, T)
     mu[1, 1] = parse(T, "0.5")
 
     mu[2, 1] = parse(T, "+1.0818949631055814971365081647359309e+00")
@@ -152,64 +175,8 @@ function MuCoefficients!(mu, T)
             end
         end
     end
-end
 
-function HCoefficients!(mu, hc, hb, nu, h, hprev, T::Type{<:CompiledFloats})
-    hb .= convert.(T,
-        [
-            +5.0614268145188129576265677154981094e-02,
-            +1.1119051722668723527217799721312045e-01,
-            +1.5685332293894364366898110099330067e-01,
-            +1.8134189168918099148257522463859781e-01,
-            +1.8134189168918099148257522463859781e-01,
-            +1.5685332293894364366898110099330067e-01,
-            +1.1119051722668723527217799721312045e-01,
-            +5.0614268145188129576265677154981094e-02
-        ])
-
-    hc .= convert.(T,
-        [
-            +1.9855071751231884158219565715263505e-02,
-            +1.0166676129318663020422303176208480e-01,
-            +2.3723379504183550709113047540537686e-01,
-            +4.0828267875217509753026192881990801e-01,
-            +5.9171732124782490246973807118009203e-01,
-            +7.6276620495816449290886952459462321e-01,
-            +8.9833323870681336979577696823791522e-01,
-            +9.8014492824876811584178043428473653e-01
-        ])
-
-    s = length(hb)
-
-    """ Interpolate coefficients """
-
-    if (hprev == 0.0)
-        nu .= zeros(T, s, s)
-    else
-        lambda = h / hprev
-        X = vcat(-hc[end:-1:1], [0])
-        Y = hcat(mu, zeros(T, s))
-        Z = lambda * hc
-        nu .= -(PolInterp(X, Y, Z))'
-    end
-
-    """ hb """
-
-    hb .= hb * h
-    hb1 = (h - sum(hb[2:(end - 1)])) / 2
-    hb[1] = hb1
-    hb[end] = hb1
-
-    hc .= hc * h
-
-    return
-end
-
-function HCoefficients!(mu, hc, hb, nu, h, hprev, T)
-
-    #          println("HCoefficients: NO Compiled")
-
-    hb .= [
+    b .= [
         parse(T, "+5.0614268145188129576265677154981094e-02"),
         parse(T, "+1.1119051722668723527217799721312045e-01"),
         parse(T, "+1.5685332293894364366898110099330067e-01"),
@@ -220,7 +187,7 @@ function HCoefficients!(mu, hc, hb, nu, h, hprev, T)
         parse(T, "+5.0614268145188129576265677154981094e-02")
     ]
 
-    hc .= [
+    c .= [
         parse(T, "+1.9855071751231884158219565715263505e-02"),
         parse(T, "+1.0166676129318663020422303176208480e-01"),
         parse(T, "+2.3723379504183550709113047540537686e-01"),
@@ -231,7 +198,27 @@ function HCoefficients!(mu, hc, hb, nu, h, hprev, T)
         parse(T, "+9.8014492824876811584178043428473653e-01")
     ]
 
-    s = length(hb)
+    return nothing
+end
+
+function ExtrapolationCoefficients!(nu, mu, c, h, hprev, T::Type{<:CompiledFloats})
+    s = length(c)
+
+    if (hprev == 0.0)
+        nu .= zeros(T, s, s)
+    else
+        lambda = h / hprev
+        X = vcat(-c[end:-1:1], [0])
+        Y = hcat(mu, zeros(T, s))
+        Z = lambda * c
+        nu .= -(PolInterp(X, Y, Z))'
+    end
+
+    return nothing
+end
+
+function ExtrapolationCoefficients!(nu, mu, c, h, hprev, T)
+    s = length(c)
 
     """ Interpolate coefficients """
 
@@ -239,22 +226,13 @@ function HCoefficients!(mu, hc, hb, nu, h, hprev, T)
         nu .= zeros(T, s, s)
     else
         lambda = h / hprev
-        X = vcat(-hc[end:-1:1], [0])
+        X = vcat(-c[end:-1:1], [0])
         Y = hcat(mu, zeros(T, s))
-        Z = lambda * hc
+        Z = lambda * c
         nu .= -(PolInterp(X, Y, Z))'
     end
 
-    """ hb """
-
-    hb .= hb * h
-    hb1 = (h - sum(hb[2:(end - 1)])) / 2
-    hb[1] = hb1
-    hb[end] = hb1
-
-    hc .= hc * h
-
-    return
+    return nothing
 end
 
 function EstimateCoeffs!(alpha, T::Type{<:CompiledFloats})
