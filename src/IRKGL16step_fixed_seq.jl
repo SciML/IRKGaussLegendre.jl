@@ -1,28 +1,30 @@
 
 #
 #  IRKstep_fixed!
-#  IRKstep_fixed_Mix!
 #  IRKstepDynODE_fixed!
+#  IRKNGLstep_fixed_simpl!
 
-function IRKstep_fixed!(s,
-        j,
-        ttj,
-        tf,
-        uj,
-        ej,
-        prob,
-        dts,
-        coeffs,
-        cache,
-        maxiters,
-        initial_interp,
-        abstol,
-        reltol,
-        adaptive,
-        threading)
-    @unpack mu, hc, hb, nu, alpha = coeffs
-    @unpack f, u0, p, tspan = prob
-    @unpack U, Uz, L, Lz, F, Dmin, Eval, DY, rejects, nfcn, lambdas, nrmdigits = cache
+function IRKstep_fixed!(ttj::Array{tType, 1},
+        uj::uType,
+        ej::uType,
+        dts::Array{tType, 1},
+        stats::SciMLBase.DEStats,
+        coeffs::tcoeffs{tType},
+        cache::tcache{uType, realuType, tType, fT, pT}) where {
+        uType, realuType, tType, fT, pT}
+    @unpack mu, c, b, nu, alpha = coeffs
+    @unpack p, U, U_, L, L_, F, Dmin, tf, lambdas = cache
+
+    f = cache.odef
+    initial_extrapolation = cache.initial_extrap
+    step_number = cache.step_number[]
+    maxiters = (step_number == 1 ? 10 + cache.maxiters : cache.maxiters)
+
+    s = length(b)
+    tj = ttj[1]
+    te = ttj[2]
+    indices = eachindex(uj)
+    dtmax = abs((tf - ttj[1]) - ttj[2])
 
     uiType = eltype(uj)
     realuiType = real(uiType)
@@ -32,104 +34,85 @@ function IRKstep_fixed!(s,
     signdt = dts[3]
     sdt = signdt * dt
 
-    #    tf = tspan[2]
+    #if (dt != dtprev)
+    #    ExtrapolationCoefficients!(nu, mu, c,  sdt, signdt*dtprev, realuiType)
+    #end
 
-    elems = s * length(uj)
+    step_retcode = true
 
-    tj = ttj[1]
-    te = ttj[2]
-
-    nit = 0
-
-    if (dt != dtprev)
-        HCoefficients!(mu, hc, hb, nu, sdt, signdt * dtprev, realuiType)
-        @unpack mu, hc, hb, nu, alpha = coeffs
-    end
-
-    if initial_interp
+    if initial_extrapolation && step_number > 1
         @inbounds begin
             for is in 1:s
-                for k in eachindex(uj)
-                    aux = zero(eltype(uj))
-                    for js in 1:s
-                        aux += nu[is, js] * L[js][k]
+                for k in indices
+                    dUik = muladd(nu[is, 1], L[1][k], ej[k])
+                    for js in 2:s
+                        dUik = muladd(nu[is, js], L[js][k], dUik)
                     end
-                    U[is][k] = (uj[k] + ej[k]) + aux
+                    U[is][k] = uj[k] + dUik
                 end
             end
         end
     else
         @inbounds begin
             for is in 1:s
-                @. U[is] = uj + ej
+                for k in indices
+                    U[is][k] = uj[k] + ej[k]
+                end
             end
         end
     end
+
+    Dmin .= Inf
 
     iter = true
     plusIt = true
+    diffU = false
+    j_iter = 0
+    nf = 0
 
-    nit = 0
-    @inbounds begin
-        for is in 1:s
-            Dmin[is] .= Inf
-        end
-    end
-
-    @inbounds begin
-        for is in 1:s
-            nfcn[1] += 1
-            f(F[is], U[is], p, tj + hc[is])
-            @. L[is] = hb[is] * F[is]
-        end
-    end
-
-    while (nit < maxiters && iter)
-        nit += 1
-
+    while (j_iter < maxiters && iter)
         iter = false
-        D0 = 0
+        j_iter += 1
 
+        nf += s
         @inbounds begin
             for is in 1:s
-                Uz[is] .= U[is]
-                FastBroadcast.@.. U[is] = uj + (ej +
-                                           mu[is, 1] * L[1] +
-                                           mu[is, 2] * L[2] +
-                                           mu[is, 3] * L[3] +
-                                           mu[is, 4] * L[4] +
-                                           mu[is, 5] * L[5] +
-                                           mu[is, 6] * L[6] +
-                                           mu[is, 7] * L[7] +
-                                           mu[is, 8] * L[8])
-            end
-        end  #inbounds
-
-        for is in 1:s
-            Eval[is] = false
-            for k in eachindex(uj)
-                DY[is] = abs(U[is][k] - Uz[is][k])
-                if DY[is] > 0.0
-                    Eval[is] = true
-                    if DY[is] < Dmin[is][k]
-                        Dmin[is][k] = DY[is]
-                        iter = true
-                        #					elseif DY[is]>abs(U[is][k])*1e-8
-                        #						iter=true
-                    end
-                else
-                    D0 += 1
+                f(F[is], U[is], p, muladd(sdt, c[is], tj))
+                for k in indices
+                    L[is][k] = sdt * (b[is] * F[is][k])
                 end
-            end
-
-            if Eval[is] == true
-                nfcn[1] += 1
-                f(F[is], U[is], p, tj + hc[is])
-                @. L[is] = hb[is] * F[is]
             end
         end
 
-        if (iter == false && D0 < elems && plusIt)
+        for is in 1:s
+            for k in indices
+                U_[is][k] = U[is][k]
+                dUik = muladd(mu[is, 1], L[1][k], ej[k])
+                for js in 2:s
+                    dUik = muladd(mu[is, js], L[js][k], dUik)
+                end
+                U[is][k] = uj[k] + dUik
+            end
+        end
+
+        diffU = false
+
+        for k in indices
+            DY = abs(U[1][k] - U_[1][k])
+            for is in 2:s
+                DY = max(abs(U[is][k] - U_[is][k]), DY)
+            end
+
+            if DY > 0
+                diffU = true
+                if DY < Dmin[k]
+                    Dmin[k] = DY
+                    iter = true
+                end
+            end
+        end
+
+        if (!iter && diffU && plusIt)
             iter = true
             plusIt = false
         else
@@ -137,311 +120,82 @@ function IRKstep_fixed!(s,
         end
     end  # while
 
-    if (iter && nit == maxiters)
-        println("Failure: maximum numbers of iterations=", maxiters, " at step=", j)
-        return ("Failure", 0)
+    if iter  # iter=true implies that j_iter==maxiters
+        @warn "Interrupted. Reached maximum number of iterations (maxiters=$maxiters). The value dt=$dt may be too large."
+        step_retcode = false
     end
 
-    if (uiType <: CompiledFloats)
+    if step_retcode
+        @inbounds if diffU
+            j_iter += 1
 
-        #~Compensated summation
-        indices = eachindex(uj)
+            nf += s
+            @inbounds begin
+                for is in 1:s
+                    f(F[is], U[is], p, muladd(sdt, c[is], tj))
+                    for k in indices
+                        L[is][k] = sdt * (b[is] * F[is][k])
+                    end
+                end
+            end
+        end
+
+        #Equivalent to compensated summation
+
         @inbounds begin
             for k in indices
-                e0 = ej[k]
-                for is in 1:s
-                    e0 += muladd(F[is][k], hb[is], -L[is][k])
+                L_sum = L[1][k]
+                for is in 2:s
+                    L_sum += L[is][k]
                 end
-                res = Base.TwicePrecision(uj[k], e0)
-                for is in 1:s
-                    res += L[is][k]
-                end
+                res = Base.TwicePrecision(uj[k], ej[k]) + L_sum
+
                 uj[k] = res.hi
                 ej[k] = res.lo
             end
         end
-        res = Base.TwicePrecision(tj, te) + sdt
-        ttj[1] = res.hi
-        ttj[2] = res.lo
-    else
-        @. uj += L[1] + L[2] + L[3] + L[4] + L[5] + L[6] + L[7] + L[8]
-        ttj[1] = tj + sdt
-    end
 
-    dts[1] = min(dt, abs(tf - (ttj[1] + ttj[2])))
-    dts[2] = dt
-
-    return ("Success", nit)
-end
-
-function IRKstep_fixed_Mix!(s,
-        j,
-        ttj,
-        tf,
-        uj,
-        ej,
-        prob,
-        dts,
-        coeffs,
-        cache,
-        maxiters,
-        initial_interp,
-        abstol,
-        reltol,
-        adaptive,
-        threading,
-        mixed_precision,
-        low_prec_type)
-    @unpack mu, hc, hb, nu, alpha = coeffs
-    @unpack f, u0, p, tspan, kwargs = prob
-
-    @unpack U,
-    Uz,
-    L,
-    Lz,
-    F,
-    Dmin,
-    Eval,
-    DY,
-    rejects,
-    nfcn,
-    lambdas,
-    Ulow,
-    DU,
-    DF,
-    DL,
-    delta,
-    Fa,
-    Fb,
-    Plow,
-    normU,
-    lhb,
-    lmu,
-    nrmdigits = cache
-
-    uiType = eltype(uj)
-    realuiType = real(uiType)
-
-    dt = dts[1]
-    dtprev = dts[2]
-    signdt = dts[3]
-    sdt = signdt * dt
-    #    tf = tspan[2]
-
-    elems = s * length(uj)
-
-    tj = ttj[1]
-    te = ttj[2]
-
-    nit = 0
-
-    if (dt != dtprev)
-        HCoefficients!(mu, hc, hb, nu, sdt, signdt * dtprev, realuiType)
-        @unpack mu, hc, hb, nu, alpha = coeffs
-        lhb .= hb
-    end
-
-    if initial_interp
-        @inbounds begin
-            for is in 1:s
-                for k in eachindex(uj)
-                    aux = zero(eltype(uj))
-                    for js in 1:s
-                        aux += nu[is, js] * L[js][k]
-                    end
-                    U[is][k] = (uj[k] + ej[k]) + aux
-                end
-            end
-        end
-    else
-        @inbounds begin
-            for is in 1:s
-                @. U[is] = uj + ej
-            end
-        end
-    end
-
-    iter = true
-    plusIt = true
-
-    nit = 0
-    @inbounds begin
-        for is in 1:s
-            Dmin[is] .= Inf
-        end
-    end
-
-    @inbounds begin
-        for is in 1:s
-            nfcn[1] += 1
-            f(F[is], U[is], p, tj + hc[is])
-            @. L[is] = hb[is] * F[is]
-        end
-    end
-
-    lmax = 1
-
-    while (nit < maxiters && iter)
-        nit += 1
-        iter = false
-        D0 = 0
-
-        @inbounds begin
-            for is in 1:s
-                Uz[is] .= U[is]
-                FastBroadcast.@.. U[is] = uj + (ej +
-                                           mu[is, 1] * L[1] +
-                                           mu[is, 2] * L[2] +
-                                           mu[is, 3] * L[3] +
-                                           mu[is, 4] * L[4] +
-                                           mu[is, 5] * L[5] +
-                                           mu[is, 6] * L[6] +
-                                           mu[is, 7] * L[7] +
-                                           mu[is, 8] * L[8])
-                Ulow[is] .= U[is]
-                normU[is] = copy(norm(Ulow[is]))
-            end
-        end # inbound
-
-        for is in 1:s
-            Eval[is] = false
-            for k in eachindex(uj)
-                DY[is] = abs(Rdigits(U[is][k], nrmdigits[]) -
-                             Rdigits(Uz[is][k], nrmdigits[]))
-                if DY[is] > 0.0
-                    Eval[is] = true
-                    if DY[is] < Dmin[is][k]
-                        Dmin[is][k] = DY[is]
-                        iter = true
-                        #						elseif DY[is]>abs(U[is][k])*1e-8
-                        #							iter=true
-                    end
-                else
-                    D0 += 1
-                    if abs(U[is][k] - Uz[is][k]) > 0.0
-                        Eval[is] = true
-                    end
-                end
-            end
-
-            if Eval[is] == true
-                nfcn[1] += 1
-                f(F[is], U[is], p, tj + hc[is])
-                @. delta[is] = muladd(F[is], hb[is], -L[is])
-            else
-                delta[is] .= 0
-            end
-
-            DL[is] .= delta[is]
-        end
-
-        lmax = min(lmax * 2, 6)
-
-        for l in 1:lmax
-            for is in 1:s
-                if (Eval[is] == true)
-                    FastBroadcast.@.. DU[is] = lmu[is, 1] * DL[1] +
-                                               lmu[is, 2] * DL[2] +
-                                               lmu[is, 3] * DL[3] +
-                                               lmu[is, 4] * DL[4] +
-                                               lmu[is, 5] * DL[5] +
-                                               lmu[is, 6] * DL[6] +
-                                               lmu[is, 7] * DL[7] +
-                                               lmu[is, 8] * DL[8]
-                end
-            end
-
-            for is in 1:s
-                if (Eval[is] == true && norm(DU[is]) != 0)
-                    beta = 1e-6 * norm(normU[is]) / norm(DU[is])
-                    nfcn[2] += 2
-                    tjci = convert(low_prec_type, tj + hc[is])
-                    f(Fa[is], muladd.(beta, DU[is], Ulow[is]), Plow, tjci)
-                    f(Fb[is], muladd.(-beta, DU[is], Ulow[is]), Plow, tjci)
-                    @. DF[is] = 1 / (2 * beta) * (Fa[is] - Fb[is])
-                    @. DL[is] = muladd(DF[is], lhb[is], delta[is])
-                end
-            end
-        end # end  for l
-
-        for is in 1:s
-            if (Eval[is] == true)
-                @. L[is] += DL[is]
-            end
-        end
-
-        if (iter == false && D0 < elems && plusIt)
-            iter = true
-            plusIt = false
+        if abs(sdt) >= dtmax
+            ttj[1] = tf
+            ttj[2] = 0
         else
-            plusIt = true
-        end
-    end # while
-
-    if (iter && nit == maxiters)
-        println("Failure: maximum numbers of iterations=", maxiters, " at step=", j)
-        return ("Failure", 0)
-    end
-
-    if (uiType <: CompiledFloats)
-
-        #     ~ Compensated summation
-
-        indices = eachindex(uj)
-        @inbounds begin
-            for k in indices
-                e0 = ej[k]
-                for is in 1:s
-                    e0 += muladd(F[is][k], hb[is], -L[is][k])
-                end
-                res = Base.TwicePrecision(uj[k], e0)
-                for is in 1:s
-                    res += L[is][k]
-                end
-                uj[k] = res.hi
-                ej[k] = res.lo
-            end
+            res = Base.TwicePrecision(tj, te) + sdt
+            ttj[1] = res.hi
+            ttj[2] = res.lo
         end
 
-        res = Base.TwicePrecision(tj, te) + sdt
-        ttj[1] = res.hi
-        ttj[2] = res.lo
-    else
-        @. uj += L[1] + L[2] + L[3] + L[4] + L[5] + L[6] + L[7] + L[8]
-        ttj[1] = tj + sdt
+        dtmax = abs((tf - ttj[1]) - ttj[2])
+        dts[1] = min(dt, dtmax)
+        dts[2] = dt
+
+        stats.nfpiter += j_iter
+        stats.nf += nf
     end
 
-    dts[1] = min(dt, abs(tf - (ttj[1] + ttj[2])))
-    dts[2] = dt
-
-    return ("Success", nit)
+    return step_retcode
 end
 
 #
 # DynamicalODEFunction
 #
 
-function IRKstepDynODE_fixed!(s,
-        j,
-        ttj,
-        tf,
-        uj,
-        ej,
-        prob,
-        dts,
-        coeffs,
-        cache,
-        maxiters,
-        initial_interp,
-        abstol,
-        reltol,
-        adaptive,
-        threading)
-    @unpack mu, hc, hb, nu, alpha = coeffs
-    @unpack tspan, p = prob
-    f1 = prob.f.f1
-    f2 = prob.f.f2
-    @unpack U, Uz, L, Lz, F, Dmin, Eval, DY, rejects, nfcn, lambdas, nrmdigits = cache
+function IRKstepDynODE_fixed!(ttj::Array{tType, 1},
+        uj::uType,
+        ej::uType,
+        dts::Array{tType, 1},
+        stats::SciMLBase.DEStats,
+        coeffs::tcoeffs{tType},
+        cache::tcache{uType, realuType, tType, fT, pT}) where {
+        uType, realuType, tType, fT, pT}
+    @unpack mu, c, b, nu, alpha = coeffs
+    @unpack p, U, U_, L, L_, F, Dmin, tf, lambdas = cache
+
+    f = cache.odef
+    initial_extrap = cache.initial_extrap
+    step_number = cache.step_number[]
+    maxiters = (step_number == 1 ? 10 + cache.maxiters : cache.maxiters)
+    f1 = f.f1
+    f2 = f.f2
 
     uiType = eltype(uj)
     realuiType = real(uiType)
@@ -451,143 +205,127 @@ function IRKstepDynODE_fixed!(s,
     signdt = dts[3]
     sdt = signdt * dt
 
-    #    tf = tspan[2]
-
-    elems = s * length(uj)
-
+    s = length(b)
     tj = ttj[1]
     te = ttj[2]
+    dtmax = abs((tf - ttj[1]) - ttj[2])
 
-    nit = 0
+    indices = eachindex(uj)
+    indices1 = eachindex(uj.x[1])
+    indices2 = indices1[end] .+ eachindex(uj.x[2])
 
-    if (dt != dtprev)
-        HCoefficients!(mu, hc, hb, nu, sdt, signdt * dtprev, realuiType)
-        @unpack mu, hc, hb, nu, alpha = coeffs
-    end
+    #if (dt != dtprev)
+    #    ExtrapolationCoefficients!(nu, mu, c,  sdt, signdt*dtprev, realuiType)
+    #end
 
-    if initial_interp
-        @inbounds begin
-            for is in 1:s
-                for k in eachindex(uj)
-                    aux = zero(eltype(uj))
-                    for js in 1:s
-                        aux += nu[is, js] * L[js][k]
-                    end
-                    U[is][k] = (uj[k] + ej[k]) + aux
+    step_retcode = true
+    j_iter = 0
+
+    if initial_extrap && step_number > 1
+        for is in 1:s
+            for k in indices2
+                dUik = muladd(nu[is, 1], L[1][k], ej[k])
+                for js in 2:s
+                    dUik = muladd(nu[is, js], L[js][k], dUik)
                 end
+                U[is][k] = uj[k] + dUik
             end
         end
     else
-        @inbounds begin
-            for is in 1:s
-                @. U[is] = uj + ej
+        for is in 1:s
+            for k in indices2
+                U[is][k] = uj[k] + ej[k]
             end
         end
     end
+
+    nf = s
+    nf2 = 0
+    @inbounds begin
+        for is in 1:s
+            f1(F[is].x[1], U[is].x[1], U[is].x[2], p, muladd(sdt, c[is], tj))
+            for k in indices1
+                L[is][k] = sdt * (b[is] * F[is][k])
+            end
+        end
+    end
+
+    for is in 1:s
+        for k in indices1
+            dUik = muladd(mu[is, 1], L[1][k], ej[k])
+            for js in 2:s
+                dUik = muladd(mu[is, js], L[js][k], dUik)
+            end
+            U[is][k] = uj[k] + dUik
+        end
+    end
+
+    Dmin .= Inf
 
     iter = true
     plusIt = true
+    diffU = true
 
-    nit = 0
-    for is in 1:s
-        Dmin[is] .= Inf
-    end
-
-    @inbounds begin
-        for is in 1:s
-            nfcn[1] += 1
-            f1(F[is].x[1], U[is].x[1], U[is].x[2], p, tj + hc[is])
-            f2(F[is].x[2], U[is].x[1], U[is].x[2], p, tj + hc[is])
-            @. L[is] = hb[is] * F[is]
-        end
-    end
-
-    while (nit < maxiters && iter)
-        nit += 1
+    while (j_iter < maxiters && iter)
         iter = false
-        D0 = 0
+        j_iter += 1
 
-        #           First part
-
-        @inbounds begin
-            for is in 1:s
-                Uz[is].x[1] .= U[is].x[1]
-                FastBroadcast.@.. U[is].x[1] = uj.x[1] + (ej.x[1] +
-                                                mu[is, 1] * L[1].x[1] +
-                                                mu[is, 2] * L[2].x[1] +
-                                                mu[is, 3] * L[3].x[1] +
-                                                mu[is, 4] * L[4].x[1] +
-                                                mu[is, 5] * L[5].x[1] +
-                                                mu[is, 6] * L[6].x[1] +
-                                                mu[is, 7] * L[7].x[1] +
-                                                mu[is, 8] * L[8].x[1])
+        nf2 += s
+        for is in 1:s
+            f2(F[is].x[2], U[is].x[1], U[is].x[2], p, muladd(sdt, c[is], tj))
+            for k in indices2
+                L[is][k] = sdt * (b[is] * F[is][k])
             end
-        end #inbounds
+        end
 
         for is in 1:s
-            Eval[is] = false
-            for k in eachindex(U[is].x[1])
-                DY[is] = abs(U[is].x[1][k] - Uz[is].x[1][k])
-                if DY[is] > 0.0
-                    Eval[is] = true
-                    if DY[is] < Dmin[is].x[1][k]
-                        Dmin[is].x[1][k] = DY[is]
-                        iter = true
-                        #							elseif DY[is]>abs(U[is].x[1][k])*1e-8
-                        #								iter=true
-                    end
-                else
-                    D0 += 1
+            for k in indices2
+                dUik = muladd(mu[is, 1], L[1][k], ej[k])
+                for js in 2:s
+                    dUik = muladd(mu[is, js], L[js][k], dUik)
+                end
+                U_[is][k] = U[is][k]
+                U[is][k] = uj[k] + dUik
+            end
+        end
+
+        nf += s
+        for is in 1:s
+            f1(F[is].x[1], U[is].x[1], U[is].x[2], p, muladd(sdt, c[is], tj))
+            for k in indices1
+                L[is][k] = sdt * (b[is] * F[is][k])
+            end
+        end
+
+        for is in 1:s
+            for k in indices1
+                dUik = muladd(mu[is, 1], L[1][k], ej[k])
+                for js in 2:s
+                    dUik = muladd(mu[is, js], L[js][k], dUik)
+                end
+                U_[is][k] = U[is][k]
+                U[is][k] = uj[k] + dUik
+            end
+        end
+
+        diffU = false
+
+        for k in indices
+            DY = abs(U[1][k] - U_[1][k])
+            for is in 2:s
+                DY = max(abs(U[is][k] - U_[is][k]), DY)
+            end
+
+            if DY > 0
+                diffU = true
+                if DY < Dmin[k]
+                    Dmin[k] = DY
+                    iter = true
                 end
             end
-
-            if Eval[is] == true
-                nfcn[1] += 1
-                f2(F[is].x[2], U[is].x[1], U[is].x[2], p, tj + hc[is])
-                @. L[is].x[2] = hb[is] * F[is].x[2]
-            end
         end
 
-        #           Second part
-
-        for is in 1:s
-            Uz[is].x[2] .= U[is].x[2]
-            FastBroadcast.@.. U[is].x[2] = uj.x[2] + (ej.x[2] +
-                                            mu[is, 1] * L[1].x[2] +
-                                            mu[is, 2] * L[2].x[2] +
-                                            mu[is, 3] * L[3].x[2] +
-                                            mu[is, 4] * L[4].x[2] +
-                                            mu[is, 5] * L[5].x[2] +
-                                            mu[is, 6] * L[6].x[2] +
-                                            mu[is, 7] * L[7].x[2] +
-                                            mu[is, 8] * L[8].x[2])
-        end
-
-        for is in 1:s
-            Eval[is] = false
-            for k in eachindex(U[is].x[2])
-                DY[is] = abs(U[is].x[2][k] - Uz[is].x[2][k])
-                if DY[is] > 0.0
-                    Eval[is] = true
-                    if DY[is] < Dmin[is].x[2][k]
-                        Dmin[is].x[2][k] = DY[is]
-                        iter = true
-                        #						  elseif DY[is]>abs(U[is].x[2][k])*1e-8
-                        #							  iter=true
-                    end
-                else
-                    D0 += 1
-                end
-            end
-
-            if Eval[is] == true
-                #						nfcn[1]+=1
-                f1(F[is].x[1], U[is].x[1], U[is].x[2], p, tj + hc[is])
-                @. L[is].x[1] = hb[is] * F[is].x[1]
-            end
-        end
-
-        if (iter == false && D0 < elems && plusIt)
+        if (!iter && diffU && plusIt)
             iter = true
             plusIt = false
         else
@@ -595,42 +333,294 @@ function IRKstepDynODE_fixed!(s,
         end
     end # while iter
 
-    if (iter && nit == maxiters)
-        println("Failure: maximum numbers of iterations=", maxiters, " at step=", j)
-        return ("Failure", 0)
+    if iter  # iter=true implies that j_iter==maxiters
+        @warn "Interrupted. Reached maximum number of iterations (maxiters=$maxiters). The value dt=$dt may be too large."
+        step_retcode = false
     end
 
-    if (uiType <: CompiledFloats)
+    if step_retcode
 
-        #           ~Compensated summation
+        #@inbounds if (j_iter<maxiters && diffU)   
+        @inbounds if diffU
+            j_iter += 1
 
-        indices = eachindex(uj)
+            nf2 += s
+            for is in 1:s
+                f2(F[is].x[2], U[is].x[1], U[is].x[2], p, muladd(sdt, c[is], tj))
+                for k in indices2
+                    L[is][k] = sdt * (b[is] * F[is][k])
+                end
+            end
+
+            for is in 1:s
+                for k in indices2
+                    dUik = muladd(mu[is, 1], L[1][k], ej[k])
+                    for js in 2:s
+                        dUik = muladd(mu[is, js], L[js][k], dUik)
+                    end
+                    U[is][k] = uj[k] + dUik
+                end
+            end
+
+            nf += s
+            for is in 1:s
+                f1(F[is].x[1], U[is].x[1], U[is].x[2], p, muladd(sdt, c[is], tj))
+                for k in indices1
+                    L[is][k] = sdt * (b[is] * F[is][k])
+                end
+            end
+        end
+
+        #Equivalent to compensated summation
+
         @inbounds begin
             for k in indices
-                e0 = ej[k]
-                for is in 1:s
-                    e0 += muladd(F[is][k], hb[is], -L[is][k])
+                L_sum = L[1][k]
+                for is in 2:s
+                    L_sum += L[is][k]
                 end
-                res = Base.TwicePrecision(uj[k], e0)
-                for is in 1:s
-                    res += L[is][k]
-                end
+                res = Base.TwicePrecision(uj[k], ej[k]) + L_sum
+
                 uj[k] = res.hi
                 ej[k] = res.lo
             end
         end
 
-        res = Base.TwicePrecision(tj, te) + sdt
-        ttj[1] = res.hi
-        ttj[2] = res.lo
+        if abs(sdt) >= dtmax
+            ttj[1] = tf
+            ttj[2] = 0
+        else
+            res = Base.TwicePrecision(tj, te) + sdt
+            ttj[1] = res.hi
+            ttj[2] = res.lo
+        end
 
-    else
-        @. uj += L[1] + L[2] + L[3] + L[4] + L[5] + L[6] + L[7] + L[8]
-        ttj[1] = tj + sdt
+        dtmax = abs((tf - ttj[1]) - ttj[2])
+
+        dts[1] = min(dt, dtmax)
+        dts[2] = dt
+
+        stats.nfpiter += j_iter
+        stats.nf += nf
+        stats.nf2 += nf2
     end
 
-    dts[1] = min(dt, abs(tf - (ttj[1] + ttj[2])))
-    dts[2] = dt
+    return step_retcode
+end
 
-    return ("Success", nit)
+function IRKNGLstep_fixed_simpl!(ttj::Array{tType, 1},
+        uj::uType,
+        ej::uType,
+        dts::Array{tType, 1},
+        stats::SciMLBase.DEStats,
+        coeffs::tcoeffs{tType},
+        cache::tcache{uType, realuType, tType, fT, pT}) where {
+        uType, realuType, tType, fT, pT}
+    @unpack mu, c, b, nu, alpha = coeffs
+    @unpack p, U, U_, L, L_, F, Dmin, tf, lambdas = cache
+
+    f = cache.odef
+    initial_extrap = cache.initial_extrap
+    step_number = cache.step_number[]
+    maxiters = (step_number == 1 ? 10 + cache.maxiters : cache.maxiters)
+
+    len = length(uj)
+    #lenq = cache.length_q
+    lenq = div(len, 2)
+    tf = cache.tf
+
+    s = length(b)
+    tj = ttj[1]
+    te = ttj[2]
+    dtmax = abs((tf - ttj[1]) - ttj[2])
+
+    indices = eachindex(uj)
+    indices1 = 1:lenq
+    indices2 = (lenq + 1):len
+
+    dt = dts[1]
+    dtprev = dts[2]
+    signdt = dts[3]
+    sdt = dt * signdt
+
+    j_iter = 0  # counter of fixed_point iterations
+    nf = 0
+    nf2 = 0
+
+    step_retcode = true
+
+    if initial_extrap && step_number > 1
+        for is in 1:s
+            for k in indices2
+                dUik = muladd(nu[is, 1], L[1][k], ej[k])
+                for js in 2:s
+                    dUik = muladd(nu[is, js], L[js][k], dUik)
+                end
+                U[is][k] = uj[k] + dUik
+            end
+        end
+    else
+        for is in 1:s
+            for k in indices2
+                U[is][k] = uj[k] + ej[k]
+            end
+        end
+    end
+
+    for is in 1:s
+        nf += 1
+        for k in indices1
+            F[is][k] = U[is][k + lenq]
+            L[is][k] = sdt * (b[is] * F[is][k])
+        end
+    end
+
+    for is in 1:s
+        for k in indices1
+            dUik = muladd(mu[is, 1], L[1][k], ej[k])
+            for js in 2:s
+                dUik = muladd(mu[is, js], L[js][k], dUik)
+            end
+            U[is][k] = uj[k] + dUik
+        end
+    end
+
+    Dmin .= Inf
+
+    iter = true # Initialize iter outside the for loop
+    plusIt = true
+    diffU = false
+
+    @inbounds while (j_iter < maxiters && iter)
+        iter = false
+        j_iter += 1
+
+        for is in 1:s
+            nf2 += 1
+            f(F[is], U[is], p, tj + sdt * c[is])
+            for k in indices2
+                L[is][k] = sdt * (b[is] * F[is][k])
+            end
+        end
+
+        for is in 1:s
+            for k in indices2
+                dUik = muladd(mu[is, 1], L[1][k], ej[k])
+                for js in 2:s
+                    dUik = muladd(mu[is, js], L[js][k], dUik)
+                end
+                U_[is][k] = U[is][k]
+                U[is][k] = uj[k] + dUik
+            end
+        end
+
+        for is in 1:s
+            nf += 1
+            for k in indices1
+                F[is][k] = U[is][k + lenq]
+                L[is][k] = sdt * (b[is] * F[is][k])
+            end
+        end
+
+        for is in 1:s
+            for k in indices1
+                dUik = muladd(mu[is, 1], L[1][k], ej[k])
+                for js in 2:s
+                    dUik = muladd(mu[is, js], L[js][k], dUik)
+                end
+                U_[is][k] = U[is][k]
+                U[is][k] = uj[k] + dUik
+            end
+        end
+
+        diffU = false
+
+        for k in indices
+            DY = abs(U[1][k] - U_[1][k])
+            for is in 2:s
+                DY = max(abs(U[is][k] - U_[is][k]), DY)
+            end
+
+            if DY > 0
+                diffU = true
+                if DY < Dmin[k]
+                    Dmin[k] = DY
+                    iter = true
+                end
+            end
+        end
+
+        if (!iter && diffU && plusIt)
+            iter = true
+            plusIt = false
+        else
+            plusIt = true
+        end
+    end # while
+
+    if iter  # iter=true implies that j_iter==maxiters
+        @warn "Interrupted. Reached maximum number of iterations (maxiters=$maxiters). The value dt=$dt may be too large."
+        step_retcode = false
+    end
+
+    if step_retcode
+        @inbounds if diffU
+            j_iter += 1
+
+            for is in 1:s
+                nf2 += 1
+                f(F[is], U[is], p, tj + sdt * c[is])
+                for k in indices2
+                    L[is][k] = sdt * (b[is] * F[is][k])
+                end
+            end
+
+            for is in 1:s
+                for k in indices2
+                    dUik = muladd(mu[is, 1], L[1][k], ej[k])
+                    for js in 2:s
+                        dUik = muladd(mu[is, js], L[js][k], dUik)
+                    end
+                    U[is][k] = uj[k] + dUik
+                end
+            end
+
+            for is in 1:s
+                nf += 1
+                for k in indices1
+                    F[is][k] = U[is][k + lenq]
+                    L[is][k] = sdt * (b[is] * F[is][k])
+                end
+            end
+        end
+
+        @inbounds for k in indices    #Equivalent to compensated summation
+            L_sum = L[1][k]
+            for is in 2:s
+                L_sum += L[is][k]
+            end
+            res = Base.TwicePrecision(uj[k], ej[k]) + L_sum
+            uj[k] = res.hi
+            ej[k] = res.lo
+        end
+
+        if abs(sdt) >= dtmax
+            ttj[1] = tf
+            ttj[2] = 0
+        else
+            res = Base.TwicePrecision(tj, te) + sdt
+            ttj[1] = res.hi
+            ttj[2] = res.lo
+        end
+
+        dtmax = abs((tf - ttj[1]) - ttj[2])
+        dts[1] = min(abs(sdt), dtmax)
+        dts[2] = dt
+
+        stats.nfpiter += j_iter
+        stats.nf += nf
+        stats.nf2 += nf2
+    end
+
+    return step_retcode
 end

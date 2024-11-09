@@ -2,7 +2,7 @@
 #  NLS: Non Linear Schrödinger
 #
 
-function NLSHam(u, p)
+function NLSHam(u, par)
     N = 5
 
     @inbounds begin
@@ -25,7 +25,10 @@ function NLSHam(u, p)
     end
 end
 
-function NLSODE!(du, u, p, t)
+function NLSODE_!(du, u, par, t)
+    #
+    #   wrong for simd !!!
+    #
     N = 5
 
     q = view(u, 1:N)
@@ -55,4 +58,50 @@ function NLSODE!(du, u, p, t)
     du[2 * N] = -q[N] * (q[N]^2 + p[N]^2) +
                 (2 * q[N - 1]^2 * q[N] - 2 * p[N - 1]^2 * q[N] +
                  4 * p[N - 1] * p[N] * q[N - 1])
+
+    return nothing
+end
+
+function NLSODE!(du, u, par, t)
+
+    #  2024-07-30 New
+    #   correct for simd
+    #    
+    N = 5
+
+    #q = view(u, 1:N)
+    #p = view(u, (N + 1):(2 * N))
+
+    iq = 0
+    ip = N
+
+    du[1] = u[ip + 1] * (u[iq + 1]^2 + u[ip + 1]^2) -
+            (2 * u[ip + 1] * u[ip + 2]^2 - 2 * u[ip + 1] * u[iq + 2]^2 +
+             4 * u[ip + 2] * u[iq + 1] * u[iq + 2])
+    du[N + 1] = -u[iq + 1] * (u[iq + 1]^2 + u[ip + 1]^2) +
+                (2 * u[iq + 1] * u[iq + 2]^2 - 2 * u[iq + 1] * u[ip + 2]^2 +
+                 4 * u[ip + 1] * u[ip + 2] * u[iq + 2])
+
+    for i in 2:(N - 1)
+        du[i] = u[ip + i] * (u[iq + i]^2 + u[ip + i]^2) -
+                (2 * u[ip + (i - 1)]^2 * u[ip + i] - 2 * u[iq + (i - 1)]^2 * u[ip + i] +
+                 4 * u[ip + (i - 1)] * u[iq + (i - 1)] * u[iq + i]) -
+                (2 * u[ip + i] * u[ip + (i + 1)]^2 - 2 * u[ip + i] * u[iq + (i + 1)]^2 +
+                 4 * u[ip + (i + 1)] * u[iq + i] * u[iq + (i + 1)])
+
+        du[i + N] = -u[iq + i] * (u[iq + i]^2 + u[ip + i]^2) +
+                    (2 * u[iq + (i - 1)]^2 * u[iq + i] - 2 * u[ip + (i - 1)]^2 * u[iq + i] +
+                     4 * u[ip + (i - 1)] * u[ip + i] * u[iq + (i - 1)]) +
+                    (2 * u[iq + i] * u[iq + (i + 1)]^2 - 2 * u[iq + i] * u[ip + (i + 1)]^2 +
+                     4 * u[ip + i] * u[ip + (i + 1)] * u[iq + (i + 1)])
+    end
+
+    du[N] = u[ip + N] * (u[iq + N]^2 + u[ip + N]^2) -
+            (2 * u[ip + (N - 1)]^2 * u[ip + N] - 2 * u[iq + (N - 1)]^2 * u[ip + N] +
+             4 * u[ip + (N - 1)] * u[iq + (N - 1)] * u[iq + N])
+    du[2 * N] = -u[iq + N] * (u[iq + N]^2 + u[ip + N]^2) +
+                (2 * u[iq + (N - 1)]^2 * u[iq + N] - 2 * u[ip + (N - 1)]^2 * u[iq + N] +
+                 4 * u[ip + (N - 1)] * u[ip + N] * u[iq + (N - 1)])
+
+    return nothing
 end
