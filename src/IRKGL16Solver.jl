@@ -125,6 +125,7 @@ function SciMLBase.__solve(
         adaptive = true,
         reltol = eltype(tspanType)(1e-6),
         abstol = eltype(tspanType)(1e-6),
+        saveat = nothing
         kwargs...) where {
         uType,
         tspanType,
@@ -146,6 +147,10 @@ function SciMLBase.__solve(
     stats.nfpiter = 0
     stats.naccept = 0
     stats.nreject = 0
+
+    if saveat !== nothing
+        error("saveat is not currently supported in this algorithm."
+    end
 
     if (prob.f isa DynamicalODEFunction)
         @unpack tspan, p = prob
