@@ -310,7 +310,7 @@ function IRKstepDynODE_fixed!(ttj::Array{tType, 1},
 
         diffU = false
 
-        for k in indices
+        for k in indices1
             DY = abs(U[1][k] - U_[1][k])
             for is in 2:s
                 DY = max(abs(U[is][k] - U_[is][k]), DY)
@@ -535,7 +535,7 @@ function IRKNGLstep_fixed_simpl!(ttj::Array{tType, 1},
 
         diffU = false
 
-        for k in indices
+        for k in indices1
             DY = abs(U[1][k] - U_[1][k])
             for is in 2:s
                 DY = max(abs(U[is][k] - U_[is][k]), DY)

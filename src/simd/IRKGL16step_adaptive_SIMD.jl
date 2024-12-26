@@ -68,18 +68,18 @@ function IRKstep_SIMD_adaptive!(ttj::Array{tType, 1},
             end
 
             for k in indices
-                Lk = getindex_(L_, k)
+                Lk = L_[k]
                 dUk = muladd(nu[1], Lk[1], ej[k])
                 for js in 2:s
                     dUk = muladd(nu[js], Lk[js], dUk)
                 end
-                setindex_!(U, uj[k] + dUk, k)
+                U[k] = uj[k] + dUk
             end
 
         else
             for k in indices   # 2024-07-29 behin-behinekoa expolaziorik gabe
                 uej = uj[k] + ej[k]
-                setindex_!(U, uej, k)
+                U[k] = uej
             end
         end
 
@@ -99,16 +99,16 @@ function IRKstep_SIMD_adaptive!(ttj::Array{tType, 1},
             f(F, U, p, tj + sdt * c)
 
             for k in indices
-                Fk = getindex_(F, k)
+                Fk = F[k]
                 Lk = sdt * (b * Fk)
                 dUk = muladd(mu[1], Lk[1], ej[k])
                 for is in 2:s
                     dUk = muladd(mu[is], Lk[is], dUk)
                 end
                 Uk = uj[k] + dUk
-                setindex_!(U, Uk, k)
-                setindex_!(L, Lk, k)
-                Uk_ = getindex_(U_, k)
+                U[k] = Uk
+                L[k] = Lk
+                Uk_ = U_[k]
                 DY = maximum(abs(Uk - Uk_))
 
                 if DY > 0
@@ -160,16 +160,16 @@ function IRKstep_SIMD_adaptive!(ttj::Array{tType, 1},
             f(F, U, p, tj + sdt * c)
 
             for k in indices
-                Fk = getindex_(F, k)
+                Fk = F[k]
                 Lk = sdt * (b * Fk)
-                setindex_!(L, Lk, k)
+                L[k] = Lk
             end
         end
 
         #Equivalent to compensated summation
 
         @inbounds for k in indices    #Equivalent to compensated summation
-            Lk = getindex_(L, k)
+            Lk = L[k]
             L_sum = sum(Lk)
             res = Base.TwicePrecision(uj[k], ej[k]) + L_sum
             uj[k] = res.hi
@@ -286,26 +286,26 @@ function IRKNGLstep_SIMD_adaptive_simpl!(ttj::Array{tType, 1},
         end
 
         for k in indices2
-            Lk = getindex_(L_, k)
+            Lk = L_[k]
             dUk = muladd(nu[1], Lk[1], ej[k])
             for is in 2:s
                 dUk = muladd(nu[is], Lk[is], dUk)
             end
-            setindex_!(U, uj[k] + dUk, k)
+            U[k] = uj[k] + dUk
         end
 
         nf += s
         for k in indices1
-            Uk = getindex_(U, k + lenq)
-            setindex_!(F, Uk, k)
-            Fk = getindex_(F, k)
+            Uk = U[k + lenq]
+            F[k] = Uk
+            Fk = F[k]
             Lk = sdt * (b * Fk)
-            setindex_!(L, Lk, k)
+            L[k] = Lk
             dUk = muladd(mu[1], Lk[1], ej[k])
             for is in 2:s
                 dUk = muladd(mu[is], Lk[is], dUk)
             end
-            setindex_!(U, uj[k] + dUk, k)
+            U[k] = uj[k] + dUk
         end
 
         Dmin .= Inf
@@ -324,35 +324,35 @@ function IRKNGLstep_SIMD_adaptive_simpl!(ttj::Array{tType, 1},
             f(F, U, p, tj + sdt * c)
 
             for k in indices2
-                Fk = getindex_(F, k)
+                Fk = F[k]
                 Lk = sdt * (b * Fk)
-                setindex_!(L, Lk, k)
+                L[k] = Lk
                 dUk = muladd(mu[1], Lk[1], ej[k])
                 for is in 2:s
                     dUk = muladd(mu[is], Lk[is], dUk)
                 end
-                setindex_!(U, uj[k] + dUk, k)
+                U[k] = uj[k] + dUk
             end
 
             nf += s
             for k in indices1
-                Uk = getindex_(U, k + lenq)
-                setindex_!(F, Uk, k)
-                Fk = getindex_(F, k)
+                Uk = U[k + lenq]
+                F[k] = Uk
+                Fk = F[k]
                 Lk = sdt * (b * Fk)
-                setindex_!(L, Lk, k)
+                L[k] = Lk
                 dUk = muladd(mu[1], Lk[1], ej[k])
                 for is in 2:s
                     dUk = muladd(mu[is], Lk[is], dUk)
                 end
-                setindex_!(U, uj[k] + dUk, k)
+                U[k] = uj[k] + dUk
             end
 
             diffU = false
 
-            for k in indices
-                Uk = getindex_(U, k)
-                Uk_ = getindex_(U_, k)
+            for k in indices1
+                Uk = U[k]
+                Uk_ = U_[k]
                 DY = maximum(abs(Uk - Uk_))
 
                 if DY > 0
@@ -404,30 +404,30 @@ function IRKNGLstep_SIMD_adaptive_simpl!(ttj::Array{tType, 1},
             f(F, U, p, tj + sdt * c)
 
             for k in indices2
-                Fk = getindex_(F, k)
+                Fk = F[k]
                 Lk = sdt * (b * Fk)
                 dUk = muladd(mu[1], Lk[1], ej[k])
                 for is in 2:s
                     dUk = muladd(mu[is], Lk[is], dUk)
                 end
-                setindex_!(U, uj[k] + dUk, k)
-                setindex_!(L, Lk, k)
+                U[k] = uj[k] + dUk
+                L[k] = Lk
             end
 
             nf += s
             for k in indices1
-                Uk = getindex_(U, k + lenq)
-                setindex_!(F, Uk, k)
-                Fk = getindex_(F, k)
+                Uk = U[k + lenq]
+                F[k] = Uk
+                Fk = F[k]
                 Lk = sdt * (b * Fk)
-                setindex_!(L, Lk, k)
+                L[k] = Lk
             end
         end
 
         #Equivalent to compensated summation
 
         @inbounds for k in indices
-            Lk = getindex_(L, k)
+            Lk = L[k]
             L_sum = sum(Lk)
             res = Base.TwicePrecision(uj[k], ej[k]) + L_sum
             uj[k] = res.hi
