@@ -42,9 +42,9 @@ function ErrorEst_SIMD(U, F, len, indices, dt, alpha, abstol, reltol)
 
     @inbounds begin
         for k in indices
-            Fk = getindex_(F, k)
+            Fk = F[k]
             sum_ = sum(Fk * alpha)
-            Uk = getindex_(U, k)
+            Uk = U[k]
             maxUk = maximum(abs(Uk))
 
             est += (abs(dt * sum_))^2 / (abstol + maxUk^2 * reltol)

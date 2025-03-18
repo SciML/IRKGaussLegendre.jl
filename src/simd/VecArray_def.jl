@@ -6,7 +6,8 @@ end
 Base.eltype(::Type{VecArray{s, T, dim}}) where {s, T, dim} = T
 
 @inline function Base.getindex(v::VecArray{s, T, dim}, k...) where {s, T, dim}
-    Vec{s, T}(NTuple{s, T}(@inbounds v.data[is, k...] for is in 1:s))
+    #    Vec{s, T}(NTuple{s, T}(@inbounds v.data[is, k...] for is in 1:s))
+    Vec{s, T}(ntuple(is -> @inbounds(v.data[is, k...]), s))
 end
 
 @inline function Base.setindex!(
@@ -25,12 +26,15 @@ end
     return nothing
 end
 
-@inline function getindex_(v::VecArray{s, T, dim}, k::Int64) where {s, T, dim}
+## getindex_ and  setindex_! implementations
+
+@inline function getindex(v::VecArray{s, T, dim}, k::Int64) where {s, T, dim}
     j = s * (k - 1)
-    Vec{s, T}(NTuple{s, T}(@inbounds v.data[is + j] for is in 1:s))
+    #    Vec{s, T}(NTuple{s, T}(@inbounds v.data[is + j] for is in 1:s))
+    Vec{s, T}(ntuple(is -> @inbounds(v.data[is + j]), s))
 end
 
-@inline function setindex_!(
+@inline function setindex!(
         v::VecArray{s, T, dim}, vk::Vec{s, T}, k::Int64) where {s, T, dim}
     j = s * (k - 1)
     @inbounds for is in 1:s
@@ -39,7 +43,7 @@ end
     return nothing
 end
 
-@inline function setindex_!(v::VecArray{s, T, dim}, vk::T2, k::Int64) where {s, T, T2, dim}
+@inline function setindex!(v::VecArray{s, T, dim}, vk::T2, k::Int64) where {s, T, T2, dim}
     vk_ = convert(T, vk)
     j = s * (k - 1)
     @inbounds for is in 1:s

@@ -104,6 +104,7 @@ condition, and the timespan to solve over:
 using IRKGaussLegendre
 using OrdinaryDiffEq
 using Plots, LinearAlgebra, LaTeXStrings
+using BenchmarkTools
 ```
 
 ```julia
@@ -346,5 +347,12 @@ plot!(sol3t[2:end], abs.(ΔE3[2:end]), yscale=:log10, label="DPRKN12")
 
 ## Implementation details
 
-[Antoñana, M., Makazaga, J., Murua, Ander. "Reducing and monitoring round-off error propagation
+- [Antoñana, M., Makazaga, J., Murua, Ander. "Reducing and monitoring round-off error propagation
 for symplectic implicit Runge-Kutta schemes."  Numerical Algorithms. 2017.](https://doi.org/10.1007/s11075-017-0287-z)
+
+- [Antoñana, M., Murua, Ander. "SIMD-vectorized implicit symplectic integrators
+can outperform explicit symplectic ones."  2025.](https://github.com/mikelehu/Implicit_symplectic_can_outperform_explicit_symplectic)
+
+### 
+
+Updated  January 8, 2025
