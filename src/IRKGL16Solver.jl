@@ -8,6 +8,10 @@ struct tcoeffs{tType}
     X::Array{tType, 1}
     Y::Array{tType, 2}
     Z::Array{tType, 1}
+    kappa::Array{tType, 1}
+    X2::Array{tType, 1}
+    Y2::Array{tType, 2}
+    Z2::Array{tType, 1}
 end
 
 struct tcache{uType, realuType, tType, fT, pT}
@@ -41,6 +45,11 @@ struct tcoeffs_SIMD{floatT, s_}
     Y::Array{floatT, 2}
     Z::Array{floatT, 1}
     nu_::Array{floatT, 2}
+    kappa::Vec{s_, floatT}
+    kappa_::Array{floatT, 1}
+    X2::Array{floatT, 1}
+    Y2::Array{floatT, 2}
+    Z2::Array{floatT, 1}
 end
 
 struct IRKGL_SIMD_Cache{realuType, floatT, fType, pType, s_, dim_}
@@ -66,7 +75,6 @@ end
 
 abstract type IRKAlgorithm{
     second_order_ode,
-    mstep,
     simd,
     maxtrials,
     initial_extrapolation,
@@ -74,14 +82,12 @@ abstract type IRKAlgorithm{
 } <: SciMLBase.AbstractODEAlgorithm end
 struct IRKGL16{
     second_order_ode,
-    mstep,
     simd,
     maxtrials,
     initial_extrapolation,
     threading
 } <: IRKAlgorithm{
     second_order_ode,
-    mstep,
     simd,
     maxtrials,
     initial_extrapolation,
@@ -89,14 +95,12 @@ struct IRKGL16{
 } end
 function IRKGL16(;
         second_order_ode = false,
-        mstep = 1,
         simd = false,
         maxtrials = 5,
         initial_extrapolation = true,
         threading = false)
     IRKGL16{
         second_order_ode,
-        mstep,
         simd,
         maxtrials,
         initial_extrapolation,
@@ -112,7 +116,6 @@ function SciMLBase.__solve(
         },
         alg::IRKGL16{
             second_order_ode,
-            mstep,
             simd,
             maxtrials,
             initial_extrapolation,
@@ -122,16 +125,15 @@ function SciMLBase.__solve(
         dt = zero(eltype(tspanType)),
         maxiters = 100,
         save_everystep = true,
+        saveat = nothing,
         adaptive = true,
         reltol = eltype(tspanType)(1e-6),
         abstol = eltype(tspanType)(1e-6),
-        saveat = nothing,
         kwargs...) where {
         uType,
         tspanType,
         isinplace,
         second_order_ode,
-        mstep,
         simd,
         maxtrials,
         initial_extrapolation,
@@ -147,10 +149,6 @@ function SciMLBase.__solve(
     stats.nfpiter = 0
     stats.naccept = 0
     stats.nreject = 0
-
-    if saveat !== nothing
-        error("saveat is not currently supported in this algorithm.")
-    end
 
     if (prob.f isa DynamicalODEFunction)
         @unpack tspan, p = prob
@@ -288,7 +286,8 @@ function SciMLBase.__solve(
 
     if simd
         coeffs = tcoeffs{tType}(zeros(s, s), zeros(s), zeros(s), zeros(s, s),
-            zeros(s), zeros(s + 1), zeros(s, s + 1), zeros(s))
+            zeros(s), zeros(s + 1), zeros(s, s + 1), zeros(s),
+            zeros(s), zeros(s + 1), zeros(s, s + 1), zeros(1))
         mu_ = coeffs.mu
         c_ = coeffs.c
         b_ = coeffs.b
@@ -297,6 +296,10 @@ function SciMLBase.__solve(
         X = coeffs.X
         Y = coeffs.Y
         Z = coeffs.Z
+        kappa_ = coeffs.kappa
+        X2 = coeffs.X2
+        Y2 = coeffs.Y2
+        Z2 = coeffs.Z2
 
         EstimateCoeffs!(alpha_, tType)
 
@@ -311,6 +314,10 @@ function SciMLBase.__solve(
             nu_ .= -(PolInterp(sdt * X, Y, sdt * Z))'
         end
 
+        # Inteporlation
+        X2 .= vcat([0], c_[1:1:end])
+        Y2 .= hcat(zeros(tType, s), mu_')
+
         dims = size(u0)
 
         c = vload(Vec{s, floatType}, c_, 1)
@@ -318,6 +325,7 @@ function SciMLBase.__solve(
         nu = VecArray{s, floatType, 2}(nu_)
         mu = VecArray{s, floatType, 2}(mu_)
         alpha = vload(Vec{s, floatType}, alpha_, 1)
+        kappa = vload(Vec{s, floatType}, kappa_, 1)
 
         zz = zeros(Float64, s, dims...)
         U = VecArray{s, Float64, length(dims) + 1}(zz)
@@ -326,7 +334,7 @@ function SciMLBase.__solve(
         L_ = deepcopy(U)
         F = deepcopy(U)
 
-        coeffs = tcoeffs_SIMD(b, c, mu, nu, alpha, X, Y, Z, nu_)
+        coeffs = tcoeffs_SIMD(b, c, mu, nu, alpha, X, Y, Z, nu_, kappa, kappa_, X2, Y2, Z2)
 
         cache = IRKGL_SIMD_Cache(f, p, abstol, reltol,
             U, U_, L, L_, F,
@@ -335,9 +343,11 @@ function SciMLBase.__solve(
             fill(zero(tType), 2))
 
     else
-        coeffs = tcoeffs{tType}(zeros(s, s), zeros(s), zeros(s), zeros(s, s),
-            zeros(s), zeros(s + 1), zeros(s, s + 1), zeros(s))
-        @unpack mu, c, b, nu, alpha, X, Y, Z = coeffs
+        coeffs = tcoeffs{tType}(zeros(s, s), zeros(s), zeros(s),
+            zeros(s, s), zeros(s), zeros(s + 1), zeros(s, s + 1), zeros(s),
+            zeros(s), zeros(s + 1), zeros(s, s + 1), zeros(1))
+
+        @unpack mu, c, b, nu, alpha, X, Y, Z, kappa, X2, Y2, Z2 = coeffs
         EstimateCoeffs!(alpha, tType)
 
         GaussLegendreCoefficients!(mu, c, b, tType)
@@ -350,6 +360,10 @@ function SciMLBase.__solve(
         else
             nu .= -(PolInterp(sdt * X, Y, sdt * Z))'
         end
+
+        # Inteporlation
+        X2 .= vcat([0], c[1:1:end])
+        Y2 .= hcat(zeros(tType, s), mu')
 
         U = Array{uType}(undef, s)
         U_ = Array{uType}(undef, s)
@@ -384,6 +398,32 @@ function SciMLBase.__solve(
             fill(zero(tType), 2))
     end
 
+    #if saveat !== nothing
+    #    error("saveat is not currently supported in this algorithm.")
+    #end
+    # Define save times
+    save_times = [0]
+    next_save_index = 2  # start saving after t0
+    if saveat != nothing
+        if isa(saveat, Number)
+            save_everystep = false
+            if tf>t0
+                save_times = sort(union(collect(t0:saveat:tf), tf), order = Base.Forward)
+            else
+                save_times = sort(union(collect(tf:saveat:t0), t0), order = Base.Reverse)
+            end
+        elseif isa(saveat, AbstractVector)
+            save_everystep = false
+            if tf>t0
+                save_times = sort(union(t0, saveat, tf), order = Base.Forward)  # include t0 and tf to ensure full span
+            else
+                save_times = sort(union(tf, saveat, t0), order = Base.Reverse)
+            end
+        else
+            error("Unsupported saveat format")
+        end
+    end
+
     #   initialization output variables
     uu = uType[]
     tt = tType[]
@@ -394,6 +434,10 @@ function SciMLBase.__solve(
     tj = [t0, zero(t0)]
     uj = copy(u0)
     ej = zero(u0)
+    ux = copy(u0)  # to compute saveat
+    indices = eachindex(uj)
+    uj_ = copy(uj)
+    tj_=tj[1]
 
     cont = true
     error_warn = 0
@@ -401,33 +445,65 @@ function SciMLBase.__solve(
     step_retcode = true
 
     while cont
-        @inbounds begin
-            for i in 1:mstep
-                step_number[] += 1
-                step_retcode = step_fun(tj,
-                    uj,
-                    ej,
-                    dts,
-                    stats,
-                    coeffs,
-                    cache)
+        tj_=tj[1]
+        uj_=copy(uj)
 
-                if !step_retcode
-                    error_warn = 1
-                    cont = false
-                    break
-                end
+        step_number[] += 1
+        step_retcode = step_fun(tj,
+            uj,
+            ej,
+            dts,
+            stats,
+            coeffs,
+            cache)
 
-                if tj[1] == tf
-                    cont = false
-                    break
-                end
-            end
+        if !step_retcode
+            error_warn = 1
+            cont = false
+            break
+        end
+
+        if tj[1] == tf
+            cont = false
+            break
         end
 
         if save_everystep
             push!(tt, tj[1])
             push!(uu, copy(uj))
+        elseif saveat != nothing
+            while signdt*(tj[1]-save_times[next_save_index])>0
+                #interpolation
+                theta = abs((save_times[next_save_index]-tj_)/dts[2])
+                Z2 .= [theta]
+
+                if !simd
+                    kappa .= (PolInterp(X2, Y2, Z2))
+                    for k in indices
+                        dUik = kappa[1]*L[1][k]
+                        for js in 2:s
+                            dUik = muladd(kappa[js], L[js][k], dUik)
+                        end
+                        ux[k] = uj_[k] + dUik
+                    end
+                else
+                    kappa_ .= (PolInterp(X2, Y2, Z2))
+                    kappa = vload(Vec{s, floatType}, kappa_, 1)
+                    for k in indices
+                        Lk=L[k]
+                        ux[k] = uj_[k] + sum(Lk*kappa)
+                    end
+                end
+
+                push!(tt, save_times[next_save_index])
+                push!(uu, copy(ux))
+                next_save_index+=1
+            end
+            if tj[1]==save_times[next_save_index]
+                push!(tt, tj[1])
+                push!(uu, copy(uj))
+                next_save_index+=1
+            end
         end
     end
 
@@ -439,10 +515,38 @@ function SciMLBase.__solve(
             prob, alg, tt, uu, stats = stats, retcode = ReturnCode.Failure)
 
     else
-        if !save_everystep
-            push!(uu, copy(uj))
-            push!(tt, tj[1])
+        if saveat != nothing
+            while signdt*(tj[1]-save_times[next_save_index])>0
+                #interpolation
+                theta = abs((save_times[next_save_index]-tj_)/dts[2])
+                Z2 .= [theta]
+
+                if !simd
+                    kappa .= (PolInterp(X2, Y2, Z2))
+                    for k in indices
+                        dUik = kappa[1]*L[1][k]
+                        for js in 2:s
+                            dUik = muladd(kappa[js], L[js][k], dUik)
+                        end
+                        ux[k] = uj_[k] + dUik
+                    end
+                else
+                    kappa_ .= (PolInterp(X2, Y2, Z2))
+                    kappa = vload(Vec{s, floatType}, kappa_, 1)
+                    for k in indices
+                        Lk=L[k]
+                        ux[k] = uj_[k] + sum(Lk*kappa)
+                    end
+                end
+
+                push!(tt, save_times[next_save_index])
+                push!(uu, copy(ux))
+                next_save_index+=1
+            end
         end
+
+        push!(uu, copy(uj))
+        push!(tt, tj[1])
 
         sol = SciMLBase.build_solution(
             prob, alg, tt, uu, stats = stats, retcode = ReturnCode.Success)
