@@ -119,6 +119,7 @@ function NbodyODE!(F, u, Gm, t)
         end
     end
     for i in 1:3, j in 1:N
+
         F[i, j, 1] = u[i, j, 2]
     end
     return nothing

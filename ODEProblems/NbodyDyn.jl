@@ -8,6 +8,7 @@ function NbodyODEv!(dv, q, v, Gm, t)
     N = length(Gm)
 
     for i in 1:3, j in 1:N
+
         dv[i, j] = 0
     end
 
@@ -43,6 +44,7 @@ function NbodyODEq!(dq, q, v, Gm, t)
     #
     N = length(Gm)
     for i in 1:3, j in 1:N
+
         dq[i, j] = v[i, j]
     end
 
