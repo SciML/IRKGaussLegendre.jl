@@ -12,7 +12,7 @@ Required Julia 1.5 version or higher
 
 We present a Julia implementation of a 16th order Implicit Runge-Kutta integrator IRKGL16 (a 8-stage
 IRK scheme based on Gauss-Legendre nodes) for **high accuracy** numerical integration of non-stiff
-ODE systems. Our algorithm supports **adaptive time-steping, SIMD-vectorization and multithreading** to
+ODE systems. Our algorithm supports **adaptive time-steping and SIMD-vectorization** to
 solve problems fast and accurately
 
 The family of implicit Runge-Kutta schemes based on collocation with Gauss-Legendre nodes is
@@ -40,6 +40,7 @@ julia>using IRKGaussLegendre
 ### Available common keyword arguments
 
 - dt: stepsize
+- saveat: denotes specific times to save the solution at, during the solving phase. If saveat is given a number, then it will automatically expand to tspan[1]:saveat:tspan[2]. For methods where interpolation is not possible, saveat may be equivalent to tstops. The default value is [].
 - save_everystep: saves the result at every step. Default is true (see keyword argument mstep)
 - adaptive: =true (adaptive timestepping); =false (fixed timestepping)
 - maxiters: maximum number of fixed-point iterations before stopping
@@ -61,7 +62,6 @@ julia>using IRKGaussLegendre
       - =false (default):  generic implementation that can use with arbitrary Julia-defined number systems 
 
 
-- mstep: output saved at every 'mstep' steps. Default 1.
 
 
 - initial_extrapolation: initialization method for stages.
@@ -343,7 +343,7 @@ plot!(sol3t[2:end], abs.(ΔE3[2:end]), yscale=:log10, label="DPRKN12")
 
 ## More Examples
 
-[Benchmark examples](https://github.com/SciML/IRKGaussLegendre.jl/tree/master/Benchmarks)
+[Benchmark examples](https://github.com/mikelehu/Implicit_symplectic_can_outperform_explicit_symplectic/tree/main/Other%20Benchmarks)
 
 ## Implementation details
 
@@ -353,6 +353,10 @@ for symplectic implicit Runge-Kutta schemes."  Numerical Algorithms. 2017.](http
 - [Antoñana, M., Murua, Ander. "SIMD-vectorized implicit symplectic integrators
 can outperform explicit symplectic ones."  2025.](https://github.com/mikelehu/Implicit_symplectic_can_outperform_explicit_symplectic)
 
-### 
 
-Updated  January 8, 2025
+
+## Contact
+
+If you have any questions or suggestions, feel free to open an issue or contact us at mikel.antonana@ehu.eus.
+
+Updated July 29th, 2025
