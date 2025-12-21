@@ -12,6 +12,7 @@ struct tcoeffs{tType}
     X2::Array{tType, 1}
     Y2::Array{tType, 2}
     Z2::Array{tType, 1}
+    eta::Array{tType, 2}
 end
 
 struct tcache{uType, realuType, tType, fT, pT}
@@ -50,6 +51,7 @@ struct tcoeffs_SIMD{floatT, s_}
     X2::Array{floatT, 1}
     Y2::Array{floatT, 2}
     Z2::Array{floatT, 1}
+    eta::VecArray{s_, floatT, 2}
 end
 
 struct IRKGL_SIMD_Cache{realuType, floatT, fType, pType, s_, dim_}
@@ -74,37 +76,43 @@ struct IRKGL_SIMD_Cache{realuType, floatT, fType, pType, s_, dim_}
 end
 
 abstract type IRKAlgorithm{
+    s,
     second_order_ode,
     simd,
+    fseq,
     maxtrials,
-    initial_extrapolation,
-    threading
+    initial_extrapolation
 } <: SciMLBase.AbstractODEAlgorithm end
 struct IRKGL16{
+    s,
     second_order_ode,
     simd,
+    fseq,
     maxtrials,
-    initial_extrapolation,
-    threading
+    initial_extrapolation
 } <: IRKAlgorithm{
+    s,
     second_order_ode,
     simd,
+    fseq,
     maxtrials,
-    initial_extrapolation,
-    threading
+    initial_extrapolation
 } end
 function IRKGL16(;
+        s = 8,
         second_order_ode = false,
-        simd = false,
+        #simd = eltype(prob.u0)<:Union{Float32,Float64} ? true : false,
+        simd = true,
+        fseq = true,
         maxtrials = 5,
-        initial_extrapolation = true,
-        threading = false)
+        initial_extrapolation = true)
     IRKGL16{
+        s,
         second_order_ode,
         simd,
+        fseq,
         maxtrials,
-        initial_extrapolation,
-        threading
+        initial_extrapolation
     }()
 end
 
@@ -115,11 +123,12 @@ function SciMLBase.__solve(
             isinplace
         },
         alg::IRKGL16{
+            s,
             second_order_ode,
             simd,
+            fseq,
             maxtrials,
-            initial_extrapolation,
-            threading
+            initial_extrapolation
         },
         args...;
         dt = zero(eltype(tspanType)),
@@ -133,15 +142,15 @@ function SciMLBase.__solve(
         uType,
         tspanType,
         isinplace,
+        s,
         second_order_ode,
         simd,
+        fseq,
         maxtrials,
-        initial_extrapolation,
-        threading
+        initial_extrapolation
 }
     checks = true
 
-    s = 8
     stats = SciMLBase.DEStats(0)
     #stats = DiffEqBase.DEStats(0)
     stats.nf = 0
@@ -150,21 +159,13 @@ function SciMLBase.__solve(
     stats.naccept = 0
     stats.nreject = 0
 
-    if (prob.f isa DynamicalODEFunction)
-        @unpack tspan, p = prob
-        #        f = prob.f
-        f = SciMLBase.unwrapped_f(prob.f)
-        f1 = prob.f.f1
-        f2 = prob.f.f2
-        r0 = prob.u0.x[1]
-        v0 = prob.u0.x[2]
-        u0 = ArrayPartition(r0, v0)
-    elseif (prob.f isa ODEFunction)
+    if (prob.f isa ODEFunction)
         @unpack u0, tspan, p = prob
         f = SciMLBase.unwrapped_f(prob.f)
     else
         @warn("Error: incorrect ODEFunction")
-        sol = SciMLBase.build_solution(prob, alg, [], [], retcode = ReturnCode.Failure)
+        sol = SciMLBase.build_solution(
+            prob, alg, [prob.tspan[1]], [u0], stats = stats, retcode = ReturnCode.Failure)
         return (sol)
     end
 
@@ -180,65 +181,46 @@ function SciMLBase.__solve(
         floatType = eltype(u0)
         if !adaptive
             if !second_order_ode
-                step_fun = IRKGLstep_SIMD_fixed!
+                if !fseq
+                    step_fun = IRKGLstep_SIMD_fixed!
+                else
+                    step_fun = IRKGLstep_HYBR_fixed!
+                end
             else
-                step_fun = IRKNGLstep_SIMD_fixed_simpl!
+                if !fseq
+                    step_fun = IRKNGLstep_SIMD_fixed_2nd!
+                else
+                    step_fun = IRKNGLstep_HYBR_fixed_2nd!
+                end
             end
         else
             if !second_order_ode
-                step_fun = IRKstep_SIMD_adaptive!
+                if !fseq
+                    step_fun = IRKstep_SIMD_adaptive!
+                else
+                    step_fun = IRKstep_HYBR_adaptive!
+                end
             else
-                step_fun = IRKNGLstep_SIMD_adaptive_simpl!
+                if !fseq
+                    step_fun = IRKNGLstep_SIMD_adaptive_2nd!
+                else
+                    step_fun = IRKNGLstep_HYBR_adaptive_2nd!
+                end
             end
         end
 
     else
-        if (threading == true && Threads.nthreads() > 1)
-            #    step_fun=IRKStep_par!
-            if (prob.f isa ODEFunction)
-                if adaptive
-                    step_fun = IRKstep_par_adaptive!
-                else
-                    step_fun = IRKstep_par_fixed!
-                end
-            else # (prob.f<:DynamicalODEFunction)
-                #
-                # @warn("The DynamicalODEProblem problem type will be removed in a future version. Please, code it as ODEProblem with the second_order_ode=true keyword argument instead.")
-                #
-                if adaptive
-                    step_fun = IRKstepDynODE_par_adaptive!
-                else
-                    step_fun = IRKstepDynODE_par_fixed!
-                end
+        if adaptive
+            if !second_order_ode
+                step_fun = IRKstep_adaptive!
+            else
+                step_fun = IRKNGLstep_adaptive_2nd!
             end
-            #
-            #
         else
-            #    step_fun=IRKStep_seq!
-            if (prob.f isa ODEFunction)
-                if adaptive
-                    #
-                    if !second_order_ode
-                        step_fun = IRKstep_adaptive!
-                    else
-                        step_fun = IRKNGLstep_adaptive_simpl!
-                    end
-                else
-                    if !second_order_ode
-                        step_fun = IRKstep_fixed!
-                    else
-                        step_fun = IRKNGLstep_fixed_simpl!
-                    end
-                end
-            else # (prob.f<:DynamicalODEFunction)
-                #
-                #@warn("The DynamicalODEProblem problem type will be removed in a future version. Please, code it as ODEProblem with the second_order_ode=true keyword argument instead.")
-                #
-                if adaptive
-                    step_fun = IRKstepDynODE_adaptive!
-                else
-                    step_fun = IRKstepDynODE_fixed!
-                end
+            if !second_order_ode
+                step_fun = IRKstep_fixed!
+            else
+                step_fun = IRKNGLstep_fixed_2nd!
             end
         end
     end
@@ -249,12 +231,7 @@ function SciMLBase.__solve(
     if (dt == 0)
         d0 = MyNorm(u0, abstol, reltol)
         du0 = similar(u0)
-        if (prob.f isa DynamicalODEFunction)
-            f1(du0.x[1], u0.x[1], u0.x[2], p, t0)
-            f2(du0.x[2], u0.x[1], u0.x[2], p, t0)
-        else # ODEFunction
-            f(du0, u0, p, t0)
-        end
+        f(du0, u0, p, t0)
         d1 = MyNorm(du0, abstol, reltol)
         if (d0 < 1e-5 || d1 < 1e-5)
             dt = convert(tType, 1e-6)
@@ -284,10 +261,11 @@ function SciMLBase.__solve(
     length_u = length(u0)
     length_q = div(length_u, 2)
 
-    if simd
+    if simd && eltype(u0) <: Union{Float32, Float64}
         coeffs = tcoeffs{tType}(zeros(s, s), zeros(s), zeros(s), zeros(s, s),
             zeros(s), zeros(s + 1), zeros(s, s + 1), zeros(s),
-            zeros(s), zeros(s + 1), zeros(s, s + 1), zeros(1))
+            zeros(s), zeros(s + 1), zeros(s, s + 1), zeros(1),
+            zeros(s, s))
         mu_ = coeffs.mu
         c_ = coeffs.c
         b_ = coeffs.b
@@ -300,22 +278,22 @@ function SciMLBase.__solve(
         X2 = coeffs.X2
         Y2 = coeffs.Y2
         Z2 = coeffs.Z2
+        eta_ = coeffs.eta
 
-        EstimateCoeffs!(alpha_, tType)
+        EstimateCoeffs!(s, alpha_, tType)
 
-        GaussLegendreCoefficients!(mu_, c_, b_, tType)
-        #ExtrapolationCoefficients!(nu_, mu_, c_,  signdt*dt, signdt*dtprev, tType)
+        GaussLegendreCoefficients!(s, mu_, c_, b_, eta_, tType)
         X .= vcat(-c_[end:-1:1], [0])
         Y .= hcat(mu_, zeros(tType, s))
         Z .= c_
         if dtprev == 0
             nu_ .= zeros(tType, s, s)
         else
-            nu_ .= -(PolInterp(sdt * X, Y, sdt * Z))'
+            nu_ .= -(PolInterp(X, Y, Z))'
         end
 
         # Inteporlation
-        X2 .= vcat([0], c_[1:1:end])
+        X2 .= vcat([zero(tType)], c_[1:1:end])
         Y2 .= hcat(zeros(tType, s), mu_')
 
         dims = size(u0)
@@ -326,6 +304,7 @@ function SciMLBase.__solve(
         mu = VecArray{s, floatType, 2}(mu_)
         alpha = vload(Vec{s, floatType}, alpha_, 1)
         kappa = vload(Vec{s, floatType}, kappa_, 1)
+        eta = VecArray{s, floatType, 2}(eta_)
 
         zz = zeros(Float64, s, dims...)
         U = VecArray{s, Float64, length(dims) + 1}(zz)
@@ -334,7 +313,8 @@ function SciMLBase.__solve(
         L_ = deepcopy(U)
         F = deepcopy(U)
 
-        coeffs = tcoeffs_SIMD(b, c, mu, nu, alpha, X, Y, Z, nu_, kappa, kappa_, X2, Y2, Z2)
+        coeffs = tcoeffs_SIMD(
+            b, c, mu, nu, alpha, X, Y, Z, nu_, kappa, kappa_, X2, Y2, Z2, eta)
 
         cache = IRKGL_SIMD_Cache(f, p, abstol, reltol,
             U, U_, L, L_, F,
@@ -345,24 +325,24 @@ function SciMLBase.__solve(
     else
         coeffs = tcoeffs{tType}(zeros(s, s), zeros(s), zeros(s),
             zeros(s, s), zeros(s), zeros(s + 1), zeros(s, s + 1), zeros(s),
-            zeros(s), zeros(s + 1), zeros(s, s + 1), zeros(1))
+            zeros(s), zeros(s + 1), zeros(s, s + 1), zeros(1),
+            zeros(s, s))
 
-        @unpack mu, c, b, nu, alpha, X, Y, Z, kappa, X2, Y2, Z2 = coeffs
-        EstimateCoeffs!(alpha, tType)
+        @unpack mu, c, b, nu, alpha, X, Y, Z, kappa, X2, Y2, Z2, eta = coeffs
+        EstimateCoeffs!(s, alpha, tType)
 
-        GaussLegendreCoefficients!(mu, c, b, tType)
-        #ExtrapolationCoefficients!(nu, mu, c,  signdt*dt, signdt*dtprev, tType)
+        GaussLegendreCoefficients!(s, mu, c, b, eta, tType)
         X .= vcat(-c[end:-1:1], [0])
         Y .= hcat(mu, zeros(tType, s))
         Z .= c
         if dtprev == 0
             nu .= zeros(tType, s, s)
         else
-            nu .= -(PolInterp(sdt * X, Y, sdt * Z))'
+            nu .= -(PolInterp(X, Y, Z))'
         end
 
         # Inteporlation
-        X2 .= vcat([0], c[1:1:end])
+        X2 .= vcat([zero(tType)], c[1:1:end])
         Y2 .= hcat(zeros(tType, s), mu')
 
         U = Array{uType}(undef, s)
@@ -446,7 +426,10 @@ function SciMLBase.__solve(
 
     while cont
         tj_=tj[1]
-        uj_=copy(uj)
+
+        if saveat != nothing
+            uj_.=uj
+        end
 
         step_number[] += 1
         step_retcode = step_fun(tj,
