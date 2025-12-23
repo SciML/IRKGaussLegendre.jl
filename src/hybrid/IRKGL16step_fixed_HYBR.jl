@@ -1,10 +1,10 @@
-#   
-#  IRKGL16Step fixed SIMD functions
+#
+#  IRKGL16Step fixed HYBRID functions
+#
+#       IRKGLstep_HYBRID_fixed! 
+#       IRKNGLstep_HYBRID_fixed_2nd!
 
-#      IRKGLstep_SIMD_fixed!  
-#      IRKNGLstep_SIMD_fixed_2nd!  
-
-function IRKGLstep_SIMD_fixed!(ttj::Array{tType, 1},
+function IRKGLstep_HYBR_fixed!(ttj::Array{tType, 1},
         uj::uType,
         ej::uType,
         dts::Array{tType, 1},
@@ -64,7 +64,11 @@ function IRKGLstep_SIMD_fixed!(ttj::Array{tType, 1},
 
         U_.data .= U.data
         nf += s
-        f(F, U, p, tj + sdt * c)
+
+        #f(F, U, p, tj + sdt * c)
+        for is in 1:s
+            f(slice(F, is), slice(U, is), p, tj + sdt * c[is])
+        end
 
         diffU = false
 
@@ -107,7 +111,10 @@ function IRKGLstep_SIMD_fixed!(ttj::Array{tType, 1},
         @inbounds if diffU
             j_iter += 1
             nf += s
-            f(F, U, p, tj + sdt * c)
+            #f(F, U, p, tj + sdt * c)
+            for is in 1:s
+                f(slice(F, is), slice(U, is), p, tj + sdt * c[is])
+            end
 
             for k in indices
                 Fk = F[k]
@@ -142,11 +149,10 @@ function IRKGLstep_SIMD_fixed!(ttj::Array{tType, 1},
         stats.nf += nf
     end
 
-    #println("j=", step_number, ",nit=", j_iter)
     return step_retcode
 end
 
-function IRKNGLstep_SIMD_fixed_2nd!(ttj::Array{tType, 1},
+function IRKNGLstep_HYBR_fixed_2nd!(ttj::Array{tType, 1},
         uj::uType,
         ej::uType,
         dts::Array{tType, 1},
@@ -227,7 +233,11 @@ function IRKNGLstep_SIMD_fixed_2nd!(ttj::Array{tType, 1},
         U_.data .= U.data
 
         nf2 += s
-        f(F, U, p, tj + sdt * c)
+
+        #f(F, U, p, tj + sdt * c)
+        for is in 1:s
+            f(slice(F, is), slice(U, is), p, tj + sdt * c[is])
+        end
 
         for k in indices2
             Fk = F[k]
@@ -279,7 +289,11 @@ function IRKNGLstep_SIMD_fixed_2nd!(ttj::Array{tType, 1},
             j_iter += 1
 
             nf2 += s
-            f(F, U, p, tj + sdt * c)
+
+            #f(F, U, p, tj + sdt * c)
+            for is in 1:s
+                f(slice(F, is), slice(U, is), p, tj + sdt * c[is])
+            end
 
             for k in indices2
                 Fk = F[k]

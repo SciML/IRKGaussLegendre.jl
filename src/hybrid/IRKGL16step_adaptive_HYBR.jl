@@ -1,9 +1,9 @@
 
 #
-#  IRKstep_SIMD_adaptive!
-#  IRKNGLstep_SIMD_adaptive_2nd!
+#  IRKstep_HYBR_adaptive!
+#  IRKNGLstep_HYBR_adaptive_2nd!
 
-function IRKstep_SIMD_adaptive!(ttj::Array{tType, 1},
+function IRKstep_HYBR_adaptive!(ttj::Array{tType, 1},
         uj::uType,
         ej::uType,
         dts::Array{tType, 1},
@@ -96,7 +96,10 @@ function IRKstep_SIMD_adaptive!(ttj::Array{tType, 1},
 
             U_.data .= U.data
             nf += s
-            f(F, U, p, tj + sdt * c)
+            #f(F, U, p, tj + sdt * c)
+            for is in 1:s
+                f(slice(F, is), slice(U, is), p, tj + sdt * c[is])
+            end
 
             for k in indices
                 Fk = F[k]
@@ -129,8 +132,6 @@ function IRKstep_SIMD_adaptive!(ttj::Array{tType, 1},
         end # while iter
 
         ntrials += 1
-
-        #estimate = ErrorEst(U, F, dt, alpha, abstol, reltol)
         estimate = ErrorEst_SIMD(U, F, len, indices, dt, alpha, abstol, reltol)
 
         lambda = (estimate)^pow
@@ -157,7 +158,10 @@ function IRKstep_SIMD_adaptive!(ttj::Array{tType, 1},
         @inbounds if diffU
             j_iter += 1
             nf += s
-            f(F, U, p, tj + sdt * c)
+            #f(F, U, p, tj + sdt * c)
+            for is in 1:s
+                f(slice(F, is), slice(U, is), p, tj + sdt * c[is])
+            end
 
             for k in indices
                 Fk = F[k]
@@ -210,7 +214,7 @@ function IRKstep_SIMD_adaptive!(ttj::Array{tType, 1},
     return step_retcode
 end
 
-function IRKNGLstep_SIMD_adaptive_2nd!(ttj::Array{tType, 1},
+function IRKNGLstep_HYBR_adaptive_2nd!(ttj::Array{tType, 1},
         uj::uType,
         ej::uType,
         dts::Array{tType, 1},
@@ -321,7 +325,10 @@ function IRKNGLstep_SIMD_adaptive_2nd!(ttj::Array{tType, 1},
             U_.data .= U.data
 
             nf2 += s
-            f(F, U, p, tj + sdt * c)
+            #f(F, U, p, tj + sdt * c)
+            for is in 1:s
+                f(slice(F, is), slice(U, is), p, tj + sdt * c[is])
+            end
 
             for k in indices2
                 Fk = F[k]
@@ -365,7 +372,6 @@ function IRKNGLstep_SIMD_adaptive_2nd!(ttj::Array{tType, 1},
 
         ntrials += 1
 
-        #estimate = ErrorEst(U, F, dt, alpha, abstol, reltol)
         estimate = ErrorEst_SIMD(U, F, len, indices, dt, alpha, abstol, reltol)
 
         lambda = (estimate)^pow
@@ -392,7 +398,10 @@ function IRKNGLstep_SIMD_adaptive_2nd!(ttj::Array{tType, 1},
             j_iter += 1
 
             nf2 += s
-            f(F, U, p, tj + sdt * c)
+            #f(F, U, p, tj + sdt * c)
+            for is in 1:s
+                f(slice(F, is), slice(U, is), p, tj + sdt * c[is])
+            end
 
             for k in indices2
                 Fk = F[k]
