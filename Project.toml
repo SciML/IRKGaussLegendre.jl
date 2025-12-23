@@ -15,7 +15,7 @@ SIMD = "fdea26ae-647d-5447-a871-4b548cad5224"
 
 [compat]
 DiffEqBase = "6.100.0"
-FastBroadcast = "0.3"
+FastBroadcast = "0.3.0-0.3.5"
 Parameters = "0.12"
 RecursiveArrayTools = "3"
 Reexport = "1.0"
