@@ -5,7 +5,7 @@ module IRKGaussLegendre
 using Reexport
 @reexport using SciMLBase
 using DiffEqBase
-import FastBroadcast
+#import FastBroadcast
 
 using LinearAlgebra
 using Parameters
