@@ -5,7 +5,7 @@
 #  
 
 function InitialSchwarzschildv2(T = Float64)
-    parms = BigFloat[0.995, 4.6, 8.9e-5]
+    params = BigFloat[0.995, 4.6, 8.9e-5]
 
     r = 11
     θ = pi/2
@@ -13,8 +13,8 @@ function InitialSchwarzschildv2(T = Float64)
 
     u0 = BigFloat[r, θ, pr, 0]
 
-    pθ = r * sqrt(-1 - 2*Ham_Schwarzschild(u0, parms))
-    parms = convert.(T, parms)
+    pθ = r * sqrt(-1 - 2*Ham_Schwarzschild(u0, params))
+    params = convert.(T, params)
 
     c=cos(θ)
     s=sin(θ)
@@ -24,5 +24,5 @@ function InitialSchwarzschildv2(T = Float64)
     py=s*pr+c*pθ/r
     u0 = convert.(T, [x, y, px, py])
 
-    return u0, parms
+    return u0, params
 end

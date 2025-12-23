@@ -2,7 +2,7 @@ function Potential_U(q1, q2)
     return 1/2*(q1*q1+q2*q2)+q1*q1*q2-1/3*q2*q2*q2
 end
 
-function HenonHeliesHam(u, parms)
+function HenonHeliesHam(u, params)
     q1=u[1]
     q2=u[2]
     p1=u[3]
@@ -33,7 +33,7 @@ function H2(u)
     return U
 end
 
-function HenonHeilesODE!(du, u, parms, t)
+function HenonHeilesODE!(du, u, params, t)
     q1=u[1]
     q2=u[2]
     p1=u[3]
@@ -48,7 +48,7 @@ function HenonHeilesODE!(du, u, parms, t)
     return nothing
 end
 
-function flowH1HenonHeiles!(uj, ej, h, parms)
+function flowH1HenonHeiles!(uj, ej, h, params)
     q1=uj[1]
     q2=uj[2]
     p1=uj[3]
@@ -60,7 +60,7 @@ function flowH1HenonHeiles!(uj, ej, h, parms)
     return nothing
 end
 
-function flowH2HenonHeiles!(uj, ej, h, parms)
+function flowH2HenonHeiles!(uj, ej, h, params)
     q1=uj[1]
     q2=uj[2]
     p1=uj[3]

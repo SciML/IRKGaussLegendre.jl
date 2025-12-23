@@ -4,26 +4,26 @@
 #  (cartesian coordinates)
 #  2025-07-08
 
-function Ham_Schwarzschildv2(u, parms)
-    E=parms[1]
-    L=parms[2]
-    β=parms[3]
+function Ham_Schwarzschildv2(u, params)
+    E=params[1]
+    L=params[2]
+    β=params[3]
     x=u[1]
     y=u[2]
     px=u[3]
     py=u[4]
 
-    H1 = H1v2(u, parms)
-    H2 = H2v2(u, parms)
-    H3 = H3v2(u, parms)
+    H1 = H1v2(u, params)
+    H2 = H2v2(u, params)
+    H3 = H3v2(u, params)
 
     return H1+H2+H3
 end
 
-function H1v2(u, parms)
-    E=parms[1]
-    L=parms[2]
-    β=parms[3]
+function H1v2(u, params)
+    E=params[1]
+    L=params[2]
+    β=params[3]
     x=u[1]
     y=u[2]
     px=u[3]
@@ -42,10 +42,10 @@ function H1v2(u, parms)
     return H1
 end
 
-function H2v2(u, parms)
-    E=parms[1]
-    L=parms[2]
-    β=parms[3]
+function H2v2(u, params)
+    E=params[1]
+    L=params[2]
+    β=params[3]
     x=u[1]
     y=u[2]
     px=u[3]
@@ -56,10 +56,10 @@ function H2v2(u, parms)
     return H2
 end
 
-function H3v2(u, parms)
-    E=parms[1]
-    L=parms[2]
-    β=parms[3]
+function H3v2(u, params)
+    E=params[1]
+    L=params[2]
+    β=params[3]
     x=u[1]
     y=u[2]
     px=u[3]
@@ -76,10 +76,10 @@ function H3v2(u, parms)
     H3 = -(px*c+py*s)^2/r
 end
 
-function flowH1Schwarzschildv2!(uj, ej, h, parms)
-    E=parms[1]
-    L=parms[2]
-    β=parms[3]
+function flowH1Schwarzschildv2!(uj, ej, h, params)
+    E=params[1]
+    L=params[2]
+    β=params[3]
 
     x=uj[1]
     y=uj[2]
@@ -105,7 +105,7 @@ function flowH1Schwarzschildv2!(uj, ej, h, parms)
     return nothing
 end
 
-function flowH2Schwarzschildv2!(uj, ej, h, parms)
+function flowH2Schwarzschildv2!(uj, ej, h, params)
     x=uj[1]
     y=uj[2]
     px=uj[3]
@@ -117,7 +117,7 @@ function flowH2Schwarzschildv2!(uj, ej, h, parms)
     return nothing
 end
 
-function flowH3Schwarzschildv2!(uj, ej, h, parms)
+function flowH3Schwarzschildv2!(uj, ej, h, params)
     x=uj[1]
     y=uj[2]
     px=uj[3]

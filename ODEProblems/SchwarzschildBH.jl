@@ -4,10 +4,10 @@
 #  (polar coordinates)
 #  
 
-function Ham_Schwarzschild(u, parms)
-    E=parms[1]
-    L=parms[2]
-    β=parms[3]
+function Ham_Schwarzschild(u, params)
+    E=params[1]
+    L=params[2]
+    β=params[3]
     r=u[1]
     θ=u[2]
     pr=u[3]
@@ -30,10 +30,10 @@ function Ham_Schwarzschild(u, parms)
     return H1+H2+H3
 end
 
-function H1(u, parms)
-    E=parms[1]
-    L=parms[2]
-    β=parms[3]
+function H1(u, params)
+    E=params[1]
+    L=params[2]
+    β=params[3]
     r=u[1]
     θ=u[2]
     pr=u[3]
@@ -56,10 +56,10 @@ function H1(u, parms)
     return H1
 end
 
-function H2(u, parms)
-    E=parms[1]
-    L=parms[2]
-    β=parms[3]
+function H2(u, params)
+    E=params[1]
+    L=params[2]
+    β=params[3]
     r=u[1]
     θ=u[2]
     pr=u[3]
@@ -82,10 +82,10 @@ function H2(u, parms)
     return H2
 end
 
-function H3(u, parms)
-    E=parms[1]
-    L=parms[2]
-    β=parms[3]
+function H3(u, params)
+    E=params[1]
+    L=params[2]
+    β=params[3]
     r=u[1]
     θ=u[2]
     pr=u[3]
@@ -108,10 +108,10 @@ function H3(u, parms)
     return H3
 end
 
-function SchwarzschildODE!(F, u, parms, t)
-    E=parms[1]
-    L=parms[2]
-    β=parms[3]
+function SchwarzschildODE!(F, u, params, t)
+    E=params[1]
+    L=params[2]
+    β=params[3]
     r=u[1]
     θ=u[2]
     pr=u[3]
@@ -144,10 +144,10 @@ function SchwarzschildODE!(F, u, parms, t)
     return nothing
 end
 
-function flowH1Schwarzschild!(uj, ej, h, parms)
-    E=parms[1]
-    L=parms[2]
-    β=parms[3]
+function flowH1Schwarzschild!(uj, ej, h, params)
+    E=params[1]
+    L=params[2]
+    β=params[3]
 
     r=uj[1]
     θ=uj[2]
@@ -173,7 +173,7 @@ function flowH1Schwarzschild!(uj, ej, h, parms)
     return nothing
 end
 
-function flowH2Schwarzschild!(uj, ej, h, parms)
+function flowH2Schwarzschild!(uj, ej, h, params)
     r=uj[1]
     θ=uj[2]
     pr=uj[3]
@@ -193,7 +193,7 @@ function flowH2Schwarzschild!(uj, ej, h, parms)
     return (nothing)
 end
 
-function flowH3Schwarzschild!(uj, ej, h, parms)
+function flowH3Schwarzschild!(uj, ej, h, params)
     r=uj[1]
     pr=uj[3]
 
