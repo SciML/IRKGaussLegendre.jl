@@ -5,18 +5,18 @@
 #  
 
 function InitialSchwarzschild(T = Float64)
-    parms = BigFloat[0.995, 4.6, 8.9e-5]
+    params = BigFloat[0.995, 4.6, 8.9e-5]
 
     r = 11
     θ = pi/2
     pr = 0
     u0 = BigFloat[r, θ, pr, 0]
 
-    pθ = r * sqrt(-1 - 2*Ham_Schwarzschild(u0, parms))
+    pθ = r * sqrt(-1 - 2*Ham_Schwarzschild(u0, params))
 
-    parms = convert.(T, parms)
+    params = convert.(T, params)
 
     u0 = convert.(T, [r, θ, pr, pθ])
 
-    return u0, parms
+    return u0, params
 end
