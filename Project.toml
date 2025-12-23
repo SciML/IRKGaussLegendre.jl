@@ -16,7 +16,7 @@ SciMLBase = "0bca4576-84f4-4d90-8ffe-ffa030f20462"
 [compat]
 AllocCheck = "0.1, 0.2"
 DiffEqBase = "6.100.0"
-FastBroadcast = "0.3"
+FastBroadcast = "0.3.0-0.3.5"
 Parameters = "0.12"
 RecursiveArrayTools = "3"
 Reexport = "1.0"
