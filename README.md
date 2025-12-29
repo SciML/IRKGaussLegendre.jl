@@ -6,19 +6,19 @@ IRKGaussLegendre.jl is an efficient Julia implementation of an implicit Runge-Ku
 The method is fully integrated into the **DifferentialEquations.jl ecosystem** for  high-precision
 integration.
 
-Required Julia 1.5 version or higher
+Requires Julia 1.9 or higher.
 
 ## Description
 
 We present a Julia implementation of a 16th order Implicit Runge-Kutta integrator IRKGL16 (a 8-stage
 IRK scheme based on Gauss-Legendre nodes) for **high accuracy** numerical integration of non-stiff
-ODE systems. Our algorithm supports **adaptive time-steping and SIMD-vectorization** to
-solve problems fast and accurately
+ODE systems. Our algorithm supports **adaptive time-stepping and SIMD-vectorization** to
+solve problems fast and accurately.
 
 The family of implicit Runge-Kutta schemes based on collocation with Gauss-Legendre nodes is
 known to be symplectic and super-convergent (order 2s for the method with s internal nodes), making them very convenient for  high-precision numerical integration of Hamiltonian systems with
 constant time-step size. For **non-stiff problems**, implementations based on fixed-point iterations are
-recommended
+recommended.
 
 We believe that, for general (non-necessarily Hamiltonian) non-stiff ODE systems, such implicit
 Runge-Kutta methods (implemented with fixed point iteration) can be very competitive for high
@@ -30,9 +30,9 @@ precision computations. We show that a vectorized implementation of IRKGL16 that
 This package can be installed using
 
 ```julia
-julia>using Pkg
-julia>Pkg.add("IRKGaussLegendre.jl")
-julia>using IRKGaussLegendre
+julia> using Pkg
+julia> Pkg.add("IRKGaussLegendre")
+julia> using IRKGaussLegendre
 ```
 
 ## Solver options
@@ -335,6 +335,7 @@ plot(title="Error in energy", legend=:bottomright,
      xlabel="t", ylabel=L"log10(\Delta E)")
 plot!(sol1.t[2:end], abs.(ΔE1[2:end]), yscale=:log10, label="IRKGL16-generic")
 plot!(sol2.t[2:end], abs.(ΔE2[2:end]), yscale=:log10, label="IRKGL16-simd")
+ΔE3 = map(x->NbodyEnergy(BigFloat.(x),GmBig), sol3u)./E0.-1
 plot!(sol3t[2:end], abs.(ΔE3[2:end]), yscale=:log10, label="DPRKN12")
 ```
 
@@ -358,5 +359,3 @@ can outperform explicit symplectic ones."  2025.](https://github.com/mikelehu/Im
 ## Contact
 
 If you have any questions or suggestions, feel free to open an issue or contact us at mikel.antonana@ehu.eus.
-
-Updated July 29th, 2025
