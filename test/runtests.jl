@@ -1,6 +1,8 @@
 using IRKGaussLegendre, ODEProblemLibrary, DiffEqDevTools, Test
 import ODEProblemLibrary: prob_ode_2Dlinear, prob_ode_bigfloat2Dlinear
 
+const GROUP = get(ENV, "GROUP", "all")
+
 function NbodyODE!(F, u, Gm, t)
     N = length(Gm)
     for i in 1:N
@@ -89,3 +91,10 @@ prob = ODEProblem(simplependulum, u0, tspan)
 sol = solve(prob, IRKGL16(), dt = dt0, adaptive = false)
 
 @test sol.t[end] == tspan[2]
+
+# Allocation tests (run separately to avoid precompilation interference)
+if GROUP == "all" || GROUP == "nopre"
+    @testset "Allocation Tests" begin
+        include("alloc_tests.jl")
+    end
+end
