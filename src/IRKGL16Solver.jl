@@ -93,6 +93,38 @@ struct IRKGL16{
     initial_extrapolation,
     threading
 } end
+"""
+    IRKGL16(; second_order_ode=false, simd=false, maxtrials=5, initial_extrapolation=true, threading=false)
+
+A 16th order implicit Runge-Kutta integrator based on Gauss-Legendre collocation nodes.
+
+This 8-stage IRK scheme is symplectic and super-convergent, making it ideal for high-precision
+numerical integration of non-stiff ODE systems, particularly Hamiltonian systems.
+
+# Keyword Arguments
+- `second_order_ode::Bool=false`: Set to `true` when solving second-order ODEs for optimized handling.
+- `simd::Bool=false`: Enable SIMD-vectorized implementation. Only available for `Float32` or `Float64`.
+- `maxtrials::Int=5`: Maximum number of attempts to accept an adaptive step size.
+- `initial_extrapolation::Bool=true`: Use extrapolation from previous step values for stage initialization.
+- `threading::Bool=false`: Enable multi-threading for stage-wise parallelization.
+
+# Examples
+```julia
+using IRKGaussLegendre, OrdinaryDiffEq
+
+# Standard usage
+prob = ODEProblem(f, u0, tspan, p)
+sol = solve(prob, IRKGL16(), reltol=1e-12, abstol=1e-12)
+
+# With SIMD optimization (Float64 only)
+sol = solve(prob, IRKGL16(simd=true), reltol=1e-12, abstol=1e-12)
+
+# For second-order ODEs
+sol = solve(prob, IRKGL16(second_order_ode=true), reltol=1e-12, abstol=1e-12)
+```
+
+See also the [README](https://github.com/SciML/IRKGaussLegendre.jl) for detailed examples.
+"""
 function IRKGL16(;
         second_order_ode = false,
         simd = false,

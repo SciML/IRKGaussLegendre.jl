@@ -1,3 +1,13 @@
-using Documenter, IRKGaussLegendre.jl
+using Documenter, IRKGaussLegendre
 
-makedocs()
+makedocs(
+    sitename = "IRKGaussLegendre.jl",
+    modules = [IRKGaussLegendre],
+    pages = [
+        "Home" => "index.md"
+    ]
+)
+
+deploydocs(
+    repo = "github.com/SciML/IRKGaussLegendre.jl.git"
+)
