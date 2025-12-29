@@ -1,6 +1,6 @@
 using IRKGaussLegendre
 using IRKGaussLegendre: IRKstep_fixed!, IRKstep_adaptive!, tcoeffs, tcache,
-    GaussLegendreCoefficients!, EstimateCoeffs!, PolInterp!, MyNorm
+                        GaussLegendreCoefficients!, EstimateCoeffs!, PolInterp!, MyNorm
 using Test
 using AllocCheck
 
@@ -142,11 +142,11 @@ end
 
     # Warm up thoroughly
     for _ in 1:20
-        solve(prob, IRKGL16(), reltol=1e-8, abstol=1e-8)
+        solve(prob, IRKGL16(), reltol = 1e-8, abstol = 1e-8)
     end
 
     # Measure allocations
-    alloc = @allocated sol = solve(prob, IRKGL16(), reltol=1e-8, abstol=1e-8)
+    alloc = @allocated sol = solve(prob, IRKGL16(), reltol = 1e-8, abstol = 1e-8)
     nsteps = length(sol.t)
 
     # Check that per-step overhead is reasonable
