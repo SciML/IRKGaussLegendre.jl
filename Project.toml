@@ -1,7 +1,7 @@
 name = "IRKGaussLegendre"
 uuid = "58bc7355-f626-4c51-96f2-1f8a038f95a2"
-authors = ["joseba <mikel.antonana@gmail.com>"]
 version = "0.2.11"
+authors = ["joseba <mikel.antonana@gmail.com>"]
 
 [deps]
 DiffEqBase = "2b5f629d-d688-5b77-993f-72d75c75574e"
@@ -10,23 +10,25 @@ LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 Parameters = "d96e819e-fc66-5662-9728-84c9c7592b0a"
 RecursiveArrayTools = "731186ca-8d62-57ce-b412-fbd966d074cd"
 Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
-SciMLBase = "0bca4576-84f4-4d90-8ffe-ffa030f20462"
 SIMD = "fdea26ae-647d-5447-a871-4b548cad5224"
+SciMLBase = "0bca4576-84f4-4d90-8ffe-ffa030f20462"
 
 [compat]
+AllocCheck = "0.1, 0.2"
 DiffEqBase = "6.100.0"
 FastBroadcast = "0.3"
 Parameters = "0.12"
 RecursiveArrayTools = "3"
 Reexport = "1.0"
-SciMLBase = "2"
 SIMD = "3.5.0"
+SciMLBase = "2"
 julia = "1.9"
 
 [extras]
+AllocCheck = "9b6a8646-10ed-4001-bbdc-1d2f46dfbb1a"
 DiffEqDevTools = "f3b72e0c-5b89-59e1-b016-84e28bfd966d"
 ODEProblemLibrary = "fdc4e326-1af4-4b90-96e7-779fcce2daa5"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
 [targets]
-test = ["DiffEqDevTools", "ODEProblemLibrary", "Test"]
+test = ["AllocCheck", "DiffEqDevTools", "ODEProblemLibrary", "Test"]

@@ -41,6 +41,56 @@ function PolInterp(X::AbstractVector{ctype},
     return pz
 end
 
+"""
+    PolInterp!(pz, X, Y, Z)
+
+In-place version of PolInterp that writes results to pre-allocated output matrix `pz`.
+This version avoids allocations by reusing the output buffer.
+
+# Arguments
+- `pz`: Pre-allocated output matrix of size (K, M) where K = size(Y, 1) and M = length(Z)
+- `X`: Vector of interpolation nodes (length N)
+- `Y`: Matrix of values at nodes (size K × N)
+- `Z`: Vector of points at which to interpolate (length M)
+
+# Returns
+- `pz`: The same matrix, filled with interpolated values
+"""
+function PolInterp!(pz::AbstractMatrix{ctype},
+        X::AbstractVector{ctype},
+        Y::AbstractMatrix{ctype},
+        Z::AbstractVector{ctype}) where {ctype}
+    N = length(X)
+    M = length(Z)
+    K = size(Y, 1)
+
+    fill!(pz, zero(ctype))
+
+    @inbounds begin
+        for i in 1:N
+            lag = one(ctype)
+            for j in 1:N
+                if (j != i)
+                    lag *= X[i] - X[j]
+                end
+            end
+            lag = one(ctype) / lag
+            for m in 1:M
+                liz = lag
+                for j in 1:N
+                    if (j != i)
+                        liz *= Z[m] - X[j]
+                    end
+                end
+                for k in 1:K
+                    pz[k, m] += Y[k, i] * liz
+                end
+            end
+        end
+    end
+    return pz
+end
+
 function GaussLegendreCoefficients!(mu, c, b, T::Type{<:CompiledFloats})
     mu[1, 1] = convert(T, 0.5)
 
