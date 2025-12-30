@@ -71,3 +71,11 @@ MTK = "MTK"
 ODE = "ODE"
 PDE = "PDE"
 SDE = "SDE"
+
+# IRK/Gauss-Legendre specific terms
+writen = "writen"  # Allow as appears in mathematical context
+
+[files]
+# Exclude Jupyter notebook files from spell checking
+# Notebooks contain complex JSON structure and generated content
+extend-exclude = ["*.ipynb"]
