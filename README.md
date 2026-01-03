@@ -3,7 +3,7 @@
 [![Build Status](https://github.com/SciML/IRKGaussLegendre.jl/workflows/CI/badge.svg)](https://github.com/SciML/IRKGaussLegendre.jl/actions?query=workflow%3ACI)
 
 IRKGaussLegendre.jl is an efficient Julia implementation of an implicit Runge-Kutta Gauss-Legendre 16th order method.
-The method is fully integrated into the **DifferentialEquations.jl ecosystem** for  high-precision
+The method is fully integrated into the **DifferentialEquations.jl ecosystem** for high-precision
 integration.
 
 Requires Julia 1.9 or higher.
@@ -16,13 +16,13 @@ ODE systems. Our algorithm supports **adaptive time-stepping and SIMD-vectorizat
 solve problems fast and accurately.
 
 The family of implicit Runge-Kutta schemes based on collocation with Gauss-Legendre nodes is
-known to be symplectic and super-convergent (order 2s for the method with s internal nodes), making them very convenient for  high-precision numerical integration of Hamiltonian systems with
+known to be symplectic and super-convergent (order 2s for the method with s internal nodes), making them very convenient for high-precision numerical integration of Hamiltonian systems with
 constant time-step size. For **non-stiff problems**, implementations based on fixed-point iterations are
 recommended.
 
 We believe that, for general (non-necessarily Hamiltonian) non-stiff ODE systems, such implicit
 Runge-Kutta methods (implemented with fixed point iteration) can be very competitive for high
-precision computations. We show that a vectorized implementation of IRKGL16 that exploits the SIMD-based parallelism offered by modern processor can be more efficient than high order explicit Runge-Kutta methods even for double precision computations (**see the following experiment as an example**).
+precision computations. We show that a vectorized implementation of IRKGL16 that exploits the SIMD-based parallelism offered by modern processors can be more efficient than high order explicit Runge-Kutta methods even for double precision computations (**see the following experiment as an example**).
 
 
 ## Installation
@@ -53,13 +53,13 @@ julia> using IRKGaussLegendre
 
 - second_order_ode (boolean):
 
-      - =false (default): for a ODEProblem type 
+      - =false (default): for an ODEProblem type
       - =true: for a second-order differential equation 
 
 - simd (boolean):
 
       - =true: SIMD-vectorized implementation only available for Float32 or Float64 computations
-      - =false (default):  generic implementation that can use with arbitrary Julia-defined number systems 
+      - =false (default): generic implementation that can be used with arbitrary Julia-defined number systems 
 
 
 
@@ -289,7 +289,8 @@ plot(pl)
 
 #### Step Size
 
-```plot(xlabel="t", ylabel="step size",title="Adaptive step size")
+```julia
+plot(xlabel="t", ylabel="step size",title="Adaptive step size")
 steps1 =sol1.t[2:end]-sol1.t[1:end-1]
 plot!(sol1.t[2:end],steps1, label="generic")
 steps2 =sol2.t[2:end]-sol2.t[1:end-1]
