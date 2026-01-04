@@ -1,16 +1,18 @@
-
 #
 #  IRKstep_SIMD_adaptive!
 #  IRKNGLstep_SIMD_adaptive_simpl!
 
-function IRKstep_SIMD_adaptive!(ttj::Array{tType, 1},
+function IRKstep_SIMD_adaptive!(
+        ttj::Array{tType, 1},
         uj::uType,
         ej::uType,
         dts::Array{tType, 1},
         stats::SciMLBase.DEStats,
         coeffs::tcoeffs_SIMD{floatT},
-        cache::IRKGL_SIMD_Cache{realuType, floatT, fType, pType, s_, dim_}) where {
-        uType, tType, realuType, floatT, fType, pType, s_, dim_}
+        cache::IRKGL_SIMD_Cache{realuType, floatT, fType, pType, s_, dim_}
+    ) where {
+        uType, tType, realuType, floatT, fType, pType, s_, dim_,
+    }
     @unpack mu, c, b, nu, alpha, X, Y, Z, nu_ = coeffs
     @unpack p, abstol, reltol, U, U_, L, L_, F, Dmin, tf, lambdas = cache
 
@@ -146,9 +148,11 @@ function IRKstep_SIMD_adaptive!(ttj::Array{tType, 1},
     end # while accept
 
     if (!accept && ntrials == maxtrials)
-        @warn("Failure (adaptive step): maximum number of trials=", maxtrials,
+        @warn(
+            "Failure (adaptive step): maximum number of trials=", maxtrials,
             " at step=", step_number,
-            " dt=", dts[1])
+            " dt=", dts[1]
+        )
 
         step_retcode = false
     end
@@ -210,14 +214,17 @@ function IRKstep_SIMD_adaptive!(ttj::Array{tType, 1},
     return step_retcode
 end
 
-function IRKNGLstep_SIMD_adaptive_simpl!(ttj::Array{tType, 1},
+function IRKNGLstep_SIMD_adaptive_simpl!(
+        ttj::Array{tType, 1},
         uj::uType,
         ej::uType,
         dts::Array{tType, 1},
         stats::SciMLBase.DEStats,
         coeffs::tcoeffs_SIMD{floatT},
-        cache::IRKGL_SIMD_Cache{realuType, floatT, fType, pType, s_, dim_}) where {
-        uType, tType, realuType, floatT, fType, pType, s_, dim_}
+        cache::IRKGL_SIMD_Cache{realuType, floatT, fType, pType, s_, dim_}
+    ) where {
+        uType, tType, realuType, floatT, fType, pType, s_, dim_,
+    }
     @unpack mu, c, b, nu, alpha, X, Y, Z, nu_ = coeffs
     @unpack p, abstol, reltol, U, U_, L, L_, F, Dmin, tf, lambdas = cache
 
@@ -390,9 +397,11 @@ function IRKNGLstep_SIMD_adaptive_simpl!(ttj::Array{tType, 1},
     end # while accept
 
     if (!accept && ntrials == maxtrials)
-        @warn("Failure (adaptive step): maximum number of trials=", maxtrials,
+        @warn(
+            "Failure (adaptive step): maximum number of trials=", maxtrials,
             " at step=", step_number,
-            " dt=", dts[1])
+            " dt=", dts[1]
+        )
         step_retcode = false
     end
 

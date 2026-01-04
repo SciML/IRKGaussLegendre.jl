@@ -50,12 +50,12 @@ u0[:, :, 1] = q0
 u0[:, :, 2] = v0
 tspan = (0.0, 63.0)
 prob = ODEProblem(NbodyODE!, u0, tspan, Gm);
-sol1 = solve(prob, IRKGL16(), reltol = 1e-12, abstol = 1e-12)
+sol1 = solve(prob, IRKGL16(), reltol = 1.0e-12, abstol = 1.0e-12)
 
 # Analytical tests
 
 sol = solve(prob_ode_2Dlinear, IRKGL16())
-@test sol.errors[:l2] < 1e-16
+@test sol.errors[:l2] < 1.0e-16
 
 # dts = (1 // 2) .^ (4:-1:2)
 dts = BigFloat.((1 // 2) .^ (3:-1:1))
@@ -72,14 +72,14 @@ function simplependulum(du, u, p, t)
     θ = u[1]
     dθ = u[2]
     du[1] = dθ
-    du[2] = -(g / L) * sin(θ)
+    return du[2] = -(g / L) * sin(θ)
 end
 
 # adaptive=true
 
 tspan = (6.3, 2.0)
 prob = ODEProblem(simplependulum, u0, tspan)
-sol = solve(prob, IRKGL16(), reltol = 1e-14, abstol = 1e-14)
+sol = solve(prob, IRKGL16(), reltol = 1.0e-14, abstol = 1.0e-14)
 
 @test sol.t[end] == tspan[2]
 

@@ -1,4 +1,3 @@
-
 function InitialPleiades(T)
     N = 7
     Gm = T.([1, 2, 3, 4, 5, 6, 7])
@@ -18,7 +17,8 @@ function InitialPleiades(T)
         parse(BigFloat, "-4.0"),
         parse(BigFloat, "0.0"), parse(BigFloat, "2.0"),
         parse(BigFloat, "4.0"),
-        parse(BigFloat, "0.0")]
+        parse(BigFloat, "0.0"),
+    ]
 
     v = [
         parse(BigFloat, "0.0"),
@@ -35,7 +35,7 @@ function InitialPleiades(T)
         parse(BigFloat, "0.0"),
         parse(BigFloat, "0.0"), parse(BigFloat, "-1.5"),
         parse(BigFloat, "0.0"),
-        parse(BigFloat, "0.0")
+        parse(BigFloat, "0.0"),
     ]
 
     q0 = reshape(q, 3, :)

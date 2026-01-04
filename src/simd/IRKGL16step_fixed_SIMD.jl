@@ -1,17 +1,20 @@
-#   
+#
 #  IRKGL16Step fixed SIMD functions
 
-#      IRKGLstep_SIMD_fixed! 
-#      IRKNGLstep_SIMD_fixed_simpl!   
+#      IRKGLstep_SIMD_fixed!
+#      IRKNGLstep_SIMD_fixed_simpl!
 
-function IRKGLstep_SIMD_fixed!(ttj::Array{tType, 1},
+function IRKGLstep_SIMD_fixed!(
+        ttj::Array{tType, 1},
         uj::uType,
         ej::uType,
         dts::Array{tType, 1},
         stats::SciMLBase.DEStats,
         coeffs::tcoeffs_SIMD{floatT},
-        cache::IRKGL_SIMD_Cache{realuType, floatT, fType, pType, s_, dim_}) where {
-        uType, tType, realuType, floatT, fType, pType, s_, dim_}
+        cache::IRKGL_SIMD_Cache{realuType, floatT, fType, pType, s_, dim_}
+    ) where {
+        uType, tType, realuType, floatT, fType, pType, s_, dim_,
+    }
     @unpack mu, c, b, nu = coeffs
     @unpack p, U, U_, L, F, Dmin, tf = cache
 
@@ -155,14 +158,17 @@ function IRKGLstep_SIMD_fixed!(ttj::Array{tType, 1},
     return step_retcode
 end
 
-function IRKNGLstep_SIMD_fixed_simpl!(ttj::Array{tType, 1},
+function IRKNGLstep_SIMD_fixed_simpl!(
+        ttj::Array{tType, 1},
         uj::uType,
         ej::uType,
         dts::Array{tType, 1},
         stats::SciMLBase.DEStats,
         coeffs::tcoeffs_SIMD{floatT},
-        cache::IRKGL_SIMD_Cache{realuType, floatT, fType, pType, s_, dim_}) where {
-        uType, tType, realuType, floatT, fType, pType, s_, dim_}
+        cache::IRKGL_SIMD_Cache{realuType, floatT, fType, pType, s_, dim_}
+    ) where {
+        uType, tType, realuType, floatT, fType, pType, s_, dim_,
+    }
     @unpack mu, c, b, nu = coeffs
     @unpack p, U, U_, L, F, Dmin, tf = cache
 

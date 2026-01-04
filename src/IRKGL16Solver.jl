@@ -1,4 +1,3 @@
-
 struct tcoeffs{tType}
     mu::Array{tType, 2}
     c::Array{tType, 1}
@@ -78,21 +77,21 @@ abstract type IRKAlgorithm{
     simd,
     maxtrials,
     initial_extrapolation,
-    threading
+    threading,
 } <: SciMLBase.AbstractODEAlgorithm end
 struct IRKGL16{
-    second_order_ode,
-    simd,
-    maxtrials,
-    initial_extrapolation,
-    threading
-} <: IRKAlgorithm{
-    second_order_ode,
-    simd,
-    maxtrials,
-    initial_extrapolation,
-    threading
-} end
+        second_order_ode,
+        simd,
+        maxtrials,
+        initial_extrapolation,
+        threading,
+    } <: IRKAlgorithm{
+        second_order_ode,
+        simd,
+        maxtrials,
+        initial_extrapolation,
+        threading,
+    } end
 """
     IRKGL16(; second_order_ode=false, simd=false, maxtrials=5, initial_extrapolation=true, threading=false)
 
@@ -130,13 +129,14 @@ function IRKGL16(;
         simd = false,
         maxtrials = 5,
         initial_extrapolation = true,
-        threading = false)
-    IRKGL16{
+        threading = false
+    )
+    return IRKGL16{
         second_order_ode,
         simd,
         maxtrials,
         initial_extrapolation,
-        threading
+        threading,
     }()
 end
 
@@ -144,14 +144,14 @@ function SciMLBase.__solve(
         prob::SciMLBase.AbstractODEProblem{
             uType,
             tspanType,
-            isinplace
+            isinplace,
         },
         alg::IRKGL16{
             second_order_ode,
             simd,
             maxtrials,
             initial_extrapolation,
-            threading
+            threading,
         },
         args...;
         dt = zero(eltype(tspanType)),
@@ -159,9 +159,10 @@ function SciMLBase.__solve(
         save_everystep = true,
         saveat = nothing,
         adaptive = true,
-        reltol = eltype(tspanType)(1e-6),
-        abstol = eltype(tspanType)(1e-6),
-        kwargs...) where {
+        reltol = eltype(tspanType)(1.0e-6),
+        abstol = eltype(tspanType)(1.0e-6),
+        kwargs...
+    ) where {
         uType,
         tspanType,
         isinplace,
@@ -169,8 +170,8 @@ function SciMLBase.__solve(
         simd,
         maxtrials,
         initial_extrapolation,
-        threading
-}
+        threading,
+    }
     checks = true
 
     s = 8
@@ -288,8 +289,8 @@ function SciMLBase.__solve(
             f(du0, u0, p, t0)
         end
         d1 = MyNorm(du0, abstol, reltol)
-        if (d0 < 1e-5 || d1 < 1e-5)
-            dt = convert(tType, 1e-6)
+        if (d0 < 1.0e-5 || d1 < 1.0e-5)
+            dt = convert(tType, 1.0e-6)
         else
             dt = convert(tType, 0.01 * (d0 / d1))
         end
@@ -308,7 +309,7 @@ function SciMLBase.__solve(
     dts = [dt, dtprev, signdt]
     sdt = signdt * dt
 
-    #   Memory preallocation (IRKL_Cache) 
+    #   Memory preallocation (IRKL_Cache)
 
     Dmin = similar(real(u0))
     step_number = Array{Int64, 0}(undef)
@@ -317,9 +318,11 @@ function SciMLBase.__solve(
     length_q = div(length_u, 2)
 
     if simd
-        coeffs = tcoeffs{tType}(zeros(s, s), zeros(s), zeros(s), zeros(s, s),
+        coeffs = tcoeffs{tType}(
+            zeros(s, s), zeros(s), zeros(s), zeros(s, s),
             zeros(s), zeros(s + 1), zeros(s, s + 1), zeros(s),
-            zeros(s), zeros(s + 1), zeros(s, s + 1), zeros(1))
+            zeros(s), zeros(s + 1), zeros(s, s + 1), zeros(1)
+        )
         mu_ = coeffs.mu
         c_ = coeffs.c
         b_ = coeffs.b
@@ -368,16 +371,20 @@ function SciMLBase.__solve(
 
         coeffs = tcoeffs_SIMD(b, c, mu, nu, alpha, X, Y, Z, nu_, kappa, kappa_, X2, Y2, Z2)
 
-        cache = IRKGL_SIMD_Cache(f, p, abstol, reltol,
+        cache = IRKGL_SIMD_Cache(
+            f, p, abstol, reltol,
             U, U_, L, L_, F,
             Dmin, maxiters, maxtrials, step_number,
             initial_extrapolation, length_u, length_q, tf,
-            fill(zero(tType), 2))
+            fill(zero(tType), 2)
+        )
 
     else
-        coeffs = tcoeffs{tType}(zeros(s, s), zeros(s), zeros(s),
+        coeffs = tcoeffs{tType}(
+            zeros(s, s), zeros(s), zeros(s),
             zeros(s, s), zeros(s), zeros(s + 1), zeros(s, s + 1), zeros(s),
-            zeros(s), zeros(s + 1), zeros(s, s + 1), zeros(1))
+            zeros(s), zeros(s + 1), zeros(s, s + 1), zeros(1)
+        )
 
         @unpack mu, c, b, nu, alpha, X, Y, Z, kappa, X2, Y2, Z2 = coeffs
         EstimateCoeffs!(alpha, tType)
@@ -410,7 +417,8 @@ function SciMLBase.__solve(
             F[i] = zero(u0)
         end
 
-        cache = tcache(f,
+        cache = tcache(
+            f,
             p,
             abstol,
             reltol,
@@ -427,7 +435,8 @@ function SciMLBase.__solve(
             length_u,
             length_q,
             tf,
-            fill(zero(tType), 2))
+            fill(zero(tType), 2)
+        )
     end
 
     #if saveat !== nothing
@@ -439,14 +448,14 @@ function SciMLBase.__solve(
     if saveat != nothing
         if isa(saveat, Number)
             save_everystep = false
-            if tf>t0
+            if tf > t0
                 save_times = sort(union(collect(t0:saveat:tf), tf), order = Base.Forward)
             else
                 save_times = sort(union(collect(tf:saveat:t0), t0), order = Base.Reverse)
             end
         elseif isa(saveat, AbstractVector)
             save_everystep = false
-            if tf>t0
+            if tf > t0
                 save_times = sort(union(t0, saveat, tf), order = Base.Forward)  # include t0 and tf to ensure full span
             else
                 save_times = sort(union(tf, saveat, t0), order = Base.Reverse)
@@ -469,7 +478,7 @@ function SciMLBase.__solve(
     ux = copy(u0)  # to compute saveat
     indices = eachindex(uj)
     uj_ = copy(uj)
-    tj_=tj[1]
+    tj_ = tj[1]
 
     cont = true
     error_warn = 0
@@ -477,17 +486,19 @@ function SciMLBase.__solve(
     step_retcode = true
 
     while cont
-        tj_=tj[1]
-        uj_=copy(uj)
+        tj_ = tj[1]
+        uj_ = copy(uj)
 
         step_number[] += 1
-        step_retcode = step_fun(tj,
+        step_retcode = step_fun(
+            tj,
             uj,
             ej,
             dts,
             stats,
             coeffs,
-            cache)
+            cache
+        )
 
         if !step_retcode
             error_warn = 1
@@ -504,15 +515,15 @@ function SciMLBase.__solve(
             push!(tt, tj[1])
             push!(uu, copy(uj))
         elseif saveat != nothing
-            while signdt*(tj[1]-save_times[next_save_index])>0
+            while signdt * (tj[1] - save_times[next_save_index]) > 0
                 #interpolation
-                theta = abs((save_times[next_save_index]-tj_)/dts[2])
+                theta = abs((save_times[next_save_index] - tj_) / dts[2])
                 Z2 .= [theta]
 
                 if !simd
                     kappa .= (PolInterp(X2, Y2, Z2))
                     for k in indices
-                        dUik = kappa[1]*L[1][k]
+                        dUik = kappa[1] * L[1][k]
                         for js in 2:s
                             dUik = muladd(kappa[js], L[js][k], dUik)
                         end
@@ -522,19 +533,19 @@ function SciMLBase.__solve(
                     kappa_ .= (PolInterp(X2, Y2, Z2))
                     kappa = vload(Vec{s, floatType}, kappa_, 1)
                     for k in indices
-                        Lk=L[k]
-                        ux[k] = uj_[k] + sum(Lk*kappa)
+                        Lk = L[k]
+                        ux[k] = uj_[k] + sum(Lk * kappa)
                     end
                 end
 
                 push!(tt, save_times[next_save_index])
                 push!(uu, copy(ux))
-                next_save_index+=1
+                next_save_index += 1
             end
-            if tj[1]==save_times[next_save_index]
+            if tj[1] == save_times[next_save_index]
                 push!(tt, tj[1])
                 push!(uu, copy(uj))
-                next_save_index+=1
+                next_save_index += 1
             end
         end
     end
@@ -544,19 +555,20 @@ function SciMLBase.__solve(
     if error_warn != 0
         @warn("Error during the integration warn=$error_warn")
         sol = SciMLBase.build_solution(
-            prob, alg, tt, uu, stats = stats, retcode = ReturnCode.Failure)
+            prob, alg, tt, uu, stats = stats, retcode = ReturnCode.Failure
+        )
 
     else
         if saveat != nothing
-            while signdt*(tj[1]-save_times[next_save_index])>0
+            while signdt * (tj[1] - save_times[next_save_index]) > 0
                 #interpolation
-                theta = abs((save_times[next_save_index]-tj_)/dts[2])
+                theta = abs((save_times[next_save_index] - tj_) / dts[2])
                 Z2 .= [theta]
 
                 if !simd
                     kappa .= (PolInterp(X2, Y2, Z2))
                     for k in indices
-                        dUik = kappa[1]*L[1][k]
+                        dUik = kappa[1] * L[1][k]
                         for js in 2:s
                             dUik = muladd(kappa[js], L[js][k], dUik)
                         end
@@ -566,14 +578,14 @@ function SciMLBase.__solve(
                     kappa_ .= (PolInterp(X2, Y2, Z2))
                     kappa = vload(Vec{s, floatType}, kappa_, 1)
                     for k in indices
-                        Lk=L[k]
-                        ux[k] = uj_[k] + sum(Lk*kappa)
+                        Lk = L[k]
+                        ux[k] = uj_[k] + sum(Lk * kappa)
                     end
                 end
 
                 push!(tt, save_times[next_save_index])
                 push!(uu, copy(ux))
-                next_save_index+=1
+                next_save_index += 1
             end
         end
 
@@ -581,7 +593,8 @@ function SciMLBase.__solve(
         push!(tt, tj[1])
 
         sol = SciMLBase.build_solution(
-            prob, alg, tt, uu, stats = stats, retcode = ReturnCode.Success)
+            prob, alg, tt, uu, stats = stats, retcode = ReturnCode.Success
+        )
     end
 
     return (sol)

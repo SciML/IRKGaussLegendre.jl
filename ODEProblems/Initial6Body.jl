@@ -7,7 +7,7 @@ function Initial6Body(T = Float64)
 
     u_, Gm_, bodylist_ = Initial10Body()
 
-    # Recalcular datos del Sistema, tomando el Sistema Solar interior como una masa puntual en su centro de masas 
+    # Recalcular datos del Sistema, tomando el Sistema Solar interior como una masa puntual en su centro de masas
 
     q0 = zeros(3)
     v0 = zeros(3)
