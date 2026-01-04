@@ -52,10 +52,10 @@ function NbodyODEq!(dq, q, v, Gm, t)
 end
 
 function solcopyNbody(u0, sol, prob, alg)
-    #    
-    #   return a copy of sol, converting sol.u to original u0's format 
     #
-    #    
+    #   return a copy of sol, converting sol.u to original u0's format
+    #
+    #
     n = length(sol.u)
     ttype = eltype(sol.t)
     uu = Vector{typeof(u0)}(undef, n)
@@ -70,7 +70,8 @@ function solcopyNbody(u0, sol, prob, alg)
     end
 
     sol_new = DiffEqBase.build_solution(
-        prob, alg, tt, uu, stats = sol.stats, retcode = sol.retcode)
+        prob, alg, tt, uu, stats = sol.stats, retcode = sol.retcode
+    )
 
     return sol_new
 end

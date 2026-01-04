@@ -1,6 +1,6 @@
 using IRKGaussLegendre
 using IRKGaussLegendre: IRKstep_fixed!, IRKstep_adaptive!, tcoeffs, tcache,
-                        GaussLegendreCoefficients!, EstimateCoeffs!, PolInterp!, MyNorm
+    GaussLegendreCoefficients!, EstimateCoeffs!, PolInterp!, MyNorm
 using Test
 using AllocCheck
 
@@ -19,7 +19,7 @@ end
 @testset "AllocCheck - Core Functions" begin
     # Setup
     s = 8
-    u0 = [0.0, pi/2]
+    u0 = [0.0, pi / 2]
     params = TestParams(9.81, 1.0)
 
     # Create coefficients
@@ -45,7 +45,7 @@ end
 
     cache = tcache(
         test_pendulum!, params,
-        1e-8, 1e-8,
+        1.0e-8, 1.0e-8,
         U, U_, L_, L__, F,
         Dmin, 100, 5, step_number,
         true, length(u0), div(length(u0), 2), 10.0,
@@ -79,10 +79,10 @@ end
 
     @testset "MyNorm zero allocations" begin
         # Warm up
-        MyNorm(u0, 1e-8, 1e-8)
+        MyNorm(u0, 1.0e-8, 1.0e-8)
 
         # Test zero allocations
-        alloc = @allocated MyNorm(u0, 1e-8, 1e-8)
+        alloc = @allocated MyNorm(u0, 1.0e-8, 1.0e-8)
         @test alloc == 0
     end
 
@@ -135,18 +135,18 @@ end
     # Test that the solver's allocation overhead is reasonable
     # Most allocations should be for solution storage
 
-    u0 = [0.0, pi/2]
+    u0 = [0.0, pi / 2]
     params = TestParams(9.81, 1.0)
     tspan = (0.0, 10.0)
     prob = ODEProblem(test_pendulum!, u0, tspan, params)
 
     # Warm up thoroughly
     for _ in 1:20
-        solve(prob, IRKGL16(), reltol = 1e-8, abstol = 1e-8)
+        solve(prob, IRKGL16(), reltol = 1.0e-8, abstol = 1.0e-8)
     end
 
     # Measure allocations
-    alloc = @allocated sol = solve(prob, IRKGL16(), reltol = 1e-8, abstol = 1e-8)
+    alloc = @allocated sol = solve(prob, IRKGL16(), reltol = 1.0e-8, abstol = 1.0e-8)
     nsteps = length(sol.t)
 
     # Check that per-step overhead is reasonable

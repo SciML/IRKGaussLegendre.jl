@@ -1,17 +1,19 @@
-
 #
 #  IRKstep_fixed!
 #  IRKstepDynODE_fixed!
 #  IRKNGLstep_fixed_simpl!
 
-function IRKstep_fixed!(ttj::Array{tType, 1},
+function IRKstep_fixed!(
+        ttj::Array{tType, 1},
         uj::uType,
         ej::uType,
         dts::Array{tType, 1},
         stats::SciMLBase.DEStats,
         coeffs::tcoeffs{tType},
-        cache::tcache{uType, realuType, tType, fT, pT}) where {
-        uType, realuType, tType, fT, pT}
+        cache::tcache{uType, realuType, tType, fT, pT}
+    ) where {
+        uType, realuType, tType, fT, pT,
+    }
     @unpack mu, c, b, nu, alpha = coeffs
     @unpack p, U, U_, L, L_, F, Dmin, tf, lambdas = cache
 
@@ -179,14 +181,17 @@ end
 # DynamicalODEFunction
 #
 
-function IRKstepDynODE_fixed!(ttj::Array{tType, 1},
+function IRKstepDynODE_fixed!(
+        ttj::Array{tType, 1},
         uj::uType,
         ej::uType,
         dts::Array{tType, 1},
         stats::SciMLBase.DEStats,
         coeffs::tcoeffs{tType},
-        cache::tcache{uType, realuType, tType, fT, pT}) where {
-        uType, realuType, tType, fT, pT}
+        cache::tcache{uType, realuType, tType, fT, pT}
+    ) where {
+        uType, realuType, tType, fT, pT,
+    }
     @unpack mu, c, b, nu, alpha = coeffs
     @unpack p, U, U_, L, L_, F, Dmin, tf, lambdas = cache
 
@@ -340,7 +345,7 @@ function IRKstepDynODE_fixed!(ttj::Array{tType, 1},
 
     if step_retcode
 
-        #@inbounds if (j_iter<maxiters && diffU)   
+        #@inbounds if (j_iter<maxiters && diffU)
         @inbounds if diffU
             j_iter += 1
 
@@ -408,14 +413,17 @@ function IRKstepDynODE_fixed!(ttj::Array{tType, 1},
     return step_retcode
 end
 
-function IRKNGLstep_fixed_simpl!(ttj::Array{tType, 1},
+function IRKNGLstep_fixed_simpl!(
+        ttj::Array{tType, 1},
         uj::uType,
         ej::uType,
         dts::Array{tType, 1},
         stats::SciMLBase.DEStats,
         coeffs::tcoeffs{tType},
-        cache::tcache{uType, realuType, tType, fT, pT}) where {
-        uType, realuType, tType, fT, pT}
+        cache::tcache{uType, realuType, tType, fT, pT}
+    ) where {
+        uType, realuType, tType, fT, pT,
+    }
     @unpack mu, c, b, nu, alpha = coeffs
     @unpack p, U, U_, L, L_, F, Dmin, tf, lambdas = cache
 

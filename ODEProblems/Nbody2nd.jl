@@ -1,4 +1,3 @@
-
 function NbodyODE2nd!(ddu, du, u, Gm, t)
     N = length(Gm)
 

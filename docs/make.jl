@@ -5,7 +5,7 @@ makedocs(
     modules = [IRKGaussLegendre],
     checkdocs = :exports,
     pages = [
-        "Home" => "index.md"
+        "Home" => "index.md",
     ]
 )
 

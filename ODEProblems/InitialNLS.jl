@@ -15,7 +15,7 @@ function InitialNLS(T = Float64)
         parse(BigFloat, "0.01"),
         parse(BigFloat, "0.01"),
         parse(BigFloat, "0.01"),
-        parse(BigFloat, "0.01")
+        parse(BigFloat, "0.01"),
     ]
 
     p = [
@@ -23,7 +23,7 @@ function InitialNLS(T = Float64)
         parse(BigFloat, "0.0"),
         parse(BigFloat, "0.0"),
         parse(BigFloat, "0.0"),
-        parse(BigFloat, "0.0")
+        parse(BigFloat, "0.0"),
     ]
 
     u0 = convert.(T, [q; p])

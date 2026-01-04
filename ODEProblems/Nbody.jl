@@ -15,14 +15,14 @@ function NbodyEnergy(u, Gm)
             U -= Gmi * Gmj / norm(qij)
         end
     end
-    1 / 2 * T + U
+    return 1 / 2 * T + U
 end
 
 function NbodyEnergy3(u, Gm)
     #
     #   berria 2024-07-19
-    #          Recursive arrays !!!    
-    #              
+    #          Recursive arrays !!!
+    #
     #
     N = length(Gm)
     zerouel = zero(eltype(u))
@@ -42,14 +42,14 @@ function NbodyEnergy3(u, Gm)
             U -= Gmi * Gmj / norm(qij)
         end
     end
-    1 / 2 * T + U
+    return 1 / 2 * T + U
 end
 
 function NbodyEnergy4(u, Gm)
     #
     #   berria 2024-07-19
-    #          Array partition !!!    
-    #              
+    #          Array partition !!!
+    #
     #
     N = length(Gm)
     zerouel = zero(eltype(u))
@@ -69,7 +69,7 @@ function NbodyEnergy4(u, Gm)
             U -= Gmi * Gmj / norm(qij)
         end
     end
-    1 / 2 * T + U
+    return 1 / 2 * T + U
 end
 
 ###
