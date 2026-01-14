@@ -96,7 +96,7 @@ function NbodyODE!(F, u, Gm, t)
             F[k, i, 2] = 0
         end
     end
-    for i in 1:N
+    for i in 1:(N - 1)
         xi = u[1, i, 1]
         yi = u[2, i, 1]
         zi = u[3, i, 1]

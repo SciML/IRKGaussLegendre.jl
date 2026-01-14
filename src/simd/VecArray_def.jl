@@ -4,6 +4,10 @@ end
 
 Base.eltype(::Type{VecArray{s, T, dim}}) where {s, T, dim} = T
 
+@inline function slice(v::VecArray{s, T, dim}, j) where {s, T, dim}
+    return @view v.data[j, ntuple(_ -> Colon(), dim - 1)...]
+end
+
 @inline function Base.getindex(v::VecArray{s, T, dim}, k...) where {s, T, dim}
     #    Vec{s, T}(NTuple{s, T}(@inbounds v.data[is, k...] for is in 1:s))
     return Vec{s, T}(ntuple(is -> @inbounds(v.data[is, k...]), s))
@@ -26,15 +30,15 @@ end
     return nothing
 end
 
-## getindex_ and  setindex_! implementations
+## getindex and setindex! implementations for linear indexing
 
-@inline function getindex(v::VecArray{s, T, dim}, k::Int64) where {s, T, dim}
+@inline function Base.getindex(v::VecArray{s, T, dim}, k::Int64) where {s, T, dim}
     j = s * (k - 1)
     #    Vec{s, T}(NTuple{s, T}(@inbounds v.data[is + j] for is in 1:s))
     return Vec{s, T}(ntuple(is -> @inbounds(v.data[is + j]), s))
 end
 
-@inline function setindex!(
+@inline function Base.setindex!(
         v::VecArray{s, T, dim}, vk::Vec{s, T}, k::Int64
     ) where {s, T, dim}
     j = s * (k - 1)
@@ -44,7 +48,7 @@ end
     return nothing
 end
 
-@inline function setindex!(v::VecArray{s, T, dim}, vk::T2, k::Int64) where {s, T, T2, dim}
+@inline function Base.setindex!(v::VecArray{s, T, dim}, vk::T2, k::Int64) where {s, T, T2, dim}
     vk_ = convert(T, vk)
     j = s * (k - 1)
     @inbounds for is in 1:s
