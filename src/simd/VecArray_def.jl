@@ -5,7 +5,7 @@ end
 Base.eltype(::Type{VecArray{s, T, dim}}) where {s, T, dim} = T
 
 @inline function slice(v::VecArray{s, T, dim}, j) where {s, T, dim}
-    @view v.data[j, ntuple(_ -> Colon(), dim - 1)...]
+    return @view v.data[j, ntuple(_ -> Colon(), dim - 1)...]
 end
 
 @inline function Base.getindex(v::VecArray{s, T, dim}, k...) where {s, T, dim}

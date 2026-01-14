@@ -1,16 +1,18 @@
-
 #
 #  IRKstep_adaptive!
 #  IRKNGLstep_adaptive_2nd!
 
-function IRKstep_adaptive!(ttj::Array{tType, 1},
+function IRKstep_adaptive!(
+        ttj::Array{tType, 1},
         uj::uType,
         ej::uType,
         dts::Array{tType, 1},
         stats::SciMLBase.DEStats,
         coeffs::tcoeffs{tType},
-        cache::tcache{uType, realuType, tType, fT, pT}) where {
-        uType, realuType, tType, fT, pT}
+        cache::tcache{uType, realuType, tType, fT, pT}
+    ) where {
+        uType, realuType, tType, fT, pT,
+    }
     @unpack mu, c, b, nu, alpha, X, Y, Z = coeffs
     @unpack p, abstol, reltol, U, U_, L, L_, F, Dmin, tf, lambdas = cache
 
@@ -160,9 +162,11 @@ function IRKstep_adaptive!(ttj::Array{tType, 1},
     end # while accept
 
     if (!accept && ntrials == maxtrials)
-        @warn("Failure (adaptive step): maximum number of trials=", maxtrials,
+        @warn(
+            "Failure (adaptive step): maximum number of trials=", maxtrials,
             " at step=", step_number,
-            " dt=", dts[1])
+            " dt=", dts[1]
+        )
 
         step_retcode = false
     end
@@ -231,14 +235,17 @@ function IRKstep_adaptive!(ttj::Array{tType, 1},
     return step_retcode
 end
 
-function IRKNGLstep_adaptive_2nd!(ttj::Array{tType, 1},
+function IRKNGLstep_adaptive_2nd!(
+        ttj::Array{tType, 1},
         uj::uType,
         ej::uType,
         dts::Array{tType, 1},
         stats::SciMLBase.DEStats,
         coeffs::tcoeffs{tType},
-        cache::tcache{uType, realuType, tType, fT, pT}) where {
-        uType, realuType, tType, fT, pT}
+        cache::tcache{uType, realuType, tType, fT, pT}
+    ) where {
+        uType, realuType, tType, fT, pT,
+    }
     @unpack mu, c, b, nu, alpha, X, Y, Z, eta = coeffs
     @unpack p, abstol, reltol, U, U_, L, L_, F, Dmin, tf, lambdas = cache
 
@@ -354,13 +361,13 @@ function IRKNGLstep_adaptive_2nd!(ttj::Array{tType, 1},
 
             for is in 1:s
                 for k in indices1
-                    kv=k+lenq
-                    dUik = eta[is, 1]*L[1][kv]
+                    kv = k + lenq
+                    dUik = eta[is, 1] * L[1][kv]
                     for js in 2:s
                         dUik = muladd(eta[is, js], L[js][kv], dUik)
                     end
                     U_[is][k] = U[is][k]
-                    U[is][k] = uj[k]+(sdt*(c[is]*uj[kv])+ej[k])+sdt*dUik
+                    U[is][k] = uj[k] + (sdt * (c[is] * uj[kv]) + ej[k]) + sdt * dUik
                 end
             end
 
@@ -405,9 +412,11 @@ function IRKNGLstep_adaptive_2nd!(ttj::Array{tType, 1},
     end # while accept
 
     if (!accept && ntrials == maxtrials)
-        @warn("Failure (adaptive step): maximum number of trials=", maxtrials,
+        @warn(
+            "Failure (adaptive step): maximum number of trials=", maxtrials,
             " at step=", step_number,
-            " dt=", dts[1])
+            " dt=", dts[1]
+        )
         step_retcode = false
     end
 
@@ -425,25 +434,25 @@ function IRKNGLstep_adaptive_2nd!(ttj::Array{tType, 1},
 
             for is in 1:s
                 for k in indices1
-                    kv=k+lenq
-                    dUik = eta[is, 1]*L[1][kv]
+                    kv = k + lenq
+                    dUik = eta[is, 1] * L[1][kv]
                     for js in 2:s
                         dUik = muladd(eta[is, js], L[js][kv], dUik)
                     end
                     U_[is][k] = U[is][k]
-                    U[is][k] = uj[k]+(sdt*(c[is]*uj[kv])+ej[k])+sdt*dUik
+                    U[is][k] = uj[k] + (sdt * (c[is] * uj[kv]) + ej[k]) + sdt * dUik
                 end
             end
         end
 
         @inbounds for k in indices1    #Equivalent to compensated summation
-            kv = k+lenq
-            Sum = sdt*(1-c[1])*L[1][kv]
+            kv = k + lenq
+            Sum = sdt * (1 - c[1]) * L[1][kv]
             for is in 2:s
-                Sum = muladd(sdt*(1-c[is]), L[is][kv], Sum)
+                Sum = muladd(sdt * (1 - c[is]), L[is][kv], Sum)
             end
             res = Base.TwicePrecision(uj[k], ej[k]) +
-                  sdt*Base.TwicePrecision(uj[kv], ej[kv]) + Sum
+                sdt * Base.TwicePrecision(uj[kv], ej[kv]) + Sum
             uj[k] = res.hi
             ej[k] = res.lo
         end

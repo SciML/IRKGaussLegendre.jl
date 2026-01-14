@@ -1,17 +1,20 @@
-#   
+#
 #  IRKGL16Step fixed SIMD functions
 
-#      IRKGLstep_SIMD_fixed!  
-#      IRKNGLstep_SIMD_fixed_2nd!  
+#      IRKGLstep_SIMD_fixed!
+#      IRKNGLstep_SIMD_fixed_2nd!
 
-function IRKGLstep_SIMD_fixed!(ttj::Array{tType, 1},
+function IRKGLstep_SIMD_fixed!(
+        ttj::Array{tType, 1},
         uj::uType,
         ej::uType,
         dts::Array{tType, 1},
         stats::SciMLBase.DEStats,
         coeffs::tcoeffs_SIMD{floatT},
-        cache::IRKGL_SIMD_Cache{realuType, floatT, fType, pType, s_, dim_}) where {
-        uType, tType, realuType, floatT, fType, pType, s_, dim_}
+        cache::IRKGL_SIMD_Cache{realuType, floatT, fType, pType, s_, dim_}
+    ) where {
+        uType, tType, realuType, floatT, fType, pType, s_, dim_,
+    }
     @unpack mu, c, b, nu = coeffs
     @unpack p, U, U_, L, F, Dmin, tf = cache
 
@@ -146,14 +149,17 @@ function IRKGLstep_SIMD_fixed!(ttj::Array{tType, 1},
     return step_retcode
 end
 
-function IRKNGLstep_SIMD_fixed_2nd!(ttj::Array{tType, 1},
+function IRKNGLstep_SIMD_fixed_2nd!(
+        ttj::Array{tType, 1},
         uj::uType,
         ej::uType,
         dts::Array{tType, 1},
         stats::SciMLBase.DEStats,
         coeffs::tcoeffs_SIMD{floatT},
-        cache::IRKGL_SIMD_Cache{realuType, floatT, fType, pType, s_, dim_}) where {
-        uType, tType, realuType, floatT, fType, pType, s_, dim_}
+        cache::IRKGL_SIMD_Cache{realuType, floatT, fType, pType, s_, dim_}
+    ) where {
+        uType, tType, realuType, floatT, fType, pType, s_, dim_,
+    }
     @unpack mu, c, b, nu, eta = coeffs
     @unpack p, U, U_, L, F, Dmin, tf = cache
 
@@ -205,7 +211,7 @@ function IRKNGLstep_SIMD_fixed_2nd!(ttj::Array{tType, 1},
     #nf += s
     for k in indices1
         Uk = U[k + lenq]
-        Lk = sdt*(b*Uk)
+        Lk = sdt * (b * Uk)
         L[k] = Lk
         dUk = muladd(mu[1], Lk[1], ej[k])
         for is in 2:s
@@ -231,16 +237,16 @@ function IRKNGLstep_SIMD_fixed_2nd!(ttj::Array{tType, 1},
 
         for k in indices2
             Fk = F[k]
-            Lk = sdt*(b * Fk)
+            Lk = sdt * (b * Fk)
             L[k] = Lk
         end
 
         diffU = false
 
         for k in indices1
-            kv=k+lenq
-            Lkv=L[kv]
-            dUk = eta[1]*Lkv[1]
+            kv = k + lenq
+            Lkv = L[kv]
+            dUk = eta[1] * Lkv[1]
             for is in 2:s
                 dUk = muladd(eta[is], Lkv[is], dUk)
             end
@@ -289,9 +295,9 @@ function IRKNGLstep_SIMD_fixed_2nd!(ttj::Array{tType, 1},
 
             #nf += s
             for k in indices1
-                kv=k+lenq
-                Lkv=L[kv]
-                dUk = eta[1]*Lkv[1]
+                kv = k + lenq
+                Lkv = L[kv]
+                dUk = eta[1] * Lkv[1]
                 for is in 2:s
                     dUk = muladd(eta[is], Lkv[is], dUk)
                 end
@@ -302,12 +308,12 @@ function IRKNGLstep_SIMD_fixed_2nd!(ttj::Array{tType, 1},
         end
 
         @inbounds for k in indices1    #Equivalent to compensated summation
-            kv = k+lenq
-            Lkv=L[kv]
-            Lkv_sum=sum(Lkv)
-            res1=Base.TwicePrecision(uj[k], ej[k])-sdt*sum(c*Lkv)
-            res2=sdt*(Base.TwicePrecision(uj[kv], ej[kv])+Lkv_sum)
-            res = res1+res2
+            kv = k + lenq
+            Lkv = L[kv]
+            Lkv_sum = sum(Lkv)
+            res1 = Base.TwicePrecision(uj[k], ej[k]) - sdt * sum(c * Lkv)
+            res2 = sdt * (Base.TwicePrecision(uj[kv], ej[kv]) + Lkv_sum)
+            res = res1 + res2
             uj[k] = res.hi
             ej[k] = res.lo
 

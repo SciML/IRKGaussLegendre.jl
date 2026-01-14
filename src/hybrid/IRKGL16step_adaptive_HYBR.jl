@@ -1,16 +1,18 @@
-
 #
 #  IRKstep_HYBR_adaptive!
 #  IRKNGLstep_HYBR_adaptive_2nd!
 
-function IRKstep_HYBR_adaptive!(ttj::Array{tType, 1},
+function IRKstep_HYBR_adaptive!(
+        ttj::Array{tType, 1},
         uj::uType,
         ej::uType,
         dts::Array{tType, 1},
         stats::SciMLBase.DEStats,
         coeffs::tcoeffs_SIMD{floatT},
-        cache::IRKGL_SIMD_Cache{realuType, floatT, fType, pType, s_, dim_}) where {
-        uType, tType, realuType, floatT, fType, pType, s_, dim_}
+        cache::IRKGL_SIMD_Cache{realuType, floatT, fType, pType, s_, dim_}
+    ) where {
+        uType, tType, realuType, floatT, fType, pType, s_, dim_,
+    }
     @unpack mu, c, b, nu, alpha, X, Y, Z, nu_ = coeffs
     @unpack p, abstol, reltol, U, U_, L, L_, F, Dmin, tf, lambdas = cache
 
@@ -61,7 +63,7 @@ function IRKstep_HYBR_adaptive!(ttj::Array{tType, 1},
                 gamma = sdt / (signdt * dtprev)
                 #@. Z = gamma*c
                 for is in 1:s
-                    Z[is] = gamma*c[is]
+                    Z[is] = gamma * c[is]
                 end
                 nu_ .= -(PolInterp(X, Y, Z))'
                 nu = VecArray{s, realuiType, 2}(nu_)
@@ -147,9 +149,11 @@ function IRKstep_HYBR_adaptive!(ttj::Array{tType, 1},
     end # while accept
 
     if (!accept && ntrials == maxtrials)
-        @warn("Failure (adaptive step): maximum number of trials=", maxtrials,
+        @warn(
+            "Failure (adaptive step): maximum number of trials=", maxtrials,
             " at step=", step_number,
-            " dt=", dts[1])
+            " dt=", dts[1]
+        )
 
         step_retcode = false
     end
@@ -214,14 +218,17 @@ function IRKstep_HYBR_adaptive!(ttj::Array{tType, 1},
     return step_retcode
 end
 
-function IRKNGLstep_HYBR_adaptive_2nd!(ttj::Array{tType, 1},
+function IRKNGLstep_HYBR_adaptive_2nd!(
+        ttj::Array{tType, 1},
         uj::uType,
         ej::uType,
         dts::Array{tType, 1},
         stats::SciMLBase.DEStats,
         coeffs::tcoeffs_SIMD{floatT},
-        cache::IRKGL_SIMD_Cache{realuType, floatT, fType, pType, s_, dim_}) where {
-        uType, tType, realuType, floatT, fType, pType, s_, dim_}
+        cache::IRKGL_SIMD_Cache{realuType, floatT, fType, pType, s_, dim_}
+    ) where {
+        uType, tType, realuType, floatT, fType, pType, s_, dim_,
+    }
     @unpack mu, c, b, nu, alpha, X, Y, Z, nu_, eta = coeffs
     @unpack p, abstol, reltol, U, U_, L, L_, F, Dmin, tf, lambdas = cache
 
@@ -281,7 +288,7 @@ function IRKNGLstep_HYBR_adaptive_2nd!(ttj::Array{tType, 1},
                 gamma = sdt / (signdt * dtprev)
                 #@. Z = gamma*c
                 for is in 1:s
-                    Z[is] = gamma*c[is]
+                    Z[is] = gamma * c[is]
                 end
                 nu_ .= -(PolInterp(X, Y, Z))'
             end
@@ -339,9 +346,9 @@ function IRKNGLstep_HYBR_adaptive_2nd!(ttj::Array{tType, 1},
             diffU = false
 
             for k in indices1
-                kv=k+lenq
-                Lkv=L[kv]
-                dUk = eta[1]*Lkv[1]
+                kv = k + lenq
+                Lkv = L[kv]
+                dUk = eta[1] * Lkv[1]
                 for is in 2:s
                     dUk = muladd(eta[is], Lkv[is], dUk)
                 end
@@ -387,9 +394,11 @@ function IRKNGLstep_HYBR_adaptive_2nd!(ttj::Array{tType, 1},
     end # while accept
 
     if (!accept && ntrials == maxtrials)
-        @warn("Failure (adaptive step): maximum number of trials=", maxtrials,
+        @warn(
+            "Failure (adaptive step): maximum number of trials=", maxtrials,
             " at step=", step_number,
-            " dt=", dts[1])
+            " dt=", dts[1]
+        )
         step_retcode = false
     end
 
@@ -410,9 +419,9 @@ function IRKNGLstep_HYBR_adaptive_2nd!(ttj::Array{tType, 1},
             end
 
             for k in indices1
-                kv=k+lenq
-                Lkv=L[kv]
-                dUk = eta[1]*Lkv[1]
+                kv = k + lenq
+                Lkv = L[kv]
+                dUk = eta[1] * Lkv[1]
                 for is in 2:s
                     dUk = muladd(eta[is], Lkv[is], dUk)
                 end
@@ -423,12 +432,12 @@ function IRKNGLstep_HYBR_adaptive_2nd!(ttj::Array{tType, 1},
         end
 
         @inbounds for k in indices1    #Equivalent to compensated summation
-            kv = k+lenq
-            Lkv=L[kv]
-            Lkv_sum=sum(Lkv)
-            res1=Base.TwicePrecision(uj[k], ej[k])-sdt*sum(c*Lkv)
-            res2=sdt*(Base.TwicePrecision(uj[kv], ej[kv])+Lkv_sum)
-            res = res1+res2
+            kv = k + lenq
+            Lkv = L[kv]
+            Lkv_sum = sum(Lkv)
+            res1 = Base.TwicePrecision(uj[k], ej[k]) - sdt * sum(c * Lkv)
+            res2 = sdt * (Base.TwicePrecision(uj[kv], ej[kv]) + Lkv_sum)
+            res = res1 + res2
             uj[k] = res.hi
             ej[k] = res.lo
 
