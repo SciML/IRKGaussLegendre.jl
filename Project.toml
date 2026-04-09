@@ -1,6 +1,6 @@
 name = "IRKGaussLegendre"
 uuid = "58bc7355-f626-4c51-96f2-1f8a038f95a2"
-version = "0.2.13"
+version = "0.3.0"
 authors = ["joseba <mikel.antonana@gmail.com>"]
 
 [deps]
@@ -21,7 +21,7 @@ Parameters = "0.12"
 #RecursiveArrayTools = "3"
 Reexport = "1.0"
 SIMD = "3.5.0"
-SciMLBase = "2"
+SciMLBase = "2, 3"
 julia = "1.9"
 
 [extras]
