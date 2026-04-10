@@ -21,7 +21,7 @@ Parameters = "0.12"
 #RecursiveArrayTools = "3"
 Reexport = "1.0"
 SIMD = "3.5.0"
-SciMLBase = "2"
+SciMLBase = "2, 3.1"
 julia = "1.9"
 
 [extras]
