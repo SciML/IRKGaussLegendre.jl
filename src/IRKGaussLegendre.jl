@@ -5,6 +5,8 @@ module IRKGaussLegendre
     using Reexport
     @reexport using SciMLBase
     using DiffEqBase
+    using SciMLLogging: SciMLLogging, Standard, @SciMLMessage
+    using DiffEqBase: DEVerbosity
     #import FastBroadcast
 
     using LinearAlgebra
@@ -13,6 +15,7 @@ module IRKGaussLegendre
 
     const CompiledFloats = Union{Float32, Float64}
 
+    include("verbosity.jl")
     include("IRKCoefficients.jl")
     include("./simd/VecArray_def.jl")
     include("IRKGL16Solver.jl")

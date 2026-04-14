@@ -33,6 +33,7 @@ struct tcache{uType, realuType, tType, fT, pT}
     length_q::Int64
     tf::tType
     lambdas::Array{tType, 1}
+    verbose::DEVerbosity
 end
 
 struct tcoeffs_SIMD{floatT, s_}
@@ -72,6 +73,7 @@ struct IRKGL_SIMD_Cache{realuType, floatT, fType, pType, s_, dim_}
     length_q::Int64
     tf::floatT
     lambdas::Array{floatT, 1}
+    verbose::DEVerbosity
 end
 
 abstract type IRKAlgorithm{
@@ -138,6 +140,7 @@ function SciMLBase.__solve(
         adaptive = true,
         reltol = eltype(tspanType)(1.0e-6),
         abstol = eltype(tspanType)(1.0e-6),
+        verbose = Standard(),
         kwargs...
     ) where {
         uType,
@@ -151,6 +154,7 @@ function SciMLBase.__solve(
         initial_extrapolation,
     }
     checks = true
+    verbose = _process_verbose_param(verbose)
 
     stats = SciMLBase.DEStats(0)
     #stats = DiffEqBase.DEStats(0)
@@ -164,7 +168,7 @@ function SciMLBase.__solve(
         @unpack u0, tspan, p = prob
         f = SciMLBase.unwrapped_f(prob.f)
     else
-        @warn("Error: incorrect ODEFunction")
+        @SciMLMessage("Error: incorrect ODEFunction", verbose, :incorrect_odefunction)
         sol = SciMLBase.build_solution(
             prob, alg, [prob.tspan[1]], [u0], stats = stats, retcode = ReturnCode.Failure
         )
@@ -326,7 +330,8 @@ function SciMLBase.__solve(
             U, U_, L, L_, F,
             Dmin, maxiters, maxtrials, step_number,
             initial_extrapolation, length_u, length_q, tf,
-            fill(zero(tType), 2)
+            fill(zero(tType), 2),
+            verbose
         )
 
     else
@@ -385,7 +390,8 @@ function SciMLBase.__solve(
             length_u,
             length_q,
             tf,
-            fill(zero(tType), 2)
+            fill(zero(tType), 2),
+            verbose
         )
     end
 
@@ -506,7 +512,7 @@ function SciMLBase.__solve(
     stats.naccept = step_number[]
 
     if error_warn != 0
-        @warn("Error during the integration warn=$error_warn")
+        @SciMLMessage("Error during the integration warn=$error_warn", verbose, :integration_error)
         sol = SciMLBase.build_solution(
             prob, alg, tt, uu, stats = stats, retcode = ReturnCode.Failure
         )

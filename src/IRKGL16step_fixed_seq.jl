@@ -123,7 +123,7 @@ function IRKstep_fixed!(
     end  # while
 
     if iter  # iter=true implies that j_iter==maxiters
-        @warn "Interrupted. Reached maximum number of iterations (maxiters=$maxiters). The value dt=$dt may be too large."
+        @SciMLMessage("Interrupted. Reached maximum number of iterations (maxiters=$maxiters). The value dt=$dt may be too large.", cache.verbose, :maxiters)
         step_retcode = false
     end
 
@@ -312,7 +312,7 @@ function IRKNGLstep_fixed_2nd!(
     end # while
 
     if iter  # iter=true implies that j_iter==maxiters
-        @warn "Interrupted. Reached maximum number of iterations (maxiters=$maxiters). The value dt=$dt may be too large."
+        @SciMLMessage("Interrupted. Reached maximum number of iterations (maxiters=$maxiters). The value dt=$dt may be too large.", cache.verbose, :maxiters)
         step_retcode = false
     end
 

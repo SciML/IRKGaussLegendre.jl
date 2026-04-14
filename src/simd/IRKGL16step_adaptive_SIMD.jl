@@ -148,11 +148,7 @@ function IRKstep_SIMD_adaptive!(
     end # while accept
 
     if (!accept && ntrials == maxtrials)
-        @warn(
-            "Failure (adaptive step): maximum number of trials=", maxtrials,
-            " at step=", step_number,
-            " dt=", dts[1]
-        )
+        @SciMLMessage("Failure (adaptive step): maximum number of trials=$maxtrials at step=$step_number dt=$(dts[1])", cache.verbose, :adaptive_failure)
 
         step_retcode = false
     end
@@ -388,11 +384,7 @@ function IRKNGLstep_SIMD_adaptive_2nd!(
     end # while accept
 
     if (!accept && ntrials == maxtrials)
-        @warn(
-            "Failure (adaptive step): maximum number of trials=", maxtrials,
-            " at step=", step_number,
-            " dt=", dts[1]
-        )
+        @SciMLMessage("Failure (adaptive step): maximum number of trials=$maxtrials at step=$step_number dt=$(dts[1])", cache.verbose, :adaptive_failure)
         step_retcode = false
     end
 
