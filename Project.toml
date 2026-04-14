@@ -14,7 +14,7 @@ SciMLLogging = "a6db7da4-7206-11f0-1eab-35f2a5dbe1d1"
 
 [compat]
 AllocCheck = "0.1, 0.2"
-DiffEqBase = "6.100.0"
+DiffEqBase = "6.217"
 Parameters = "0.12"
 Reexport = "1.0"
 SIMD = "3.5.0"
