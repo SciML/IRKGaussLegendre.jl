@@ -5,6 +5,8 @@ module IRKGaussLegendre
     using Reexport
     @reexport using SciMLBase
     using DiffEqBase
+    using SciMLLogging: SciMLLogging, Standard, @SciMLMessage
+    using DiffEqBase: DEVerbosity, _process_verbose_param
     #import FastBroadcast
 
     using LinearAlgebra
