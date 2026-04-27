@@ -1,6 +1,6 @@
 name = "IRKGaussLegendre"
 uuid = "58bc7355-f626-4c51-96f2-1f8a038f95a2"
-version = "0.3.0"
+version = "1.0.0"
 authors = ["joseba <mikel.antonana@gmail.com>"]
 
 [deps]
@@ -13,14 +13,14 @@ SciMLBase = "0bca4576-84f4-4d90-8ffe-ffa030f20462"
 SciMLLogging = "a6db7da4-7206-11f0-1eab-35f2a5dbe1d1"
 
 [compat]
-AllocCheck = "0.1, 0.2"
-DiffEqBase = "6.217, 7"
+AllocCheck = "0.2"
+DiffEqBase = "7"
 Parameters = "0.12"
 Reexport = "1.0"
 SIMD = "3.5.0"
-SciMLBase = "2, 3.1"
+SciMLBase = "3.1"
 SciMLLogging = "1.9.1"
-julia = "1.9"
+julia = "1.10"
 
 [extras]
 AllocCheck = "9b6a8646-10ed-4001-bbdc-1d2f46dfbb1a"
