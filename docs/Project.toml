@@ -4,4 +4,4 @@ IRKGaussLegendre = "58bc7355-f626-4c51-96f2-1f8a038f95a2"
 
 [compat]
 Documenter = "1.16.1"
-IRKGaussLegendre = "0.2.11"
+IRKGaussLegendre = "0.2.11, 1.0"
