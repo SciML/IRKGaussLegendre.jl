@@ -168,7 +168,7 @@ function SciMLBase.__solve(
         @unpack u0, tspan, p = prob
         f = SciMLBase.unwrapped_f(prob.f)
     else
-        @SciMLMessage("Error: incorrect ODEFunction", verbose, :incorrect_odefunction)
+        @SciMLMessage("Error: incorrect ODEFunction", verbose, :mismatched_input_output_type)
         sol = SciMLBase.build_solution(
             prob, alg, [prob.tspan[1]], [u0], stats = stats, retcode = ReturnCode.Failure
         )
@@ -512,7 +512,7 @@ function SciMLBase.__solve(
     stats.naccept = step_number[]
 
     if error_warn != 0
-        @SciMLMessage("Error during the integration warn=$error_warn", verbose, :integration_error)
+        @SciMLMessage("Error during the integration warn=$error_warn", verbose, :max_iters)
         sol = SciMLBase.build_solution(
             prob, alg, tt, uu, stats = stats, retcode = ReturnCode.Failure
         )
