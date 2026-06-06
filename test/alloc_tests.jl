@@ -1,6 +1,7 @@
 using IRKGaussLegendre
 using IRKGaussLegendre: IRKstep_fixed!, IRKstep_adaptive!, tcoeffs, tcache,
-    GaussLegendreCoefficients!, EstimateCoeffs!, PolInterp!, MyNorm
+    GaussLegendreCoefficients!, EstimateCoeffs!, PolInterp!, MyNorm,
+    DiffEqBase, SciMLLogging
 using Test
 using AllocCheck
 
@@ -16,6 +17,11 @@ function test_pendulum!(du, u, p::TestParams, t)
     return nothing
 end
 
+# Function barrier: @allocated on a call that closes over a non-const testset
+# variable measures the boxing of that variable, not the callee. Wrapping the
+# call in a typed function isolates the allocations of MyNorm itself.
+mynorm_alloc(u, abstol, reltol) = @allocated MyNorm(u, abstol, reltol)
+
 @testset "AllocCheck - Core Functions" begin
     # Setup
     s = 8
@@ -26,12 +32,13 @@ end
     coeffs = tcoeffs{Float64}(
         zeros(s, s), zeros(s), zeros(s), zeros(s, s),
         zeros(s), zeros(s + 1), zeros(s, s + 1), zeros(s),
-        zeros(s), zeros(s + 1), zeros(s, s + 1), zeros(1)
+        zeros(s), zeros(s + 1), zeros(s, s + 1), zeros(1),
+        zeros(s, s)
     )
 
     # Initialize coefficients
-    GaussLegendreCoefficients!(coeffs.mu, coeffs.c, coeffs.b, Float64)
-    EstimateCoeffs!(coeffs.alpha, Float64)
+    GaussLegendreCoefficients!(s, coeffs.mu, coeffs.c, coeffs.b, coeffs.eta, Float64)
+    EstimateCoeffs!(s, coeffs.alpha, Float64)
 
     # Create cache
     U = [zero(u0) for _ in 1:s]
@@ -43,13 +50,15 @@ end
     step_number = Array{Int64, 0}(undef)
     step_number[] = 2  # Not first step to avoid extra iterations
 
+    verbose = DiffEqBase._process_verbose_param(SciMLLogging.Standard())
+
     cache = tcache(
         test_pendulum!, params,
         1.0e-8, 1.0e-8,
         U, U_, L_, L__, F,
         Dmin, 100, 5, step_number,
         true, length(u0), div(length(u0), 2), 10.0,
-        fill(0.0, 2)
+        fill(0.0, 2), verbose
     )
 
     # Test vectors
@@ -80,9 +89,10 @@ end
     @testset "MyNorm zero allocations" begin
         # Warm up
         MyNorm(u0, 1.0e-8, 1.0e-8)
+        mynorm_alloc(u0, 1.0e-8, 1.0e-8)
 
         # Test zero allocations
-        alloc = @allocated MyNorm(u0, 1.0e-8, 1.0e-8)
+        alloc = mynorm_alloc(u0, 1.0e-8, 1.0e-8)
         @test alloc == 0
     end
 
