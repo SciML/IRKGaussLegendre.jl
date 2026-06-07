@@ -12,9 +12,21 @@ on:
       - 'docs/**'
 jobs:
   test:
+    # Disabled: the strict (allow-reresolve: false) downgrade cannot resolve at
+    # the current floors. Pinning the direct deps to their floors transitively
+    # locks LogExpFunctions to 1.0.1 (via the DiffEqBase 7.0.0 / NonlinearSolveBase
+    # stack). LogExpFunctions 1.0.1 caps ForwardDiff at <= 0.10.22, but the test
+    # extras (DiffEqDevTools -> NLsolve -> NLSolversBase) together with the floored
+    # DifferentiationInterface / RecursiveArrayTools / PreallocationTools require
+    # ForwardDiff >= 0.10.38 (i.e. 1.x). Those windows are disjoint, so ForwardDiff
+    # has no valid version and the test environment is unsatisfiable. The only ways
+    # to make it resolve are allow-reresolve: true (relaxes the transitive pin to
+    # LogExpFunctions 0.3.29) or lowering a floor; both are disallowed here. Re-enable
+    # once the floored stack no longer forces LogExpFunctions 1.0.1.
+    if: false
     uses: "SciML/.github/.github/workflows/downgrade.yml@v1"
     with:
-      allow-reresolve: true
+      allow-reresolve: false
       julia-version: "1.10"
       skip: "Pkg,TOML"
     secrets: "inherit"
