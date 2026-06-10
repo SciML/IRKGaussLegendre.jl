@@ -1,4 +1,6 @@
 using Test
+using IRKGaussLegendre, ODEProblemLibrary, DiffEqDevTools
+import ODEProblemLibrary: prob_ode_2Dlinear, prob_ode_bigfloat2Dlinear
 
 const GROUP = get(ENV, "GROUP", "All")
 
@@ -7,9 +9,6 @@ if GROUP == "QA"
         include(joinpath(@__DIR__, "qa", "qa.jl"))
     end
 else
-    using IRKGaussLegendre, ODEProblemLibrary, DiffEqDevTools
-    import ODEProblemLibrary: prob_ode_2Dlinear, prob_ode_bigfloat2Dlinear
-
     function NbodyODE!(F, u, Gm, t)
         N = length(Gm)
         for i in 1:N
