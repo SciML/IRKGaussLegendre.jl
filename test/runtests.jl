@@ -55,7 +55,7 @@ else
     u0[:, :, 1] = q0
     u0[:, :, 2] = v0
     tspan = (0.0, 63.0)
-    prob = ODEProblem(NbodyODE!, u0, tspan, Gm);
+    prob = ODEProblem(NbodyODE!, u0, tspan, Gm)
     sol1 = solve(prob, IRKGL16(), reltol = 1.0e-12, abstol = 1.0e-12)
 
     # Analytical tests
