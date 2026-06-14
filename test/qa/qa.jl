@@ -6,15 +6,17 @@ let Pkg = Base.require(Base.PkgId(Base.UUID("44cfe95a-1eb2-52ea-b672-e2afdf69b78
     Pkg.instantiate()
 end
 
-using IRKGaussLegendre, Aqua, JET, Test
+using SafeTestsets
 
-@testset "Aqua" begin
+@safetestset "Aqua" begin
+    using IRKGaussLegendre, Aqua, Test
     # deps_compat disabled: missing [compat] entry for the LinearAlgebra stdlib dep.
     # Tracked in https://github.com/SciML/IRKGaussLegendre.jl/issues/124
     Aqua.test_all(IRKGaussLegendre; deps_compat = false)
     @test_broken false  # Aqua deps_compat: missing compat for LinearAlgebra — tracked in https://github.com/SciML/IRKGaussLegendre.jl/issues/124
 end
 
-@testset "JET" begin
+@safetestset "JET" begin
+    using IRKGaussLegendre, JET, Test
     JET.test_package(IRKGaussLegendre; target_defined_modules = true)
 end
