@@ -99,6 +99,32 @@ struct IRKGL16{
         maxtrials,
         initial_extrapolation,
     } end
+"""
+    IRKGL16(; s = 8, second_order_ode = false, simd = true, fseq = true,
+            maxtrials = 5, initial_extrapolation = true)
+
+A 16th order implicit Runge-Kutta Gauss-Legendre integrator for high-precision
+numerical integration of non-stiff ODE systems. The default 8-stage scheme is
+based on Gauss-Legendre nodes, making it symplectic and well-suited for
+Hamiltonian and other geometric-structure-preserving problems.
+
+## Keyword Arguments
+
+  - `s`: Number of stages (default `8`, giving 16th order accuracy).
+  - `second_order_ode`: Set to `true` for second-order differential equations
+    (default `false`).
+  - `simd`: Enable the SIMD-vectorized implementation for `Float32`/`Float64`
+    state (default `true`).
+  - `fseq`: Use the hybrid step implementation (default `true`).
+  - `maxtrials`: Maximum number of attempts to accept an adaptive step size
+    (default `5`).
+  - `initial_extrapolation`: Use extrapolation from the previous step for stage
+    initialization (default `true`).
+
+Step-size control and tolerances (`dt`, `adaptive`, `abstol`, `reltol`,
+`maxiters`, `saveat`, `save_everystep`) are passed to `solve` as common solver
+keyword arguments.
+"""
 function IRKGL16(;
         s = 8,
         second_order_ode = false,
