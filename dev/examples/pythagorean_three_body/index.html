@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Pythagorean Three-Body Example · IRKGaussLegendre.jl</title><meta name="title" content="Pythagorean Three-Body Example · IRKGaussLegendre.jl"/><meta property="og:title" content="Pythagorean Three-Body Example · IRKGaussLegendre.jl"/><meta property="twitter:title" content="Pythagorean Three-Body Example · IRKGaussLegendre.jl"/><meta name="description" content="Documentation for IRKGaussLegendre.jl."/><meta property="og:description" content="Documentation for IRKGaussLegendre.jl."/><meta property="twitter:description" content="Documentation for IRKGaussLegendre.jl."/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">IRKGaussLegendre.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Pythagorean Three-Body Example</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Pythagorean Three-Body Example</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/SciML/IRKGaussLegendre.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/SciML/IRKGaussLegendre.jl/blob/master/docs/src/examples/pythagorean_three_body.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Pythagorean-Three-Body-Example"><a class="docs-heading-anchor" href="#Pythagorean-Three-Body-Example">Pythagorean Three-Body Example</a><a id="Pythagorean-Three-Body-Example-1"></a><a class="docs-heading-anchor-permalink" href="#Pythagorean-Three-Body-Example" title="Permalink"></a></h1><p>This example demonstrates the use of <code>IRKGL16</code> for the classical Pythagorean three-body problem.</p><p>Three point masses attract each other according to the Newtonian law of gravitation. The masses of the particles are m1=3, m2=4, and m3=5; they are initially located at the apexes of a right triangle with sides 3, 4, and 5, so that the corresponding masses and sides are opposite. The particles are free to move in the plane of the triangle and are at rest initially.</p><p>Szebehely, V. 1967, &quot;Burrau&#39;s Problem of Three Bodies&quot;, Proceedings of the National Academy of Sciences of the United States of America, vol. 58, Issue 1, pp. 60-65 <a href="http://www.ucolick.org/~laugh/oxide/projects/szebehely1.ps">postscript file</a></p><p>We demonstrate the solver on the classical Pythagorean three-body problem, a standard benchmark for high-precision integrators.</p><h3 id="Step-1:-Defining-the-problem"><a class="docs-heading-anchor" href="#Step-1:-Defining-the-problem">Step 1: Defining  the problem</a><a id="Step-1:-Defining-the-problem-1"></a><a class="docs-heading-anchor-permalink" href="#Step-1:-Defining-the-problem" title="Permalink"></a></h3><p>To solve this numerically, we define a problem type by giving it the equation, the initial condition, and the timespan to solve over:</p><pre><code class="language-julia hljs">using IRKGaussLegendre
+using OrdinaryDiffEq
+using Plots, LinearAlgebra, LaTeXStrings
+using BenchmarkTools</code></pre><pre><code class="language-julia hljs">function NbodyODE!(F,u,Gm,t)
+     N = length(Gm)
+     for i in 1:N
+        for k in 1:3
+            F[k, i, 2] = 0
+        end
+     end
+     for i in 1:N
+        xi = u[1,i,1]
+        yi = u[2,i,1]
+        zi = u[3,i,1]
+        Gmi = Gm[i]
+        for j in i+1:N
+            xij = xi - u[1,j,1]
+            yij = yi - u[2,j,1]
+            zij = zi - u[3,j,1]
+            Gmj = Gm[j]
+            dotij = (xij*xij+yij*yij+zij*zij)
+            auxij = 1/(sqrt(dotij)*dotij)
+            Gmjauxij = Gmj*auxij
+            F[1,i,2] -= Gmjauxij*xij
+            F[2,i,2] -= Gmjauxij*yij
+            F[3,i,2] -= Gmjauxij*zij
+            Gmiauxij = Gmi*auxij
+            F[1,j,2] += Gmiauxij*xij
+            F[2,j,2] += Gmiauxij*yij
+            F[3,j,2] += Gmiauxij*zij
+        end
+     end
+     for i in 1:3, j in 1:N
+        F[i,j,1] = u[i,j,2]
+     end
+    return nothing
+end</code></pre><pre><code class="language-julia hljs">Gm = [5, 4, 3]
+N=length(Gm)
+q=[1,-1,0,-2,-1,0,1,3,0]
+v=zeros(size(q))
+q0 = reshape(q,3,:)
+v0 = reshape(v,3,:)
+u0 = Array{Float64}(undef,3,N,2)
+u0[:,:,1] = q0
+u0[:,:,2] = v0
+tspan = (0.0,63.0)
+prob=ODEProblem(NbodyODE!,u0,tspan,Gm);</code></pre><h3 id="Step-2:-Solving-the-problem"><a class="docs-heading-anchor" href="#Step-2:-Solving-the-problem">Step 2: Solving the problem</a><a id="Step-2:-Solving-the-problem-1"></a><a class="docs-heading-anchor-permalink" href="#Step-2:-Solving-the-problem" title="Permalink"></a></h3><p>After defining a problem, you solve it using solve:</p><h4 id="Fully-Sequential-implementation"><a class="docs-heading-anchor" href="#Fully-Sequential-implementation">Fully Sequential implementation</a><a id="Fully-Sequential-implementation-1"></a><a class="docs-heading-anchor-permalink" href="#Fully-Sequential-implementation" title="Permalink"></a></h4><pre><code class="language-julia hljs">sol1=solve(prob,IRKGL16(simd=false,second_order_ode=true),adaptive=true, reltol=1e-14, abstol=1e-14);</code></pre><pre><code class="language-julia hljs">@btime solve(prob,IRKGL16(simd=false,second_order_ode=true),adaptive=true, reltol=1e-14, abstol=1e-14);</code></pre><p>16.409 ms (7651 allocations: 2.32 MiB)</p><h4 id="Fully-vectorized-implementation"><a class="docs-heading-anchor" href="#Fully-vectorized-implementation">Fully vectorized implementation</a><a id="Fully-vectorized-implementation-1"></a><a class="docs-heading-anchor-permalink" href="#Fully-vectorized-implementation" title="Permalink"></a></h4><ul><li><strong>5 x faster than generic implementation !!</strong></li><li><strong>Faster than DPRKN12 !!</strong></li></ul><pre><code class="language-julia hljs">sol2=solve(prob,IRKGL16(simd=true,fseq=false,second_order_ode=true),adaptive=true, reltol=1e-14, abstol=1e-14)</code></pre><pre><code class="language-julia hljs">@btime solve(prob,IRKGL16(simd=true,fseq=false,second_order_ode=true),adaptive=true, reltol=1e-14, abstol=1e-14);</code></pre><p>3.739 ms (7639 allocations: 2.82 MiB)</p><h4 id="Hybrid-implementation"><a class="docs-heading-anchor" href="#Hybrid-implementation">Hybrid implementation</a><a id="Hybrid-implementation-1"></a><a class="docs-heading-anchor-permalink" href="#Hybrid-implementation" title="Permalink"></a></h4><pre><code class="language-julia hljs">sol3=solve(prob,IRKGL16(second_order_ode=true),adaptive=true, reltol=1e-14, abstol=1e-14)</code></pre><pre><code class="language-julia hljs">@btime solve(prob,IRKGL16(second_order_ode=true),adaptive=true, reltol=1e-14, abstol=1e-14);</code></pre><p>8.146 ms (7639 allocations: 2.82 MiB)</p><h4 id="DPRKN12"><a class="docs-heading-anchor" href="#DPRKN12">DPRKN12</a><a id="DPRKN12-1"></a><a class="docs-heading-anchor-permalink" href="#DPRKN12" title="Permalink"></a></h4><pre><code class="language-julia hljs">function NbodyODE2nd!(ddu,du,u,Gm,t)
+
+     N = length(Gm)
+
+     for i in 1:N
+         for k in 1:3
+             ddu[k,i]= 0
+         end
+     end
+
+     for i in 1:N
+        xi = u[1,i]
+        yi = u[2,i]
+        zi = u[3,i]
+        Gmi = Gm[i]
+        for j in (i+1):N
+           xij = xi - u[1,j]
+           yij = yi - u[2,j]
+           zij = zi - u[3,j]
+           Gmj = Gm[j]
+           dotij = (xij*xij+yij*yij+zij*zij)
+           auxij = 1/(sqrt(dotij)*dotij)
+           Gmjauxij = Gmj*auxij
+           ddu[1,i] -= Gmjauxij*xij
+           ddu[2,i] -= Gmjauxij*yij
+           ddu[3,i] -= Gmjauxij*zij
+           Gmiauxij = Gmi*auxij
+           ddu[1,j] += Gmiauxij*xij
+           ddu[2,j] += Gmiauxij*yij
+           ddu[3,j] += Gmiauxij*zij
+        end
+     end
+
+    return nothing
+
+end</code></pre><pre><code class="language-julia hljs">q0=u0[:,:,1]
+v0=u0[:,:,2]
+prob2nd = SecondOrderODEProblem(NbodyODE2nd!,v0,q0,tspan,Gm)
+sol4 =solve(prob2nd,DPRKN12(),abstol=1e-14,reltol=1e-14);</code></pre><pre><code class="language-julia hljs">@btime solve(prob2nd,DPRKN12(),abstol=1e-14,reltol=1e-14, save_everystep=false);</code></pre><p>5.954 ms (45681 allocations: 947.80 KiB)</p><p><strong>Convert solution data</strong> to u0 format</p><pre><code class="language-julia hljs">nk=length(sol4.t)
+etype=eltype(u0)
+sol4u=Vector{Array{etype, 3}}(undef,nk)
+sol4t=Vector{etype}(undef,nk)
+uk=copy(u0)
+
+for k in 1:nk
+    uk[:,:,1]=sol4.u[k].x[2]
+    uk[:,:,2]=sol4.u[k].x[1]
+    sol4u[k]=copy(uk)
+    sol4t[k]=sol4.t[k]
+end</code></pre><h3 id="Step-3:-Analyzing-the-solution"><a class="docs-heading-anchor" href="#Step-3:-Analyzing-the-solution">Step 3: Analyzing the solution</a><a id="Step-3:-Analyzing-the-solution-1"></a><a class="docs-heading-anchor-permalink" href="#Step-3:-Analyzing-the-solution" title="Permalink"></a></h3><h4 id="Orbits"><a class="docs-heading-anchor" href="#Orbits">Orbits</a><a id="Orbits-1"></a><a class="docs-heading-anchor-permalink" href="#Orbits" title="Permalink"></a></h4><pre><code class="language-julia hljs">bodylist = [&quot;Body-1&quot;, &quot;Body-2&quot;, &quot;Body-3&quot;]
+pl = plot(title=&quot;Pythagorean problem&quot;,xlabel=&quot;x&quot;, ylabel=&quot;y&quot;,aspect_ratio=1)
+
+ulist1 = sol1.u[1:end]
+tlist1 = sol1.t[1:end]
+
+for j = 1:3
+ xlist  = map(u-&gt;u[1,j,1], ulist1)
+ ylist  = map(u-&gt;u[2,j,1], ulist1)
+ pl = plot!(xlist,ylist, label = bodylist[j])   
+end  
+plot(pl)</code></pre><p><img src="../PythagoreanOrbits.png" alt="Burrau problem"/></p><h4 id="Step-Size"><a class="docs-heading-anchor" href="#Step-Size">Step Size</a><a id="Step-Size-1"></a><a class="docs-heading-anchor-permalink" href="#Step-Size" title="Permalink"></a></h4><pre><code class="language-plot hljs">steps1 =sol1.t[2:end]-sol1.t[1:end-1]
+plot!(sol1.t[2:end],steps1, label=&quot;IRKGL16-SEQ&quot;)
+steps2 =sol2.t[2:end]-sol2.t[1:end-1]
+plot!(sol2.t[2:end],steps2, label=&quot;IRKGL16-SIMD&quot;)
+steps3 =sol3.t[2:end]-sol3.t[1:end-1]
+plot!(sol3.t[2:end],steps3, label=&quot;IRKGL16-HYBR&quot;)
+steps4 =sol4.t[2:end]-sol4.t[1:end-1]
+plot!(sol4.t[2:end],steps4, label=&quot;DPRKN12&quot;)</code></pre><p><img src="../PythagoreanStepsize.png" alt="Burrau problem"/></p><h4 id="Energy-Error"><a class="docs-heading-anchor" href="#Energy-Error">Energy-Error</a><a id="Energy-Error-1"></a><a class="docs-heading-anchor-permalink" href="#Energy-Error" title="Permalink"></a></h4><pre><code class="language-julia hljs">function NbodyEnergy(u,Gm)
+     N = length(Gm)
+     zerouel = zero(eltype(u))
+     T = zerouel
+     U = zerouel
+     for i in 1:N
+        qi = u[:,i,1]
+        vi = u[:,i,2]
+        Gmi = Gm[i]
+        T += Gmi*(vi[1]*vi[1]+vi[2]*vi[2]+vi[3]*vi[3])
+        for j in (i+1):N
+           qj = u[:,j,1]
+           Gmj = Gm[j]
+           qij = qi - qj
+           U -= Gmi*Gmj/norm(qij)
+        end
+     end
+    1/2*T + U
+end</code></pre><pre><code class="language-julia hljs">setprecision(BigFloat, 256)
+u0Big=BigFloat.(u0)
+GmBig=BigFloat.(Gm)
+
+E0=NbodyEnergy(u0Big,GmBig)
+ΔE1 = map(x-&gt;NbodyEnergy(BigFloat.(x),GmBig), sol1.u)./E0.-1
+ΔE2 = map(x-&gt;NbodyEnergy(BigFloat.(x),GmBig), sol2.u)./E0.-1
+ΔE3 = map(x-&gt;NbodyEnergy(BigFloat.(x),GmBig), sol3.u)./E0.-1
+ΔE4 = map(x-&gt;NbodyEnergy(BigFloat.(x),GmBig), sol4u)./E0.-1
+plot(title=&quot;Error in energy&quot;, legend=:bottomright,
+     xlabel=&quot;t&quot;, ylabel=L&quot;log10(\Delta E)&quot;)
+plot!(sol1.t[2:end], abs.(ΔE1[2:end]), yscale=:log10, label=&quot;IRKGL16-SEQ&quot;)
+plot!(sol2.t[2:end], abs.(ΔE2[2:end]), yscale=:log10, label=&quot;IRKGL16-SIMD&quot;)
+plot!(sol3.t[2:end], abs.(ΔE3[2:end]), yscale=:log10, label=&quot;IRKGL16-HYBR&quot;)
+plot!(sol4t[2:end], abs.(ΔE4[2:end]), yscale=:log10, label=&quot;DPRKN12&quot;)</code></pre><p><img src="../PythagoreanEnergyError.png" alt="Burrau problem"/></p></article><nav class="docs-footer"><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Wednesday 17 June 2026 10:43">Wednesday 17 June 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
