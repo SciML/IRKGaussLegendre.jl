@@ -99,6 +99,32 @@ struct IRKGL16{
         maxtrials,
         initial_extrapolation,
     } end
+"""
+    IRKGL16(; s = 8, second_order_ode = false, simd = true, fseq = true,
+            maxtrials = 5, initial_extrapolation = true)
+
+A 16th order implicit Runge-Kutta Gauss-Legendre integrator for high-precision
+numerical integration of non-stiff ODE systems. The default 8-stage scheme is
+based on Gauss-Legendre nodes, making it symplectic and well-suited for
+Hamiltonian and other geometric-structure-preserving problems.
+
+## Keyword Arguments
+
+  - `s`: Number of stages (default `8`, giving 16th order accuracy).
+  - `second_order_ode`: Set to `true` for second-order differential equations
+    (default `false`).
+  - `simd`: Enable the SIMD-vectorized implementation for `Float32`/`Float64`
+    state (default `true`).
+  - `fseq`: Use the hybrid step implementation (default `true`).
+  - `maxtrials`: Maximum number of attempts to accept an adaptive step size
+    (default `5`).
+  - `initial_extrapolation`: Use extrapolation from the previous step for stage
+    initialization (default `true`).
+
+Step-size control and tolerances (`dt`, `adaptive`, `abstol`, `reltol`,
+`maxiters`, `saveat`, `save_everystep`) are passed to `solve` as common solver
+keyword arguments.
+"""
 function IRKGL16(;
         s = 8,
         second_order_ode = false,
@@ -164,8 +190,9 @@ function SciMLBase.__solve(
     stats.naccept = 0
     stats.nreject = 0
 
+    @unpack u0, tspan, p = prob
+
     if (prob.f isa ODEFunction)
-        @unpack u0, tspan, p = prob
         f = SciMLBase.unwrapped_f(prob.f)
     else
         @SciMLMessage("Error: incorrect ODEFunction", verbose, :mismatched_input_output_type)
@@ -180,11 +207,16 @@ function SciMLBase.__solve(
 
     tType = eltype(tspanType)
     realuType = typeof(real(u0))
+    floatType = eltype(u0)
+    # The SIMD code paths only apply to Float32/Float64 state; for any other
+    # element type (e.g. BigFloat) we fall back to the generic implementation,
+    # regardless of the `simd` algorithm option. Compute the predicate once and
+    # reuse it so cache construction and saveat interpolation stay consistent.
+    use_simd = simd && eltype(u0) <: Union{Float32, Float64}
 
     step_fun::Function = empty
 
-    if simd && eltype(u0) <: Union{Float32, Float64}
-        floatType = eltype(u0)
+    if use_simd
         if !adaptive
             if !second_order_ode
                 if !fseq
@@ -266,8 +298,11 @@ function SciMLBase.__solve(
     step_number[] = 0
     length_u = length(u0)
     length_q = div(length_u, 2)
+    # Backing buffer for SIMD `saveat` interpolation; only populated on the
+    # `use_simd` path, but bound on every path so it is always defined.
+    kappa_ = floatType[]
 
-    if simd && eltype(u0) <: Union{Float32, Float64}
+    if use_simd
         coeffs = tcoeffs{tType}(
             zeros(s, s), zeros(s), zeros(s), zeros(s, s),
             zeros(s), zeros(s + 1), zeros(s, s + 1), zeros(s),
@@ -479,7 +514,7 @@ function SciMLBase.__solve(
                 theta = abs((save_times[next_save_index] - tj_) / dts[2])
                 Z2 .= [theta]
 
-                if !simd
+                if !use_simd
                     kappa .= (PolInterp(X2, Y2, Z2))
                     for k in indices
                         dUik = kappa[1] * L[1][k]
@@ -524,7 +559,7 @@ function SciMLBase.__solve(
                 theta = abs((save_times[next_save_index] - tj_) / dts[2])
                 Z2 .= [theta]
 
-                if !simd
+                if !use_simd
                     kappa .= (PolInterp(X2, Y2, Z2))
                     for k in indices
                         dUik = kappa[1] * L[1][k]
