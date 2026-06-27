@@ -7,10 +7,8 @@ run_qa(
     ei_kwargs = (;
         all_qualified_accesses_are_public = (;
             ignore = (
-                :DEStats, :__solve, :allows_arbitrary_number_types, :allowscomplex,
-                :forwarddiffs_model, :forwarddiffs_model_time, :isadaptive,
-                :isautodifferentiable, :unwrapped_f,         # SciMLBase internals
-                :Forward, :Reverse, :TwicePrecision,         # Base internals
+                :__solve, :unwrapped_f,               # SciMLBase, not yet public
+                :Forward, :Reverse, :TwicePrecision,  # Base internals
             ),
         ),
         # `_process_verbose_param` is a non-public DiffEqBase helper.
