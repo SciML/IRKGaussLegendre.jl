@@ -4,6 +4,7 @@ run_qa(
     IRKGaussLegendre;
     explicit_imports = true,
     jet_kwargs = (; target_defined_modules = true),
+    api_docs_kwargs = (; rendered = true),
     ei_kwargs = (;
         all_qualified_accesses_are_public = (;
             ignore = (

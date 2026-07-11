@@ -24,7 +24,7 @@ SIMD = "3.5.0"
 SafeTestsets = "0.1, 1"
 SciMLBase = "3.1"
 SciMLLogging = "1.10.1, 2"
-SciMLTesting = "1"
+SciMLTesting = "2.1"
 Test = "1"
 julia = "1.10"
 
