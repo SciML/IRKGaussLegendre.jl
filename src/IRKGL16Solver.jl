@@ -1,3 +1,8 @@
+"""
+    tcoeffs{T}
+
+Gauss-Legendre tableau and interpolation coefficients used by the IRK solver.
+"""
 struct tcoeffs{tType}
     mu::Array{tType, 2}
     c::Array{tType, 1}
@@ -76,6 +81,11 @@ struct IRKGL_SIMD_Cache{realuType, floatT, fType, pType, s_, dim_}
     verbose::DEVerbosity
 end
 
+"""
+    IRKAlgorithm
+
+Abstract base type for IRKGaussLegendre algorithms.
+"""
 abstract type IRKAlgorithm{
     s,
     second_order_ode,

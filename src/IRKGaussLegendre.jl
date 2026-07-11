@@ -13,6 +13,11 @@ module IRKGaussLegendre
     using Parameters
     using SIMD
 
+    """
+        CompiledFloats
+
+    Floating-point element types supported by the compiled SIMD IRK implementation.
+    """
     const CompiledFloats = Union{Float32, Float64}
 
     include("IRKCoefficients.jl")
