@@ -11,16 +11,16 @@ module IRKGaussLegendre
     using SIMD: Vec, vload
 
     """
-        CompiledFloats
+            CompiledFloats
 
-Floating-point element types supported by the compiled SIMD IRK implementation.
+        Floating-point element types supported by the compiled SIMD IRK implementation.
 
-```jldoctest
-julia> using IRKGaussLegendre
+        ```jldoctest
+        julia> using IRKGaussLegendre
 
-julia> Float64 <: CompiledFloats
-true
-```
+        julia> Float64 <: CompiledFloats
+        true
+        ```
     """
     const CompiledFloats = Union{Float32, Float64}
 
