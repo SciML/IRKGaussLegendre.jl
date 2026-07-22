@@ -1,5 +1,5 @@
 using Test
-using IRKGaussLegendre, ODEProblemLibrary, DiffEqDevTools
+using IRKGaussLegendre, ODEProblemLibrary, DiffEqDevTools, SciMLBase
 import ODEProblemLibrary: prob_ode_2Dlinear, prob_ode_bigfloat2Dlinear
 
 function NbodyODE!(F, u, Gm, t)

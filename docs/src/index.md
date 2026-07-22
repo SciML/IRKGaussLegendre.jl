@@ -40,16 +40,6 @@ prob = ODEProblem(lorenz!, u0, tspan, p)
 sol = solve(prob, IRKGL16(), reltol=1e-12, abstol=1e-12)
 ```
 
-## API Reference
-
-```@docs
-IRKGL16
-```
-
-```@autodocs
-Modules = [IRKGaussLegendre]
-```
-
 ## Solver Options
 
 ### Common Keyword Arguments

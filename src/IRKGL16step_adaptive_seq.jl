@@ -190,7 +190,7 @@ function IRKstep_adaptive!(
                 for is in 2:s
                     L_sum += L[is][k]
                 end
-                res = Base.TwicePrecision(uj[k], ej[k]) + L_sum
+                res = compensated_sum(uj[k], ej[k]) + L_sum
 
                 uj[k] = res.hi
                 ej[k] = res.lo
@@ -201,7 +201,7 @@ function IRKstep_adaptive!(
             ttj[1] = tf
             ttj[2] = 0
         else
-            res = Base.TwicePrecision(tj, te) + sdt
+            res = compensated_sum(tj, te) + sdt
             ttj[1] = res.hi
             ttj[2] = res.lo
         end
@@ -443,8 +443,8 @@ function IRKNGLstep_adaptive_2nd!(
             for is in 2:s
                 Sum = muladd(sdt * (1 - c[is]), L[is][kv], Sum)
             end
-            res = Base.TwicePrecision(uj[k], ej[k]) +
-                sdt * Base.TwicePrecision(uj[kv], ej[kv]) + Sum
+            res = compensated_sum(uj[k], ej[k]) +
+                sdt * compensated_sum(uj[kv], ej[kv]) + Sum
             uj[k] = res.hi
             ej[k] = res.lo
         end
@@ -454,7 +454,7 @@ function IRKNGLstep_adaptive_2nd!(
             for is in 2:s
                 L_sum += L[is][k]
             end
-            res = Base.TwicePrecision(uj[k], ej[k]) + L_sum
+            res = compensated_sum(uj[k], ej[k]) + L_sum
             uj[k] = res.hi
             ej[k] = res.lo
         end
@@ -463,7 +463,7 @@ function IRKNGLstep_adaptive_2nd!(
             ttj[1] = tf
             ttj[2] = 0
         else
-            res = Base.TwicePrecision(tj, te) + sdt
+            res = compensated_sum(tj, te) + sdt
             ttj[1] = res.hi
             ttj[2] = res.lo
         end

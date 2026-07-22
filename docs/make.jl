@@ -6,6 +6,7 @@ makedocs(
     checkdocs = :exports,
     pages = [
         "Home" => "index.md",
+        "Public API" => "api.md",
     ]
 )
 
