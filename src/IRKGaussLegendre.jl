@@ -2,26 +2,31 @@ __precompile__()
 
 module IRKGaussLegendre
 
-    using Reexport
-    @reexport using SciMLBase
-    using DiffEqBase
-    using SciMLLogging: SciMLLogging, Standard, @SciMLMessage
-    using DiffEqBase: DEVerbosity, _process_verbose_param
-    #import FastBroadcast
-
-    using LinearAlgebra
-    using Parameters
-    using SIMD
+    import SciMLBase
+    using SciMLBase: ODEFunction, ReturnCode
+    using DiffEqBase: DEVerbosity
+    using SciMLLogging: AbstractVerbosityPreset, Standard, @SciMLMessage
+    import LinearAlgebra
+    using Parameters: @unpack
+    using SIMD: Vec, vload
 
     """
         CompiledFloats
 
-    Floating-point element types supported by the compiled SIMD IRK implementation.
+Floating-point element types supported by the compiled SIMD IRK implementation.
+
+```jldoctest
+julia> using IRKGaussLegendre
+
+julia> Float64 <: CompiledFloats
+true
+```
     """
     const CompiledFloats = Union{Float32, Float64}
 
     include("IRKCoefficients.jl")
     include("./simd/VecArray_def.jl")
+    include("compensated_sum.jl")
     include("IRKGL16Solver.jl")
     include("IRKGL16AuxFunctions.jl")
     include("IRKGL16step_fixed_seq.jl")

@@ -1,7 +1,10 @@
 using IRKGaussLegendre
 using IRKGaussLegendre: IRKstep_fixed!, IRKstep_adaptive!, tcoeffs, tcache,
     GaussLegendreCoefficients!, EstimateCoeffs!, PolInterp!, MyNorm,
-    DiffEqBase, SciMLLogging
+    IRKGL16
+using DiffEqBase: DEVerbosity
+using SciMLBase
+using SciMLLogging
 using Test
 using AllocCheck
 
@@ -50,7 +53,7 @@ mynorm_alloc(u, abstol, reltol) = @allocated MyNorm(u, abstol, reltol)
     step_number = Array{Int64, 0}(undef)
     step_number[] = 2  # Not first step to avoid extra iterations
 
-    verbose = DiffEqBase._process_verbose_param(SciMLLogging.Standard())
+    verbose = DEVerbosity(SciMLLogging.Standard())
 
     cache = tcache(
         test_pendulum!, params,

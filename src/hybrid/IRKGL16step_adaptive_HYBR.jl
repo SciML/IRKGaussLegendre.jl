@@ -175,7 +175,7 @@ function IRKstep_HYBR_adaptive!(
         @inbounds for k in indices    #Equivalent to compensated summation
             Lk = L[k]
             L_sum = sum(Lk)
-            res = Base.TwicePrecision(uj[k], ej[k]) + L_sum
+            res = compensated_sum(uj[k], ej[k]) + L_sum
             uj[k] = res.hi
             ej[k] = res.lo
         end
@@ -184,7 +184,7 @@ function IRKstep_HYBR_adaptive!(
             ttj[1] = tf
             ttj[2] = 0
         else
-            res = Base.TwicePrecision(tj, te) + sdt
+            res = compensated_sum(tj, te) + sdt
             ttj[1] = res.hi
             ttj[2] = res.lo
         end
@@ -427,13 +427,13 @@ function IRKNGLstep_HYBR_adaptive_2nd!(
             kv = k + lenq
             Lkv = L[kv]
             Lkv_sum = sum(Lkv)
-            res1 = Base.TwicePrecision(uj[k], ej[k]) - sdt * sum(c * Lkv)
-            res2 = sdt * (Base.TwicePrecision(uj[kv], ej[kv]) + Lkv_sum)
+            res1 = compensated_sum(uj[k], ej[k]) - sdt * sum(c * Lkv)
+            res2 = sdt * (compensated_sum(uj[kv], ej[kv]) + Lkv_sum)
             res = res1 + res2
             uj[k] = res.hi
             ej[k] = res.lo
 
-            res = Base.TwicePrecision(uj[kv], ej[kv]) + Lkv_sum
+            res = compensated_sum(uj[kv], ej[kv]) + Lkv_sum
             uj[kv] = res.hi
             ej[kv] = res.lo
         end
@@ -442,7 +442,7 @@ function IRKNGLstep_HYBR_adaptive_2nd!(
             ttj[1] = tf
             ttj[2] = 0
         else
-            res = Base.TwicePrecision(tj, te) + sdt
+            res = compensated_sum(tj, te) + sdt
             ttj[1] = res.hi
             ttj[2] = res.lo
         end

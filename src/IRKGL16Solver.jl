@@ -1,7 +1,12 @@
 """
     tcoeffs{T}
 
-Gauss-Legendre tableau and interpolation coefficients used by the IRK solver.
+Container for the Gauss-Legendre tableau and interpolation coefficients used by
+the IRK solver.
+
+`tcoeffs` is part of the low-level solver API. Most applications should create
+an [`IRKGL16`](@ref) algorithm and pass it to `solve` instead of constructing
+this container directly.
 """
 struct tcoeffs{tType}
     mu::Array{tType, 2}
@@ -84,7 +89,14 @@ end
 """
     IRKAlgorithm
 
-Abstract base type for IRKGaussLegendre algorithms.
+Abstract base type for algorithms provided by IRKGaussLegendre.
+
+```jldoctest
+julia> using IRKGaussLegendre
+
+julia> IRKGL16() isa IRKAlgorithm
+true
+```
 """
 abstract type IRKAlgorithm{
     s,
@@ -94,6 +106,12 @@ abstract type IRKAlgorithm{
     maxtrials,
     initial_extrapolation,
 } <: SciMLBase.AbstractODEAlgorithm end
+"""
+    IRKGL16
+
+Algorithm configuration for the 16th-order implicit Runge-Kutta
+Gauss-Legendre method.
+"""
 struct IRKGL16{
         s,
         second_order_ode,
@@ -134,6 +152,21 @@ Hamiltonian and other geometric-structure-preserving problems.
 Step-size control and tolerances (`dt`, `adaptive`, `abstol`, `reltol`,
 `maxiters`, `saveat`, `save_everystep`) are passed to `solve` as common solver
 keyword arguments.
+
+# Example
+
+```jldoctest
+julia> using IRKGaussLegendre, SciMLBase
+
+julia> f!(du, u, p, t) = (du .= u);
+
+julia> prob = ODEProblem(f!, [1.0], (0.0, 0.1));
+
+julia> sol = solve(prob, IRKGL16(); abstol = 1e-9, reltol = 1e-9);
+
+julia> sol.retcode == ReturnCode.Success
+true
+```
 """
 function IRKGL16(;
         s = 8,
@@ -190,7 +223,7 @@ function SciMLBase.__solve(
         initial_extrapolation,
     }
     checks = true
-    verbose = _process_verbose_param(verbose)
+    verbose = normalize_verbose(verbose)
 
     stats = SciMLBase.DEStats(0)
     #stats = DiffEqBase.DEStats(0)
@@ -450,16 +483,16 @@ function SciMLBase.__solve(
         if isa(saveat, Number)
             save_everystep = false
             if tf > t0
-                save_times = sort(union(collect(t0:saveat:tf), tf), order = Base.Forward)
+                save_times = sort(union(collect(t0:saveat:tf), tf))
             else
-                save_times = sort(union(collect(tf:saveat:t0), t0), order = Base.Reverse)
+                save_times = sort(union(collect(tf:saveat:t0), t0), rev = true)
             end
         elseif isa(saveat, AbstractVector)
             save_everystep = false
             if tf > t0
-                save_times = sort(union(t0, saveat, tf), order = Base.Forward)  # include t0 and tf to ensure full span
+                save_times = sort(union(t0, saveat, tf))  # include t0 and tf to ensure full span
             else
-                save_times = sort(union(tf, saveat, t0), order = Base.Reverse)
+                save_times = sort(union(tf, saveat, t0), rev = true)
             end
         else
             error("Unsupported saveat format")
