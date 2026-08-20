@@ -8,6 +8,7 @@ module IRKGaussLegendre
     using SciMLLogging: AbstractVerbosityPreset, Standard, @SciMLMessage
     import LinearAlgebra
     using Parameters: @unpack
+    using PrecompileTools: @compile_workload, @setup_workload
     using SIMD: Vec, vload
 
     """
@@ -46,5 +47,17 @@ module IRKGaussLegendre
 
     export IRKGL16, IRKAlgorithm
     export tcoeffs, CompiledFloats
+
+    @setup_workload begin
+        @compile_workload begin
+            function precompile_rhs!(du, u, p, t)
+                du[1] = u[1]
+                return nothing
+            end
+
+            prob = SciMLBase.ODEProblem(precompile_rhs!, [1.0], (0.0, 0.1))
+            SciMLBase.solve(prob, IRKGL16(); adaptive = false, dt = 0.05)
+        end
+    end
 
 end # module
