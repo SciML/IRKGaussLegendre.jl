@@ -3,8 +3,18 @@ __precompile__()
 module IRKGaussLegendre
 
     import SciMLBase
-    using SciMLBase: ODEFunction, ReturnCode
     using DiffEqBase: DEVerbosity
+
+    # The SciML common interface that IRKGaussLegendre reexports (see the second
+    # `export` below), so that `using IRKGaussLegendre` on its own is enough to build an
+    # ODE problem, solve it with `IRKGL16`, and inspect the result -- which is exactly
+    # what the README's Quick Start and the docs examples do. Callbacks and the iterator
+    # interface are deliberately absent: this solver implements only `__solve` and
+    # honors no `callback` keyword. Every name stays owned and documented upstream.
+    using SciMLBase: DEStats, EnsembleAnalysis, EnsembleDistributed, EnsembleProblem,
+        EnsembleSerial, EnsembleSolution, EnsembleSplitThreads, EnsembleSummary,
+        EnsembleThreads, NullParameters, ODEFunction, ODEProblem, ODESolution,
+        ReturnCode, remake, solve, successful_retcode
     using SciMLLogging: AbstractVerbosityPreset, Standard, @SciMLMessage
     import LinearAlgebra
     using Parameters: @unpack
@@ -47,6 +57,12 @@ module IRKGaussLegendre
 
     export IRKGL16, IRKAlgorithm
     export tcoeffs, CompiledFloats
+
+    # Reexported SciML common interface; approved via `reexports_allow` in test/qa/qa.jl.
+    export DEStats, EnsembleAnalysis, EnsembleDistributed, EnsembleProblem,
+        EnsembleSerial, EnsembleSolution, EnsembleSplitThreads, EnsembleSummary,
+        EnsembleThreads, NullParameters, ODEFunction, ODEProblem, ODESolution,
+        ReturnCode, remake, solve, successful_retcode
 
     @setup_workload begin
         @compile_workload begin
