@@ -35,12 +35,12 @@ struct tcache{uType, realuType, tType, fT, pT}
     L_::Array{uType, 1}
     F::Array{uType, 1}
     Dmin::realuType
-    maxiters::Int64
-    maxtrials::Int64
-    step_number::Array{Int64, 0}
+    maxiters::Int
+    maxtrials::Int
+    step_number::Array{Int, 0}
     initial_extrap::Bool
-    length_u::Int64
-    length_q::Int64
+    length_u::Int
+    length_q::Int
     tf::tType
     lambdas::Array{tType, 1}
     verbose::DEVerbosity
@@ -75,12 +75,12 @@ struct IRKGL_SIMD_Cache{realuType, floatT, fType, pType, s_, dim_}
     L_::VecArray{s_, floatT, dim_}
     F::VecArray{s_, floatT, dim_}
     Dmin::realuType
-    maxiters::Int64
-    maxtrials::Int64
-    step_number::Array{Int64, 0}
+    maxiters::Int
+    maxtrials::Int
+    step_number::Array{Int, 0}
     initial_extrap::Bool
-    length_u::Int64
-    length_q::Int64
+    length_u::Int
+    length_q::Int
     tf::floatT
     lambdas::Array{floatT, 1}
     verbose::DEVerbosity
@@ -337,7 +337,7 @@ function SciMLBase.__solve(
     #   Memory preallocation (IRKL_Cache)
 
     Dmin = similar(real(u0))
-    step_number = Array{Int64, 0}(undef)
+    step_number = Array{Int, 0}(undef)
     step_number[] = 0
     length_u = length(u0)
     length_q = div(length_u, 2)
