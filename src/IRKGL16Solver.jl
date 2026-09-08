@@ -37,7 +37,7 @@ struct tcache{uType, realuType, tType, fT, pT}
     Dmin::realuType
     maxiters::Int
     maxtrials::Int
-    step_number::Array{Int, 0}
+    step_number::Base.RefValue{Int}
     initial_extrap::Bool
     length_u::Int
     length_q::Int
@@ -77,7 +77,7 @@ struct IRKGL_SIMD_Cache{realuType, floatT, fType, pType, s_, dim_}
     Dmin::realuType
     maxiters::Int
     maxtrials::Int
-    step_number::Array{Int, 0}
+    step_number::Base.RefValue{Int}
     initial_extrap::Bool
     length_u::Int
     length_q::Int
@@ -337,8 +337,7 @@ function SciMLBase.__solve(
     #   Memory preallocation (IRKL_Cache)
 
     Dmin = similar(real(u0))
-    step_number = Array{Int, 0}(undef)
-    step_number[] = 0
+    step_number = Ref{Int}(0)
     length_u = length(u0)
     length_q = div(length_u, 2)
     # Backing buffer for SIMD `saveat` interpolation; only populated on the
