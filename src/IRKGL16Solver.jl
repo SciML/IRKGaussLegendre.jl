@@ -37,7 +37,7 @@ struct tcache{uType, realuType, tType, fT, pT}
     Dmin::realuType
     maxiters::Int
     maxtrials::Int
-    step_number::Base.RefValue{Int}
+    step_number::typeof(Ref(0))
     initial_extrap::Bool
     length_u::Int
     length_q::Int
@@ -77,7 +77,7 @@ struct IRKGL_SIMD_Cache{realuType, floatT, fType, pType, s_, dim_}
     Dmin::realuType
     maxiters::Int
     maxtrials::Int
-    step_number::Base.RefValue{Int}
+    step_number::typeof(Ref(0))
     initial_extrap::Bool
     length_u::Int
     length_q::Int
