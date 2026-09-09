@@ -50,8 +50,7 @@ mynorm_alloc(u, abstol, reltol) = @allocated MyNorm(u, abstol, reltol)
     L__ = [zero(u0) for _ in 1:s]
     F = [zero(u0) for _ in 1:s]
     Dmin = fill(Inf, 2)
-    step_number = Array{Int64, 0}(undef)
-    step_number[] = 2  # Not first step to avoid extra iterations
+    step_number = Ref{Int}(2)  # Not first step to avoid extra iterations
 
     verbose = DEVerbosity(SciMLLogging.Standard())
 
