@@ -150,8 +150,13 @@ Hamiltonian and other geometric-structure-preserving problems.
     initialization (default `true`).
 
 Step-size control and tolerances (`dt`, `adaptive`, `abstol`, `reltol`,
-`maxiters`, `saveat`, `save_everystep`) are passed to `solve` as common solver
-keyword arguments.
+`maxiters`, `saveat`, `save_everystep`, `dense`) are passed to `solve` as common
+solver keyword arguments. When every step is saved (the default), the solution is
+dense: `sol(t)` evaluates the collocation polynomial of the step containing `t`
+(the polynomial the `saveat` path uses, except that `second_order_ode` position
+components use the Nyström interpolant instead), and `sol(t, Val{1})` evaluates
+the first derivative of that interpolant. With `dense = false` the solution
+interpolates linearly between saved points.
 
 # Example
 
@@ -206,6 +211,7 @@ function SciMLBase.__solve(
         maxiters = 100,
         save_everystep = true,
         saveat = nothing,
+        dense = save_everystep && saveat === nothing,
         adaptive = true,
         reltol = eltype(tspanType)(1.0e-6),
         abstol = eltype(tspanType)(1.0e-6),
@@ -381,6 +387,10 @@ function SciMLBase.__solve(
         X2 .= vcat([zero(tType)], c_[1:1:end])
         Y2 .= hcat(zeros(tType, s), mu_')
 
+        dense_c = c_
+        dense_b = b_
+        dense_eta = eta_
+
         dims = size(u0)
 
         c = vload(Vec{s, floatType}, c_, 1)
@@ -435,6 +445,10 @@ function SciMLBase.__solve(
         # Inteporlation
         X2 .= vcat([zero(tType)], c[1:1:end])
         Y2 .= hcat(zeros(tType, s), mu')
+
+        dense_c = c
+        dense_b = b
+        dense_eta = eta
 
         U = Array{uType}(undef, s)
         U_ = Array{uType}(undef, s)
@@ -498,6 +512,10 @@ function SciMLBase.__solve(
         end
     end
 
+    dense = dense && save_everystep
+    hh = tType[]
+    Ls = Matrix{eltype(u0)}[]
+
     #   initialization output variables
     uu = uType[]
     tt = tType[]
@@ -540,6 +558,11 @@ function SciMLBase.__solve(
             error_warn = 1
             cont = false
             break
+        end
+
+        if dense
+            push!(hh, dts[2] * dts[3])
+            _store_step_L!(Ls, L, indices, s, use_simd)
         end
 
         if tj[1] == tf
@@ -628,9 +651,29 @@ function SciMLBase.__solve(
         push!(uu, copy(uj))
         push!(tt, tj[1])
 
-        sol = SciMLBase.build_solution(
-            prob, alg, tt, uu, stats = stats, retcode = ReturnCode.Success
-        )
+        if dense
+            XD = copy(dense_c)
+            YD = LinearAlgebra.diagm(0 => inv.(dense_b))
+            if second_order_ode
+                X3 = vcat(zero(tType), dense_c, one(tType))
+                Y3 = hcat(zeros(tType, s), dense_eta', one(tType) .- dense_c)
+            else
+                X3 = tType[]
+                Y3 = zeros(tType, s, 0)
+            end
+            interp = IRKGLInterpolation(
+                tt, uu, hh, Ls, copy(X2), copy(Y2), X3, Y3, XD, YD,
+                second_order_ode ? div(length(u0), 2) : 0
+            )
+            sol = SciMLBase.build_solution(
+                prob, alg, tt, uu, stats = stats, retcode = ReturnCode.Success,
+                dense = true, interp = interp
+            )
+        else
+            sol = SciMLBase.build_solution(
+                prob, alg, tt, uu, stats = stats, retcode = ReturnCode.Success
+            )
+        end
     end
 
     return (sol)

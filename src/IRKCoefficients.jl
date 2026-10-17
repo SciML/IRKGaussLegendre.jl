@@ -1,14 +1,17 @@
 #
 # IRKCoefficients.jl file:
 #   PolInterp
+#   PolInterp!
+#   PolInterpDer
 #   GaussLegendreCoefficients!
 #   EstimateCoeffs!
 
 function PolInterp(
-        X::AbstractVector{ctype},
-        Y::AbstractMatrix{ctype},
-        Z::AbstractVector{ctype}
-    ) where {ctype}
+        X::AbstractVector,
+        Y::AbstractMatrix,
+        Z::AbstractVector
+    )
+    ctype = promote_type(eltype(X), eltype(Y), eltype(Z))
     N = length(X)
     M = length(Z)
     K = size(Y, 1)
@@ -19,7 +22,7 @@ function PolInterp(
 
     @inbounds begin
         for i in 1:N
-            lag = 1.0
+            lag = one(ctype)
             for j in 1:N
                 if (j != i)
                     lag *= X[i] - X[j]
@@ -86,6 +89,60 @@ function PolInterp!(
                 for j in 1:N
                     if (j != i)
                         liz *= Z[m] - X[j]
+                    end
+                end
+                for k in 1:K
+                    pz[k, m] += Y[k, i] * liz
+                end
+            end
+        end
+    end
+    return pz
+end
+
+"""
+    PolInterpDer(X, Y, Z)
+
+Derivative of the polynomials evaluated by `PolInterp`: `pz[k, m]` is the
+derivative at `Z[m]` of the polynomial interpolating the values `Y[k, :]` on the
+nodes `X`. Each term of the cardinal basis is differentiated as a sum of
+leave-one-out products, so the result stays finite when `Z[m]` coincides with a
+node.
+"""
+function PolInterpDer(
+        X::AbstractVector,
+        Y::AbstractMatrix,
+        Z::AbstractVector
+    )
+    ctype = promote_type(eltype(X), eltype(Y), eltype(Z))
+    N = length(X)
+    M = length(Z)
+    K = size(Y, 1)
+    if size(Y, 2) != N
+        error("columns(Y) != length(X)")
+    end
+    pz = zeros(ctype, K, M)
+
+    @inbounds begin
+        for i in 1:N
+            lag = one(ctype)
+            for j in 1:N
+                if (j != i)
+                    lag *= X[i] - X[j]
+                end
+            end
+            lag = one(ctype) / lag
+            for m in 1:M
+                liz = zero(ctype)
+                for ell in 1:N
+                    if (ell != i)
+                        term = lag
+                        for j in 1:N
+                            if (j != i) && (j != ell)
+                                term *= Z[m] - X[j]
+                            end
+                        end
+                        liz += term
                     end
                 end
                 for k in 1:K
