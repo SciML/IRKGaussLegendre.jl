@@ -19,6 +19,7 @@ module IRKGaussLegendre
     import LinearAlgebra
     using Parameters: @unpack
     using PrecompileTools: @compile_workload, @setup_workload
+    using RecursiveArrayTools: DiffEqArray
     using SIMD: Vec, vload
 
     """
@@ -39,6 +40,7 @@ module IRKGaussLegendre
     include("./simd/VecArray_def.jl")
     include("compensated_sum.jl")
     include("IRKGL16Solver.jl")
+    include("IRKGL16Interpolation.jl")
     include("IRKGL16AuxFunctions.jl")
     include("IRKGL16step_fixed_seq.jl")
     include("IRKGL16step_adaptive_seq.jl")

@@ -47,6 +47,7 @@ sol = solve(prob, IRKGL16(), reltol=1e-12, abstol=1e-12)
 - `dt`: Step size
 - `saveat`: Specific times to save the solution. If given a number, expands to `tspan[1]:saveat:tspan[2]`
 - `save_everystep`: Save result at every step (default: `true`)
+- `dense`: Dense output — when enabled, `sol(t)` evaluates the interpolating polynomial of the step containing `t` (the collocation polynomial, except for the position block of `second_order_ode` solutions, which uses the Nyström interpolant) and `sol(t, Val{1})` evaluates that polynomial's first derivative; `dense = false` interpolates linearly between saved points (default: enabled when every step is saved and `saveat` is not given)
 - `adaptive`: Enable adaptive time-stepping (default: `true`)
 - `maxiters`: Maximum number of fixed-point iterations
 - `abstol`: Absolute tolerance for adaptive time-stepping
